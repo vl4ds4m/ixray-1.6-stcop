@@ -10,6 +10,7 @@
 #include "xrLC_GlobalData.h"
 #include "xrFace.h"
 #include "xrLight_ImplicitCalcGlobs.h"
+#include "xrHardwareLight.h"
 
 #include "../../xrCore/Collision/xrCDB.h"
 
@@ -128,11 +129,17 @@ void	ImplicitExecute::	Execute	( )
 								wP.from_bary(V1->P,V2->P,V3->P,B);
 								wN.from_bary(V1->N,V2->N,V3->N,B);
 								wN.normalize();
-							
 								
-
-								u32 flags = (inlc_global_data()->b_nosun() ? LP_dont_sun : 0);
- 								LightPoint	(&DB, inlc_global_data()->RCAST_Model(), C, wP, wN, inlc_global_data()->L_static(), flags, F);
+                            	if (xrHardwareLight::IsEnabled())
+                            	{
+                            	    defl.lmap.SurfaceLightRequests.push_back(LightpointRequest(U, V, wP, wN, F));
+                            	    defl.Marker(U, V) = 255;
+                            	}
+                            	else
+								{
+									u32 flags = (inlc_global_data()->b_nosun() ? LP_dont_sun : 0);
+ 									LightPoint	(&DB, inlc_global_data()->RCAST_Model(), C, wP, wN, inlc_global_data()->L_static(), flags, F);
+								}
 								Fcount		++;
 							}
 						}
@@ -141,14 +148,18 @@ void	ImplicitExecute::	Execute	( )
 				{
 					clMsg("* THREAD #%d: Access violation. Possibly recovered.");//,thID
 				}
-				if (Fcount) {
-					// Calculate lighting amount
-					C.scale				(Fcount);
-					C.mul				(.5f);
-					defl.Lumel(U,V)._set(C);
-					defl.Marker(U,V)	= 255;
-				} else {
-					defl.Marker(U,V)	= 0;
+
+            	if (!xrHardwareLight::IsEnabled())
+				{
+					if (Fcount) {
+						// Calculate lighting amount
+						C.scale				(Fcount);
+						C.mul				(.5f);
+						defl.Lumel(U,V)._set(C);
+						defl.Marker(U,V)	= 255;
+					} else {
+						defl.Marker(U,V)	= 0;
+					}
 				}
 			}
 
@@ -158,6 +169,70 @@ void	ImplicitExecute::	Execute	( )
 			if (V % 8 == 0)
 				AditionalData("CurrentV: %u | time: %.0f", V, tImplicit.GetElapsed_sec());
 		}
+		
+    if (xrHardwareLight::IsEnabled())
+    {
+        //cast and finalize
+        if (defl.lmap.SurfaceLightRequests.size() == 0)
+        {
+            return;
+        }
+        xrHardwareLight& HardwareCalculator = xrHardwareLight::Get();
+
+        //pack that shit in to task, but remember order
+        xr_vector <RayRequest> RayRequests;
+        u32 SurfaceCount = defl.lmap.SurfaceLightRequests.size();
+        RayRequests.reserve(SurfaceCount);
+        for (int SurfaceID = 0; SurfaceID < SurfaceCount; ++SurfaceID)
+        {
+            LightpointRequest& LRequest = defl.lmap.SurfaceLightRequests[SurfaceID];
+            RayRequests.push_back(RayRequest{ LRequest.Position, LRequest.Normal, LRequest.FaceToSkip });
+        }
+
+        xr_vector<base_color_c> FinalColors;
+        HardwareCalculator.PerformRaycast(RayRequests, (inlc_global_data()->b_nosun() ? LP_dont_sun : 0) | LP_UseFaceDisable, FinalColors);
+        //HardwareCalculator.PerformRaycast(RayRequests, LP_dont_sun + LP_dont_hemi + LP_UseFaceDisable, FinalColors);
+
+        //finalize rays
+
+        //all that we must remember - we have fucking jitter. And that we don't have much time, because we have tons of that shit
+        u32 SurfaceRequestCursor = 0;
+        u32 AlmostMaxSurfaceLightRequest = defl.lmap.SurfaceLightRequests.size() - 1;
+        for (u32 V = 0; V < defl.lmap.height; V++)
+        {
+            for (u32 U = 0; U < defl.lmap.width; U++)
+            {
+                LightpointRequest& LRequest = defl.lmap.SurfaceLightRequests[SurfaceRequestCursor];
+
+                if (LRequest.X == U && LRequest.Y == V)
+                {
+                    //accumulate all color and draw to the lmap
+                    base_color_c ReallyFinalColor;
+                    int ColorCount = 0;
+                    for (;;)
+                    {
+                        LRequest = defl.lmap.SurfaceLightRequests[SurfaceRequestCursor];
+
+                        if (LRequest.X != U || LRequest.Y != V || SurfaceRequestCursor == AlmostMaxSurfaceLightRequest)
+                        {
+                            ReallyFinalColor.scale(ColorCount);
+                            ReallyFinalColor.mul(0.5f);
+                            defl.Lumel(U, V)._set(ReallyFinalColor);
+                            break;
+                        }
+
+                        base_color_c& CurrentColor = FinalColors[SurfaceRequestCursor];
+                        ReallyFinalColor.add(CurrentColor);
+
+                        ++SurfaceRequestCursor;
+                        ++ColorCount;
+                    }
+                }
+            }
+        }
+
+        defl.lmap.SurfaceLightRequests.clear();
+    }
 }
 
 //#pragma optimize( "g", off )

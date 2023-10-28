@@ -8,3 +8,11 @@ enum
 	LP_dont_hemi		= (1<<2),
 	LP_dont_sun			= (1<<3),
 };
+
+enum LightSource
+{
+	LS_UNKNOWN,
+	LS_RGB,
+	LS_SUN,
+	LS_HEMI
+};

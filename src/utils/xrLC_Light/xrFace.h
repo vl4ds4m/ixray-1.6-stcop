@@ -30,8 +30,8 @@ public:
 
 	IC	BOOL	 similar			( Tvertex<DataVertex> &V, float eps );
 
-	DataVertex				(){};
-	virtual		~DataVertex				(){};
+	DataVertex				() = default;
+	virtual		~DataVertex				() = default;
 };
 
 typedef	 Tface<DataVertex>  Face;

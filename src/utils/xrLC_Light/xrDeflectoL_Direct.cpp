@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 //#include "build.h"
 //#include "std_classes.h"
 #include "../xrForms/xrThread.h"
@@ -6,6 +6,7 @@
 #include "xrLC_GlobalData.h"
 #include "light_point.h"
 #include "xrFace.h"
+#include "xrHardwareLight.h"
 
 extern void Jitter_Select	(Fvector2* &Jitter, u32& Jcount);
 
@@ -43,20 +44,27 @@ void CDeflector::L_Direct_Edge (CDB::COLLIDER* DB, base_lighting* LightsSelected
 		Fvector			P;	P.mad(v1,vdir,time);
 		VERIFY(inlc_global_data());
 
-		LightPoint(DB, inlc_global_data()->RCAST_Model(), C, P, N, *LightsSelected, (inlc_global_data()->b_nosun() ? LP_dont_sun : 0) | LP_DEFAULT, skip); //.
+        if (xrHardwareLight::IsEnabled())
+        {
+            lm.SurfaceLightRequests.push_back(LightpointRequest(_x, _y, P, N, nullptr));
+            lm.marker[_y * lm.width + _x] = 255;
+        }
+        else
+        {
+		    LightPoint(DB, inlc_global_data()->RCAST_Model(), C, P, N, *LightsSelected, (inlc_global_data()->b_nosun() ? LP_dont_sun : 0) | LP_DEFAULT, skip); //.
 
-		C.mul		(.5f);
-		lm.surface	[_y*lm.width+_x]._set	(C);
-		lm.marker	[_y*lm.width+_x]		= 255;
+		    C.mul(.5f);
+		    lm.surface[_y*lm.width+_x]._set(C);
+		    lm.marker[_y*lm.width+_x] = 255;
+        }
 	}
 }
 
-void CDeflector::L_Direct	(CDB::COLLIDER* DB, base_lighting* LightsSelected, HASH& H)
-{
-	R_ASSERT	(DB);
-	R_ASSERT	(LightsSelected);
+void CDeflector::L_Direct(CDB::COLLIDER* DB, base_lighting* LightsSelected, HASH& H) {
+    R_ASSERT(DB);
+    R_ASSERT(LightsSelected);
 
-	lm_layer&	lm = layer;
+    lm_layer& lm = layer;
 
 	// Setup variables
 	Fvector2	dim,half;
@@ -112,19 +120,29 @@ void CDeflector::L_Direct	(CDB::COLLIDER* DB, base_lighting* LightsSelected, HAS
 								exact_normalize	(wN);
 							}
 
-							try 
-							{
-								VERIFY(inlc_global_data());
+                            if (xrHardwareLight::IsEnabled())
+                            {
+                                //shedule ray, but not cast
+                                lm.SurfaceLightRequests.push_back(LightpointRequest(U, V, wP, wN, F));
+                                //mark as casted, because soon we check this
+                                lm.marker[V * lm.width + U] = 255;
+                            }
+                            else
+                            {
+							    try 
+							    {
+							    	VERIFY(inlc_global_data());
 
-								u32 flags = (inlc_global_data()->b_nosun() ? LP_dont_sun : 0) | LP_UseFaceDisable;
-								LightPoint	(DB, inlc_global_data()->RCAST_Model(), C, wP, wN, *LightsSelected, flags, F); 
+							    	u32 flags = (inlc_global_data()->b_nosun() ? LP_dont_sun : 0) | LP_UseFaceDisable;
+							    	LightPoint	(DB, inlc_global_data()->RCAST_Model(), C, wP, wN, *LightsSelected, flags, F); 
 
-								Fcount		+= 1;
-							} 
-							catch (...)
-							{
-								clMsg("* ERROR (CDB). Recovered. ");
-							}
+							    	Fcount		+= 1;
+							    } 
+							    catch (...)
+							    {
+							    	clMsg("* ERROR (CDB). Recovered. ");
+							    }
+                            }
 							break;
 						}
 					}
@@ -135,15 +153,20 @@ void CDeflector::L_Direct	(CDB::COLLIDER* DB, base_lighting* LightsSelected, HAS
 				clMsg("* ERROR (Light). Recovered. ");
 			}
 			
-			if (Fcount) {
-				C.scale			(Fcount);
-				C.mul			(.5f);
-				lm.surface		[V*lm.width+U]._set(C);
-				lm.marker		[V*lm.width+U] = 255;
-			} else {
-				lm.surface		[V*lm.width+U]._set(C);	// 0-0-0-0-0
-				lm.marker		[V*lm.width+U] = 0;
-			}
+            if (!xrHardwareLight::IsEnabled())
+            {
+			    if (Fcount)
+                {
+			    	C.scale			(Fcount);
+			    	C.mul			(.5f);
+			    	lm.surface		[V*lm.width+U]._set(C);
+			    	lm.marker		[V*lm.width+U] = 255;
+			    } else
+                {
+			    	lm.surface		[V*lm.width+U]._set(C);	// 0-0-0-0-0
+			    	lm.marker		[V*lm.width+U] = 0;
+			    }
+            }
 		}
 	}
 	// *** Render Edges
@@ -162,4 +185,69 @@ void CDeflector::L_Direct	(CDB::COLLIDER* DB, base_lighting* LightsSelected, HAS
 			clMsg("* ERROR (Edge). Recovered. ");
 		}
 	}
+    
+    if (xrHardwareLight::IsEnabled())
+    {
+        //cast and finalize
+        if (layer.SurfaceLightRequests.size() == 0)
+        {
+            return;
+        }
+        xrHardwareLight& HardwareCalculator = xrHardwareLight::Get();
+
+        //pack that shit in to task, but remember order
+        xr_vector <RayRequest> RayRequests;
+        u32 SurfaceCount = layer.SurfaceLightRequests.size();
+        RayRequests.reserve(SurfaceCount);
+        for (int SurfaceID = 0; SurfaceID < SurfaceCount; ++SurfaceID)
+        {
+            LightpointRequest& LRequest = layer.SurfaceLightRequests[SurfaceID];
+            RayRequests.push_back(RayRequest{ LRequest.Position, LRequest.Normal, LRequest.FaceToSkip });
+        }
+
+        xr_vector<base_color_c> FinalColors;
+        HardwareCalculator.PerformRaycast(RayRequests, (inlc_global_data()->b_nosun() ? LP_dont_sun : 0) | LP_UseFaceDisable, FinalColors);
+        //HardwareCalculator.PerformRaycast(RayRequests, LP_dont_sun + LP_dont_hemi + LP_UseFaceDisable, FinalColors);
+
+        //finalize rays
+
+        //all that we must remember - we have fucking jitter. And that we don't have much time, because we have tons of that shit
+        //#TODO: Invoke several threads!
+        u32 SurfaceRequestCursor = 0;
+        u32 AlmostMaxSurfaceLightRequest = layer.SurfaceLightRequests.size() - 1;
+        for (u32 V = 0; V < lm.height; V++)
+        {
+            for (u32 U = 0; U < lm.width; U++)
+            {
+                LightpointRequest& LRequest = layer.SurfaceLightRequests[SurfaceRequestCursor];
+
+                if (LRequest.X == U && LRequest.Y == V)
+                {
+                    //accumulate all color and draw to the lmap
+                    base_color_c ReallyFinalColor;
+                    int ColorCount = 0;
+                    for (;;)
+                    {
+                        LRequest = layer.SurfaceLightRequests[SurfaceRequestCursor];
+
+                        if (LRequest.X != U || LRequest.Y != V || SurfaceRequestCursor == AlmostMaxSurfaceLightRequest)
+                        {
+                            ReallyFinalColor.scale(ColorCount);
+                            ReallyFinalColor.mul(0.5f);
+                            layer.surface[V * lm.width + U]._set(ReallyFinalColor);
+                            break;
+                        }
+
+                        base_color_c& CurrentColor = FinalColors[SurfaceRequestCursor];
+                        ReallyFinalColor.add(CurrentColor);
+
+                        ++SurfaceRequestCursor;
+                        ++ColorCount;
+                    }
+                }
+            }
+        }
+
+        layer.SurfaceLightRequests.clear();
+    }
 }

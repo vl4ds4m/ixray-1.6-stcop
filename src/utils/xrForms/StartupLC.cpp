@@ -42,6 +42,11 @@ void StartupLC()
 		if (!Selected)
 			continue;
 
+		if (gCompilerMode.CUDA)
+		{
+			g_build_options.b_optix_accel = true;
+		}
+
 		create_global_data();
 		lc_global_data()->b_nosun_set(gCompilerMode.LC_NoSun);
 		lc_global_data()->SetSkipInvalid(gCompilerMode.LC_SkipInvalidFaces);

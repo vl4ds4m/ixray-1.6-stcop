@@ -273,7 +273,6 @@ void CBuild::Run	(LPCSTR P)
 	BuildCForm					();
 	BuildPortals				(*fs);
 
-
 	//****************************************** GLOBAL-ILLUMINATION
 	if (g_build_options.b_radiosity)			
 	{

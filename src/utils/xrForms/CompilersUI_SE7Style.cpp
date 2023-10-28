@@ -387,6 +387,7 @@ void DrawCompilerConfig()
 	{
 		ImGui::Checkbox("Silent mode", &gCompilerMode.Silent);
 		ImGui::Checkbox("Use Intel Embree", &gCompilerMode.Embree);
+		ImGui::Checkbox("Use CUDA", &gCompilerMode.CUDA);
 		ImGui::Separator();
 
 		ImGui::TextColored(ImVec4(RGBAColor(204, 102, 102, 255)), "(Warning Disable MU in raycast)");

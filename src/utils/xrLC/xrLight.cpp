@@ -90,8 +90,13 @@ void	CBuild::LMapsLocal				()
 		CThreadManager	threads;
  		
 		CTimer	start_time;	
-		start_time.Start();				
-		for				(int L=0; L< gCompilerMode.ThreadsPerWork; L++)	threads.start(new CLMThread (L));
+		start_time.Start();
+
+		const int LightThreads = g_build_options.b_optix_accel ? 1 : gCompilerMode.ThreadsPerWork;
+		for (int L=0; L < LightThreads; L++)	
+		{
+			threads.start(new CLMThread(L));
+		}
 		threads.wait	(500);
 		clMsg			("%f seconds",start_time.GetElapsed_sec());
 }
@@ -178,6 +183,22 @@ void CBuild::Light()
  	lc_global_data()->destroy_rcmodel();
 	if (lc_global_data()->GetIsIntelUse())
 		EmbreeMain.IntelEmbereUNLOAD();
+}
+
+//routine enabled, when using new hardware light feature
+void	CBuild::LMapsRedux() {
+	mem_Compact();
+
+
+	//new system not multithreaded... but using some handmade tricks to speedup coputation process
+	Status("Lighting...");
+
+	for (u32 dit = 0; dit < lc_global_data()->g_deflectors().size(); dit++)
+		task_pool.push_back(dit);
+
+	//pick deflectors, until reaching ray quota
+
+
 }
 
 void CBuild::LightVertex	()

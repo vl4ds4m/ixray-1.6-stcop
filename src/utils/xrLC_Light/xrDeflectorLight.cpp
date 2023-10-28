@@ -5,6 +5,7 @@
 #include "xrLC_GlobalData.h"
 #include "light_point.h"
 #include "xrFace.h"
+#include "xrHardwareLight.h"
 
 void Jitter_Select(Fvector2* &Jitter, u32& Jcount)
 {
@@ -911,4 +912,325 @@ void CDeflector::Light(CDB::COLLIDER* DB, base_lighting* LightsSelected, HASH& H
 	{
 		clMsg("* ERROR: CDeflector::Light - BorderExpansion");
 	}
+}
+
+
+void GetLightsForVertex(Fvector& Position, Fvector& Normal, base_lighting& lights, u32 flags, xr_vector <int>& OutRGBIndexes, xr_vector <int>& OutSunIndexes, xr_vector <int>& OutHemiIndexes) {
+	Fvector LightDirection;
+	if ((flags & LP_dont_rgb) == 0)
+	{
+		for (int RGBLightIndex = 0; RGBLightIndex < lights.rgb.size(); RGBLightIndex++)
+		{
+			R_Light& LightObject = lights.rgb[RGBLightIndex];
+			switch (LightObject.type)
+			{
+			case LT_DIRECT:
+			{
+				LightDirection.invert(LightObject.direction);
+				float DirectionFactor = LightDirection.dotproduct(Normal);
+				if (DirectionFactor <= 0) continue;
+
+				OutRGBIndexes.push_back(RGBLightIndex);
+			}
+			break;
+			case LT_POINT:
+			{
+				// Distance
+				float sqD = Position.distance_to_sqr(LightObject.position);
+				if (sqD > LightObject.range2) continue;
+
+				// Dir
+				LightDirection.sub(LightObject.position, Position);
+				LightDirection.normalize_safe();
+				float D = LightDirection.dotproduct(Normal);
+				if (D <= 0)			continue;
+
+				OutRGBIndexes.push_back(RGBLightIndex);
+			}
+			break;
+			case LT_SECONDARY:
+			{
+				// Distance
+				float sqD = Position.distance_to_sqr(LightObject.position);
+				if (sqD > LightObject.range2) continue;
+
+				// Dir
+				LightDirection.sub(LightObject.position, Position);
+				LightDirection.normalize_safe();
+				float	D = LightDirection.dotproduct(Normal);
+				if (D <= 0) continue;
+				D *= -LightDirection.dotproduct(LightObject.direction);
+				if (D <= 0) continue;
+
+				OutRGBIndexes.push_back(RGBLightIndex);
+			}
+			break;
+			default:
+				break;
+			}
+		}
+	}
+
+	if ((flags & LP_dont_sun) == 0)
+	{
+		for (int SunLightIndex = 0; SunLightIndex < lights.sun.size(); SunLightIndex++)
+		{
+			R_Light& LightObject = lights.sun[SunLightIndex];
+			if (LightObject.type == LT_DIRECT)
+			{
+				LightDirection.invert(LightObject.direction);
+				float DirectionFactor = LightDirection.dotproduct(Normal);
+				if (DirectionFactor <= 0) continue;
+
+				OutSunIndexes.push_back(SunLightIndex);
+			}
+			else
+			{
+				// Distance
+				float sqD = Position.distance_to_sqr(LightObject.position);
+				if (sqD > LightObject.range2) continue;
+
+				// Dir
+				LightDirection.sub(LightObject.position, Position);
+				LightDirection.normalize_safe();
+				float D = LightDirection.dotproduct(Normal);
+				if (D <= 0)			continue;
+
+				OutSunIndexes.push_back(SunLightIndex);
+			}
+		}
+	}
+	if ((flags & LP_dont_hemi) == 0)
+	{
+		for (int HemiLightIndex = 0; HemiLightIndex < lights.hemi.size(); HemiLightIndex++)
+		{
+			R_Light& LightObject = lights.hemi[HemiLightIndex];
+			if (LightObject.type == LT_DIRECT)
+			{
+				LightDirection.invert(LightObject.direction);
+				float DirectionFactor = LightDirection.dotproduct(Normal);
+				if (DirectionFactor <= 0) continue;
+
+				OutHemiIndexes.push_back(HemiLightIndex);
+			}
+			else
+			{
+				// Distance
+				float sqD = Position.distance_to_sqr(LightObject.position);
+				if (sqD > LightObject.range2) continue;
+
+				// Dir
+				LightDirection.sub(LightObject.position, Position);
+				LightDirection.normalize_safe();
+				float D = LightDirection.dotproduct(Normal);
+				if (D <= 0) continue;
+
+				OutHemiIndexes.push_back(HemiLightIndex);
+			}
+		}
+	}
+}
+
+extern XRLC_LIGHT_API void GetRaysFromVertex(Fvector& Position, Fvector& Normal, base_lighting& lights, u32 flags, xr_vector <Ray>& OutRays, xr_vector <Ray_Detail>& OutRayDetails) {
+	Fvector		PositionCorrected;
+	PositionCorrected.mad(Position, Normal, 0.01f);
+
+
+	Fvector LightDirection;
+	if ((flags & LP_dont_rgb) == 0)
+	{
+		for (const R_Light& LightObject : lights.rgb)
+		{
+			switch (LightObject.type)
+			{
+			case LT_DIRECT:
+			{
+				LightDirection.invert(LightObject.direction);
+				float DirectionFactor = LightDirection.dotproduct(Normal);
+				if (DirectionFactor <= 0) continue;
+				Ray ray;
+				ray.Origin = PositionCorrected;
+				ray.Direction = LightDirection;
+
+				ray.tmin = 0.0f;
+				ray.tmax = 1000.0f;
+				OutRays.push_back(ray);
+
+				Ray_Detail details{ LightCategory::T_RGB, LightType::T_DIRECT };
+				OutRayDetails.push_back(details);
+			}
+			break;
+			case LT_POINT:
+			{
+				// Distance
+				float sqD = Position.distance_to_sqr(LightObject.position);
+				if (sqD > LightObject.range2) continue;
+
+				// Dir
+				LightDirection.sub(LightObject.position, Position);
+				LightDirection.normalize_safe();
+				float D = LightDirection.dotproduct(Normal);
+				if (D <= 0)			continue;
+
+				Ray ray;
+				ray.Origin = PositionCorrected;
+				ray.Direction = LightDirection;
+
+				ray.tmin = 0.0f;
+				ray.tmax = 1000.0f;
+				OutRays.push_back(ray);
+
+				Ray_Detail details{ LightCategory::T_RGB, LightType::T_POINT };
+				OutRayDetails.push_back(details);
+			}
+			break;
+			case LT_SECONDARY:
+			{
+				// Distance
+				float sqD = Position.distance_to_sqr(LightObject.position);
+				if (sqD > LightObject.range2) continue;
+
+				// Dir
+				LightDirection.sub(LightObject.position, Position);
+				LightDirection.normalize_safe();
+				float	D = LightDirection.dotproduct(Normal);
+				if (D <= 0) continue;
+				D *= -LightDirection.dotproduct(LightObject.direction);
+				if (D <= 0) continue;
+
+				Ray ray;
+				ray.Origin = PositionCorrected;
+				ray.Direction = LightDirection;
+
+				ray.tmin = 0.0f;
+				ray.tmax = 1000.0f;
+				OutRays.push_back(ray);
+
+				Ray_Detail details{ LightCategory::T_RGB, LightType::T_SECONDARY };
+				OutRayDetails.push_back(details);
+			}
+			break;
+			default:
+				break;
+			}
+		}
+	}
+
+	if ((flags & LP_dont_sun) == 0)
+	{
+		for (const R_Light& LightObject : lights.sun)
+		{
+			if (LightObject.type == LT_DIRECT)
+			{
+				LightDirection.invert(LightObject.direction);
+				float DirectionFactor = LightDirection.dotproduct(Normal);
+				if (DirectionFactor <= 0) continue;
+				Ray ray;
+				ray.Origin = PositionCorrected;
+				ray.Direction = LightDirection;
+
+				ray.tmin = 0.0f;
+				ray.tmax = 1000.0f;
+				OutRays.push_back(ray);
+
+				Ray_Detail details{ LightCategory::T_SUN, LightType::T_DIRECT };
+				OutRayDetails.push_back(details);
+			}
+			else
+			{
+				// Distance
+				float sqD = Position.distance_to_sqr(LightObject.position);
+				if (sqD > LightObject.range2) continue;
+
+				// Dir
+				LightDirection.sub(LightObject.position, Position);
+				LightDirection.normalize_safe();
+				float D = LightDirection.dotproduct(Normal);
+				if (D <= 0)			continue;
+
+				Ray ray;
+				ray.Origin = PositionCorrected;
+				ray.Direction = LightDirection;
+
+				ray.tmin = 0.0f;
+				ray.tmax = 1000.0f;
+				OutRays.push_back(ray);
+
+				Ray_Detail details{ LightCategory::T_SUN, LightType::T_SECONDARY };
+				OutRayDetails.push_back(details);
+			}
+		}
+	}
+	if ((flags & LP_dont_hemi) == 0)
+	{
+		for (const R_Light& LightObject : lights.hemi)
+		{
+			if (LightObject.type == LT_DIRECT)
+			{
+				LightDirection.invert(LightObject.direction);
+				float DirectionFactor = LightDirection.dotproduct(Normal);
+				if (DirectionFactor <= 0) continue;
+				Fvector		PositionMoved;	PositionMoved.mad(PositionCorrected, LightDirection, 0.001f);
+
+				Ray ray;
+				ray.Origin = PositionCorrected;
+				ray.Direction = LightDirection;
+
+				ray.tmin = 0.0f;
+				ray.tmax = 1000.0f;
+				OutRays.push_back(ray);
+
+				Ray_Detail details{ LightCategory::T_HEMI, LightType::T_DIRECT };
+				OutRayDetails.push_back(details);
+			}
+			else
+			{
+				// Distance
+				float sqD = Position.distance_to_sqr(LightObject.position);
+				if (sqD > LightObject.range2) continue;
+
+				// Dir
+				LightDirection.sub(LightObject.position, Position);
+				LightDirection.normalize_safe();
+				float D = LightDirection.dotproduct(Normal);
+				if (D <= 0) continue;
+
+				Ray ray;
+				ray.Origin = PositionCorrected;
+				ray.Direction = LightDirection;
+
+				ray.tmin = 0.0f;
+				ray.tmax = 1000.0f;
+				OutRays.push_back(ray);
+
+				Ray_Detail details{ LightCategory::T_HEMI, LightType::T_DIRECT };
+				OutRayDetails.push_back(details);
+			}
+		}
+	}
+}
+
+void LightPoint_Hardware(xrHardwareLight& LightCaster, CDB::MODEL* RaycastModel, base_color_c& Color, Fvector& Position, Fvector& Normal, base_lighting& Ligtings, u32 flags, Face* skip) {
+	//NEW Scheme:
+	//Get all light count for vertex (from optimizing GSC algorithms)
+	//Send light indexes to device
+	//invoke LightPoint_Hardware (int iteration = 0)
+	//Get result from LightPoint_Hardware. The number that we got - least rays to calc
+	//When number drops to zero - get color
+	//return color
+
+	//PHASE 1: Get all light count for vertex (from optimizing GSC algorithms)
+	xr_vector<int> RGBLightIndexes; RGBLightIndexes.reserve(Ligtings.rgb.size());
+	xr_vector<int> SunLightIndexes; SunLightIndexes.reserve(Ligtings.sun.size());
+	xr_vector<int> HemiLightIndexes; HemiLightIndexes.reserve(Ligtings.hemi.size());
+
+	GetLightsForVertex(Position, Normal, Ligtings, flags, RGBLightIndexes, SunLightIndexes, HemiLightIndexes);
+	//PHASE 2: Send light indexes to device
+
+	//next phase implement as part of xrHardwareLight
+	LightCaster.GetEnergyFromSelectedLight(RGBLightIndexes, SunLightIndexes, HemiLightIndexes);
+	//xr_vector <Hit> Hits;
+	//LightCaster.PerformRaycast(VertexRays, Hits);
+
+	//PHASE 3: Get ray energy
 }

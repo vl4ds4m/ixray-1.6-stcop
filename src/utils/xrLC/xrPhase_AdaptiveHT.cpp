@@ -9,6 +9,7 @@
 
 #include "../../xrCore/Collision/xrCDB.h"
 #include "../xrForms/xrThread.h"
+#include "../xrLC_Light/xrHardwareLight.h"
 
 const	float	aht_max_edge	= c_SS_maxsize/2.5f;	// 2.0f;			// 2 m
  
@@ -113,10 +114,24 @@ void CBuild::xrPhase_AdaptiveHT	()
 
 	// Prepare
 	Status("AdaptiveHT : base hemisphere ...");
-	ThreadWorkID_Adaptive = 0;
-	for (u32 thID = 0; thID < MAX_THREADS; thID++)
-		precalc_base_hemi.start(new CPrecalcBaseHemiThread(thID));
-	precalc_base_hemi.wait();
+	if (g_build_options.b_optix_accel)
+	{
+		Status("Setup OptiX scene ...");
+
+		xrHardwareLight& LightCalculator = xrHardwareLight::Get();
+		LightCalculator.LoadLevel(lc_global_data()->RCAST_Model(), lc_global_data()->L_static(), lc_global_data()->textures());
+
+		Status("Calculate ...");
+
+		LightCalculator.PerformAdaptiveHT();
+	}
+	else
+	{
+		ThreadWorkID_Adaptive = 0;
+		for (u32 thID = 0; thID < MAX_THREADS; thID++)
+			precalc_base_hemi.start(new CPrecalcBaseHemiThread(thID));
+		precalc_base_hemi.wait();
+	}
 
  	//////////////////////////////////////////////////////////////////////////
 	Status("AdaptiveHT : Gathering lighting information...");

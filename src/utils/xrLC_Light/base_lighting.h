@@ -2,7 +2,7 @@
 
 #include "R_light.h"
 
-#pragma pack(push,4)
+//#pragma pack(push,4)
 class XRLC_LIGHT_API base_lighting
 {
 public:
@@ -10,8 +10,13 @@ public:
 	xr_vector<R_Light>		hemi;		// P,N	
 	xr_vector<R_Light>		sun;		// P
 
-	void					select		(xr_vector<R_Light>& dest, xr_vector<R_Light>& src, Fvector& P, float R);
-	void					select		(base_lighting& from, Fvector& P, float R);
- 
+	xr_vector<DWORD>		rgbIndexes;
+	xr_vector<DWORD>		sunIndexes;
+	xr_vector<DWORD>		hemiIndexes;
+
+    void					select(xr_vector<R_Light>& dest, xr_vector<R_Light>& src, Fvector& P, float R);
+    //Index based - for new system
+    void					select(xr_vector<DWORD>& dest, xr_vector<R_Light>& src, Fvector& P, float R);
+    void					select(base_lighting& from, Fvector& P, float R);
 };
-#pragma pack(pop)
+//#pragma pack(pop)

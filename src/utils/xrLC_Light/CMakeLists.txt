@@ -25,8 +25,6 @@ file(GLOB_RECURSE LCL_SOURCE_IMAGE_FILES
     "../../xrEngine/xrLoadSurface.cpp"
 )
 
-
-
 file(GLOB_RECURSE LCL_SOURCE_LIGHT_FILES
     "xrLC_GlobalData.*"
     "xrLC_Light.*"
@@ -144,6 +142,8 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${FREEIMAGE}/native/bin/${NUGET_PACKAGE_PLATFORM}/Release/FreeImage.dll ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${IXRAY_SDK_BIN}/meshoptimizer.dll ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/packages/ImeSense.Packages.Embree.Runtimes.win-x64.4.3.3/runtimes/win-x64/native/Release/embree4.dll ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${IXRAY_SDK_BIN}cudart64_12.dll ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${IXRAY_SDK_BIN}optix_prime.6.5.0.dll ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/
 )
 target_link_libraries(xrLC_Light PUBLIC ${FREEIMAGE}/native/lib/${NUGET_PACKAGE_PLATFORM}/Release/FreeImage.lib)
 
@@ -157,3 +157,18 @@ target_link_libraries(xrLC_Light PUBLIC ${CMAKE_BINARY_DIR}/packages/ImeSense.Pa
 # Intel Embree
 target_include_directories(xrLC_Light PUBLIC "${CMAKE_BINARY_DIR}/packages/ImeSense.Packages.Embree.Runtimes.win-x64.4.3.3/build/native/include/")
 target_link_libraries(xrLC_Light PUBLIC ${CMAKE_BINARY_DIR}/packages/ImeSense.Packages.Embree.Runtimes.win-x64.4.3.3/runtimes/win-x64/native/Release/embree4.lib)
+
+# Cuda
+add_custom_command(TARGET ${PROJECT_NAME}
+    PRE_LINK
+    COMMAND ${IXRAY_SDK_TOOLS}nvcc/compiler/nvcc.exe "${CMAKE_CURRENT_SOURCE_DIR}/LightPoint.cu" -allow-unsupported-compiler -I "${IXRAY_SDK_INC}/cuda" -maxrregcount=0  --machine 64 --compile -cudart static -o "${CMAKE_CURRENT_SOURCE_DIR}/LightPoint.obj" -Xcompiler "/EHsc /W3 /nologo /Od /FS /Zi /RTC1 /MD " -g   -DFORCE_NO_EXCEPTIONS -D_USE_MATH_DEFINES -DWIN32 -D_WINDOWS -D_USRDLL -DXRLC_LIGHT_EXPORTS -D_SECURE_SCL=0 -D_ITERATOR_DEBUG_LEVEL=0 -DWIN32 -D_WINSOCK_DEPRECATED_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -D_WINDLL -D_MBCS
+)
+target_link_libraries(xrLC_Light PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/LightPoint.obj")
+
+#target_link_libraries(xrLC_Light PRIVATE "Calc.lib")
+target_link_libraries(xrLC_Light PRIVATE "cuda.lib")
+target_link_libraries(xrLC_Light PRIVATE "optix_prime.6.5.0.lib")
+target_link_libraries(xrLC_Light PRIVATE "cudart.lib")
+
+target_include_directories(xrLC_Light PUBLIC "${IXRAY_SDK_INC}/optix")
+target_include_directories(xrLC_Light PUBLIC "${IXRAY_SDK_INC}/cuda")
