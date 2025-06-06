@@ -81,7 +81,7 @@ void dxRenderDeviceRender::OnDeviceDestroy( BOOL bKeepTextures)
 #endif // #ifdef DEBUG_DRAW
 #endif // USE_DX11
 
-	m_WireShader.destroy();
+	ShaderTransform.destroy();
 	m_SelectionShader.destroy();
 
 	Resources->OnDeviceDestroy( bKeepTextures);
@@ -190,7 +190,7 @@ void dxRenderDeviceRender::OnDeviceCreate(LPCSTR shName)
 //#ifndef DEDICATED_SERVER
 	if (!g_dedicated_server)
 	{
-		m_WireShader.create			("editor\\wire");
+		ShaderTransform.create			("editor\\wire");
 		m_SelectionShader.create	("editor\\selection");
 
 		DUImpl.OnDeviceCreate			();

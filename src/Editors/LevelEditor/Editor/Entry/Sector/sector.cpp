@@ -115,51 +115,50 @@ void CSector::Render(int priority, bool strictB2F)
 
 	ESceneSectorTool* lt = smart_cast<ESceneSectorTool*>(FParentTools); VERIFY(lt);
 	if (2==priority)
-	{
-		if (strictB2F)
-		{
-			if (!lt->m_Flags.is(ESceneSectorTool::flDrawSolid)){
-				Fmatrix matrix;
-				Fcolor color;
-				float k = Selected()?0.4f:0.2f;
-				color.set(sector_color.r,sector_color.g,sector_color.b,k);
-				EDevice->SetShader(EDevice->m_SelectionShader);
-				EDevice->SetRS(D3DRS_CULLMODE,D3DCULL_NONE);
-				for (SItemIt it=sector_items.begin();it!=sector_items.end();++it)
-				{
-					it->object->GetFullTransformToWorld(matrix);
-					it->mesh->RenderSelection( matrix, 0, color.get() );
-				}
-				EDevice->SetRS(D3DRS_CULLMODE,D3DCULL_CCW);
-			}
-		}
-		else
-		{
-			Fmatrix matrix;
-			Fcolor color;
-			Fcolor color2;
-			float k = Selected()?0.8f:0.5f;
-			float k2 = Selected()?0.5f:0.2f;
-			color.set(sector_color.r*k,sector_color.g*k,sector_color.b*k,1.f);
-			color2.set(sector_color.r*k2,sector_color.g*k2,sector_color.b*k2,1.f);
-			if (lt->m_Flags.is(ESceneSectorTool::flDrawSolid))
-			{
-				EDevice->SetShader(EDevice->m_WireShader);
-				EDevice->SetRS(D3DRS_CULLMODE,D3DCULL_NONE);
-				for (SItemIt it=sector_items.begin();it!=sector_items.end();++it)
-				{
-					it->object->GetFullTransformToWorld(matrix);
-					it->mesh->RenderSelection( matrix, 0, color.get() );
-					it->mesh->RenderEdge( matrix, 0, color2.get() );
-				}
-				EDevice->SetRS(D3DRS_CULLMODE,D3DCULL_CCW);
-			}
-			if (Selected()){
-				RCache.set_xform_world(Fidentity);
-				DU_impl.DrawSelectionBoxB(m_SectorBox);
-			}
-		}
-	}
+    {
+        if (true==strictB2F)
+        {
+            if (!lt->m_Flags.is(ESceneSectorTool::flDrawSolid)){
+                Fmatrix matrix;
+                Fcolor color;
+                float k = Selected()?0.4f:0.2f;
+                color.set(sector_color.r,sector_color.g,sector_color.b,k);
+			    EDevice->SetShader(EDevice->ShaderTransform);
+                EDevice->SetRS(D3DRS_CULLMODE,D3DCULL_NONE);
+                for (SItemIt it=sector_items.begin();it!=sector_items.end();++it)
+                {
+                    it->object->GetFullTransformToWorld(matrix);
+                    it->mesh->RenderSelection( matrix, 0, color.get() );
+                }
+                EDevice->SetRS(D3DRS_CULLMODE,D3DCULL_CCW);
+            }
+        }else if (false==strictB2F)
+        {
+            Fmatrix matrix;
+            Fcolor color;
+            Fcolor color2;
+            float k = Selected()?0.8f:0.5f;
+            float k2 = Selected()?0.5f:0.2f;
+            color.set(sector_color.r*k,sector_color.g*k,sector_color.b*k,1.f);
+            color2.set(sector_color.r*k2,sector_color.g*k2,sector_color.b*k2,1.f);
+            if (lt->m_Flags.is(ESceneSectorTool::flDrawSolid))
+            {
+                EDevice->SetShader(EDevice->ShaderTransform);
+                EDevice->SetRS(D3DRS_CULLMODE,D3DCULL_NONE);
+                for (SItemIt it=sector_items.begin();it!=sector_items.end();++it)
+                {
+                    it->object->GetFullTransformToWorld(matrix);
+                    it->mesh->RenderSelection( matrix, 0, color.get() );
+                    it->mesh->RenderEdge( matrix, 0, color2.get() );
+                }
+                EDevice->SetRS(D3DRS_CULLMODE,D3DCULL_CCW);
+            }
+            if (Selected()){
+                RCache.set_xform_world(Fidentity);
+                DU_impl.DrawSelectionBoxB(m_SectorBox);
+            }
+        }
+    }
 }
 
 void CSector::Move( Fvector& amount ){

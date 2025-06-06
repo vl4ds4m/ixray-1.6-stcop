@@ -64,17 +64,17 @@ CEditorRenderDevice::CEditorRenderDevice()
 	rsDVB_Size		= 1024 * 16;
 	rsDIB_Size		= 2048;
 // default initialization
-    m_ScreenQuality = 1.f;
+	m_ScreenQuality = 1.f;
 	//dwMaximized = 0;
-    TargetWidth 		= TargetHeight 	= 256;
+	TargetWidth 		= TargetHeight 	= 256;
 	dwRealWidth = dwRealHeight = 256;
 	mProject.identity();
-    mFullTransform.identity();
-    mView.identity	();
-	m_WireShader	= 0;
-	m_SelectionShader = 0;
+	mFullTransform.identity();
+	mView.identity	();
+	ShaderTransform = 0;
+	ShaderNoTransformT = 0;
 
-    b_is_Ready 			= FALSE;
+	b_is_Ready 			= FALSE;
 	b_is_Active			= FALSE;
 
 	// Engine flow-control
@@ -84,17 +84,17 @@ CEditorRenderDevice::CEditorRenderDevice()
 	dwTimeGlobal	= 0;
 
 	dwFillMode		= D3DFILL_SOLID;
-    dwShadeMode		= D3DSHADE_GOURAUD;
+	dwShadeMode		= D3DSHADE_GOURAUD;
 
-    m_CurrentShader	= 0;
-    //pSystemFont		= 0;
+	m_CurrentShader	= 0;
+	//pSystemFont		= 0;
 
 	m_MaterialBuffer	= 0;
 	m_LightBuffer		= 0;
 
 	fASPECT 		= 1.f;
 	fFOV 			= 60.f;
-    dwPrecacheFrame = 0;
+	dwPrecacheFrame = 0;
 	GameMaterialLibraryEditors = new XrGameMaterialLibraryEditors();
 	PGMLib = GameMaterialLibraryEditors;
 
@@ -120,7 +120,7 @@ typedef void __cdecl ttapi_Done_func(void);
 
 void CEditorRenderDevice::Initialize()
 {
-    m_DefaultMat.set(1,1,1);
+	m_DefaultMat.set(1,1,1);
 
 	RenderFactory = &RenderFactoryImpl;
 	UIRender = &UIRenderImpl;
@@ -132,20 +132,20 @@ void CEditorRenderDevice::Initialize()
 	SDL_Init(0);
 
 	// compiler shader
-    string_path fn;
-    FS.update_path(fn,_game_data_,"shaders_xrlc.xr");
-    if (FS.exist(fn)){
-    	ShaderXRLC.Load(fn);
-    }else{
-    	ELog.DlgMsg(mtInformation,"Can't find file '%s'",fn);
-    }
+	string_path fn;
+	FS.update_path(fn,_game_data_,"shaders_xrlc.xr");
+	if (FS.exist(fn)){
+		ShaderXRLC.Load(fn);
+	}else{
+		ELog.DlgMsg(mtInformation,"Can't find file '%s'",fn);
+	}
 	CreateWindow();
 
 
 	// Startup shaders
 	Create();
 
-    ::RImplementation.Initialize();
+	::RImplementation.Initialize();
 	UIRenderImpl.CreateUIGeom();
 
 	Resize(EPrefs->start_w, EPrefs->start_h, EPrefs->start_maximized);
@@ -214,12 +214,12 @@ void CEditorRenderDevice::Clear()
 
 //---------------------------------------------------------------------------
 void CEditorRenderDevice::RenderNearer(float n){
-    mProject._43=m_fNearer-n;
-    RCache.set_xform_project(mProject);
+	mProject._43=m_fNearer-n;
+	RCache.set_xform_project(mProject);
 }
 void CEditorRenderDevice::ResetNearer(){
-    mProject._43=m_fNearer;
-    RCache.set_xform_project(mProject);
+	mProject._43=m_fNearer;
+	RCache.set_xform_project(mProject);
 }
 //---------------------------------------------------------------------------
 bool CEditorRenderDevice::Create()
@@ -251,20 +251,20 @@ bool CEditorRenderDevice::Create()
 	dwFrame				= 0;
 
 	string_path 		sh;
-    FS.update_path		(sh,_game_data_,"shaders.xr");
+	FS.update_path		(sh,_game_data_,"shaders.xr");
 
-    IReader* F			= 0;
+	IReader* F			= 0;
 	if (FS.exist(sh))
 		F				= FS.r_open(0,sh);
 	Resources			= new CResourceManager	();
 
-    // if build options - load textures immediately
-    if (strstr(Core.Params,"-build")||strstr(Core.Params,"-ebuild"))
-        EDevice->Resources->DeferredLoad(FALSE);
+	// if build options - load textures immediately
+	if (strstr(Core.Params,"-build")||strstr(Core.Params,"-ebuild"))
+		EDevice->Resources->DeferredLoad(FALSE);
 
 	g_FontManager = new CFontManager();
 
-    _Create				(F);
+	_Create				(F);
 	FS.r_close			(F);
 
 	::Render->create();
@@ -311,21 +311,21 @@ void CEditorRenderDevice::_SetupStates()
 	}
 
 	EDevice->SetRS(D3DRS_DITHERENABLE,	TRUE				);
-    EDevice->SetRS(D3DRS_COLORVERTEX,		TRUE				);
-    EDevice->SetRS(D3DRS_STENCILENABLE,	FALSE				);
-    EDevice->SetRS(D3DRS_ZENABLE,			TRUE				);
-    EDevice->SetRS(D3DRS_SHADEMODE,		D3DSHADE_GOURAUD	);
+	EDevice->SetRS(D3DRS_COLORVERTEX,		TRUE				);
+	EDevice->SetRS(D3DRS_STENCILENABLE,	FALSE				);
+	EDevice->SetRS(D3DRS_ZENABLE,			TRUE				);
+	EDevice->SetRS(D3DRS_SHADEMODE,		D3DSHADE_GOURAUD	);
 	EDevice->SetRS(D3DRS_CULLMODE,		D3DCULL_CCW			);
 	EDevice->SetRS(D3DRS_ALPHAFUNC,		D3DCMP_GREATER		);
 	EDevice->SetRS(D3DRS_LOCALVIEWER,		TRUE				);
-    EDevice->SetRS(D3DRS_NORMALIZENORMALS,TRUE				);
+	EDevice->SetRS(D3DRS_NORMALIZENORMALS,TRUE				);
 
 	EDevice->SetRS(D3DRS_DIFFUSEMATERIALSOURCE, D3DMCS_MATERIAL);
 	EDevice->SetRS(D3DRS_SPECULARMATERIALSOURCE,D3DMCS_MATERIAL);
 	EDevice->SetRS(D3DRS_AMBIENTMATERIALSOURCE, D3DMCS_MATERIAL);
 	EDevice->SetRS(D3DRS_EMISSIVEMATERIALSOURCE,D3DMCS_COLOR1	);
 
-    ResetMaterial();
+	ResetMaterial();
 }
 //---------------------------------------------------------------------------
 void CEditorRenderDevice::_Create(IReader* F)
@@ -333,16 +333,20 @@ void CEditorRenderDevice::_Create(IReader* F)
 	b_is_Ready				= TRUE;
 
 	// General Render States
-    _SetupStates		();
-    
-    RCache.OnDeviceCreate		();
+	_SetupStates		();
+	
+	RCache.OnDeviceCreate		();
 	Resources->OnDeviceCreate	(F);
 	::RImplementation.OnDeviceCreate	();
 
-    m_WireShader.create			("editor\\wire");
-	m_WireShaderAxis.create		("editor_wire_axis");
-	m_WireShaderEdges.create	("editor_wire_edges");
-    m_SelectionShader.create	("editor\\selection");
+
+	EDevice->RenderState = EEditorRenderState::eSelect;
+	ShaderTransform.create("editor\\selection");
+
+	EDevice->RenderState = EEditorRenderState::eDefault;
+	ShaderNoTransformT.create("editor\\selection");
+	m_WireShaderAxis.create("editor_wire_axis");
+	m_WireShaderEdges.create("editor_wire_edges");
 
 	//dx10BufferUtils::CreateConstantBuffer( &m_MaterialBuffer, sizeof( Fmaterial ) );
 	//dx10BufferUtils::CreateConstantBuffer( &m_LightBuffer, sizeof( Flight ) * MAX_EDITOR_LIGHT );
@@ -352,7 +356,7 @@ void CEditorRenderDevice::_Create(IReader* F)
 	UIChooseForm::SetNullTexture((ID3D11Texture2D*)texture_null->pSurface);
 
 	// signal another objects
-    UI->OnDeviceCreate			();       
+	UI->OnDeviceCreate			();       
 
 	EDevice->InitWindowStyle();
 }
@@ -360,7 +364,7 @@ void CEditorRenderDevice::_Create(IReader* F)
 void CEditorRenderDevice::_Destroy(BOOL	bKeepTextures)
 {
 	b_is_Ready 						= FALSE;
-    m_CurrentShader				= 0;
+	m_CurrentShader				= 0;
 
 	if (m_LightBuffer)
 	{
@@ -371,12 +375,13 @@ void CEditorRenderDevice::_Destroy(BOOL	bKeepTextures)
 		m_MaterialBuffer = 0;
 	}
 
-    UI->OnDeviceDestroy			();
+	UI->OnDeviceDestroy			();
 
-	m_WireShader.destroy		();
+	ShaderTransform.destroy		();
+	ShaderNoTransformT.destroy	();
+
 	m_WireShaderAxis.destroy	();
 	m_WireShaderEdges.destroy	();
-	m_SelectionShader.destroy	();
 	texture_null.destroy		();
 
 	::RImplementation.Models->OnDeviceDestroy	();
@@ -532,11 +537,11 @@ void CEditorRenderDevice::UpdateView()
 	{
 		UI->CurrentView().m_Camera.GetView(mView);
 	}
-    RCache.set_xform_view(mView);
-    mFullTransform.mul(mProject,mView);
+	RCache.set_xform_view(mView);
+	mFullTransform.mul(mProject,mView);
 
 // frustum culling sets
-    ::Render->ViewBase.CreateFromMatrix(mFullTransform,FRUSTUM_P_ALL);
+	::Render->ViewBase.CreateFromMatrix(mFullTransform,FRUSTUM_P_ALL);
 }
 
 void CEditorRenderDevice::FrameMove()
@@ -544,21 +549,21 @@ void CEditorRenderDevice::FrameMove()
 	dwFrame++;
 
 	// Timer
-    float fPreviousFrameTime = Timer.GetElapsed_sec(); Timer.Start();	// previous frame
-    fTimeDelta = 0.1f * fTimeDelta + 0.9f*fPreviousFrameTime;			// smooth random system activity - worst case ~7% error
-    if (fTimeDelta>.1f) fTimeDelta=.1f;									// limit to 15fps minimum
+	float fPreviousFrameTime = Timer.GetElapsed_sec(); Timer.Start();	// previous frame
+	fTimeDelta = 0.1f * fTimeDelta + 0.9f*fPreviousFrameTime;			// smooth random system activity - worst case ~7% error
+	if (fTimeDelta>.1f) fTimeDelta=.1f;									// limit to 15fps minimum
 
-    fTimeGlobal		= TimerGlobal.GetElapsed_sec(); //float(qTime)*CPU::cycles2seconds;
-    dwTimeGlobal	= TimerGlobal.GetElapsed_ms	();	//u32((qTime*u64(1000))/CPU::cycles_per_second);
-    dwTimeDelta		= iFloor(fTimeDelta*1000.f+0.5f);
-    dwTimeContinual	= dwTimeGlobal;
+	fTimeGlobal		= TimerGlobal.GetElapsed_sec(); //float(qTime)*CPU::cycles2seconds;
+	dwTimeGlobal	= TimerGlobal.GetElapsed_ms	();	//u32((qTime*u64(1000))/CPU::cycles_per_second);
+	dwTimeDelta		= iFloor(fTimeDelta*1000.f+0.5f);
+	dwTimeContinual	= dwTimeGlobal;
 
 	if (!Tools->UpdateCamera())
 	{
 		UI->CurrentView().m_Camera.Update(fTimeDelta);
 	}
 
-    // process objects
+	// process objects
 	seqFrame.Process(rp_Frame);
 }
 
@@ -578,24 +583,24 @@ void CEditorRenderDevice::InitWindowStyle()
 
 void CEditorRenderDevice::DP(D3DPRIMITIVETYPE pt, ref_geom geom, u32 vBase, u32 pc)
 {
-	ref_shader S 			= m_CurrentShader?m_CurrentShader:m_WireShader;
-    u32 dwRequired			= S->E[0]->passes.size();
-    for (u32 dwPass = 0; dwPass<dwRequired; dwPass++){
-    	RCache.set_Shader	(S,dwPass);
+	ref_shader S 			= m_CurrentShader?m_CurrentShader: ShaderTransform;
+	u32 dwRequired			= S->E[0]->passes.size();
+	for (u32 dwPass = 0; dwPass<dwRequired; dwPass++){
+		RCache.set_Shader	(S,dwPass);
 		RCache.set_Geometry(geom);
 		RCache.Render		(pt,vBase,pc);
-    }
+	}
 }
 
 void CEditorRenderDevice::DIP(D3DPRIMITIVETYPE pt, ref_geom geom, u32 baseV, u32 startV, u32 countV, u32 startI, u32 PC)
 {
-	ref_shader S 			= m_CurrentShader?m_CurrentShader:m_WireShader;
-    u32 dwRequired			= S->E[0]->passes.size();
-    RCache.set_Geometry		(geom);
-    for (u32 dwPass = 0; dwPass<dwRequired; dwPass++){
-    	RCache.set_Shader	(S,dwPass);
+	ref_shader S 			= m_CurrentShader?m_CurrentShader: ShaderTransform;
+	u32 dwRequired			= S->E[0]->passes.size();
+	RCache.set_Geometry		(geom);
+	for (u32 dwPass = 0; dwPass<dwRequired; dwPass++){
+		RCache.set_Shader	(S,dwPass);
 		RCache.Render		(pt,baseV,startV,countV,startI,PC);
-    }
+	}
 }
 
 static CSimulator g_Simulator;

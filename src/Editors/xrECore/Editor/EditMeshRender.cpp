@@ -181,10 +181,10 @@ void CEditableMesh::RenderList(const Fmatrix& parent, u32 color, bool bEdge, Int
 	EDevice->RenderNearer(0.0006);
 	RB_cnt = 0;
 	if (bEdge){
-		EDevice->SetShader(EDevice->m_WireShader);
+		EDevice->SetShader(EDevice->ShaderTransform);
 		EDevice->SetRS(D3DRS_FILLMODE,D3DFILL_WIREFRAME);
 	}else
-		EDevice->SetShader(EDevice->m_SelectionShader);
+		EDevice->SetShader(EDevice->ShaderTransform);
 	for (IntIt dw_it=fl.begin(); dw_it!=fl.end(); ++dw_it)
 	{
 		st_Face& face 		= m_Faces[*dw_it];

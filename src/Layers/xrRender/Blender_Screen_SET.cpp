@@ -137,9 +137,13 @@ void	CBlender_Screen_SET::Compile	(CBlender_Compile& C)
 #ifdef _EDITOR
 				if (EDevice->RenderState == EEditorRenderState::eModel)
 					uber_deffer(C, true, "deffer_base", "deffer_base", false, 0, true);
+				else if (EDevice->RenderState == EEditorRenderState::eSelect)
+				{
+					C.r_Pass("stub_default", "stub_default", false);
+				}
 				else
 #endif
-				C.r_Pass			("stub_default", "stub_default", false);
+				C.r_Pass			("stub_notransform_t", "stub_default", false);
 				//C.StageSET_Color	(D3DTA_TEXTURE,	  D3DTOP_MODULATE,		D3DTA_DIFFUSE);
 				//C.StageSET_Alpha	(D3DTA_TEXTURE,	  D3DTOP_MODULATE,		D3DTA_DIFFUSE);
 			}
