@@ -206,6 +206,10 @@ void CBlender_Model_EbB::Compile( CBlender_Compile& C )
 
 	if (C.bEditor)
 	{
+		if (oBlend.value) {
+			RImplementation.addShaderOption("FORWARD_ONLY", "1");
+		}
+
 		uber_deffer(C, true, *vs_shader, "deffer_base", false, 0, true);
 		C.r_Stencil(TRUE, D3DCMP_ALWAYS, 0xff, 0x7f, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE, D3DSTENCILOP_KEEP);
 		C.r_StencilRef(0x01);
