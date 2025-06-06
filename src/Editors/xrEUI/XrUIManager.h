@@ -22,7 +22,7 @@ public:
 		
 	virtual ~XrUIManager();
 
-	void Initialize(HWND hWnd, IDirect3DDevice9* device,const char*ini_path);
+	void Initialize(HWND hWnd, ID3D11Device* device, ID3D11DeviceContext* device_context, const char*ini_path);
 	void Destroy();
 
 	bool ProcessEvent(void* Event);
@@ -32,7 +32,7 @@ public:
 
 
 	void ResetBegin();
-	void ResetEnd(void* NewDevice);
+	void ResetEnd(ID3D11Device* device, ID3D11DeviceContext* device_context);
 	virtual bool 	ApplyShortCut(DWORD Key, TShiftState Shift)=0;
 
 	inline float GetMenuBarHeight()const { return m_MenuBarHeight; }
