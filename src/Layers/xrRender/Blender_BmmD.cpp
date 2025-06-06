@@ -223,6 +223,7 @@ void	CBlender_BmmD::Compile	(CBlender_Compile& C)
 		//	C.r_Pass("impl_dt", "impl_dt", TRUE);
 		uber_deffer(C, true, "deffer_base", "deffer_impl", false, oT2_Name[0] ? oT2_Name : 0, true);
 		C.r_dx10Texture("s_mask", mask);
+		C.r_dx10Sampler("smp_base");
 
 		C.r_dx10Texture("s_dt_r", oR_Name);
 		C.r_dx10Texture("s_dt_g", oG_Name);

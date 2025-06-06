@@ -399,7 +399,7 @@ void CEditableMesh::RenderSkeleton(const Fmatrix&, CSurface* S)
 		EDevice->DP(D3DPT_TRIANGLELIST, m_Parent->vs_SkeletonGeom, vBase, FaceCount);
 	}
 
-	if (S->m_Flags.is(CSurface::sf2Sided))
+	if (S->m_Flags.is(CSurface::sf2Sided) && OldCullMode != u32(-1))
 	{
 		RCache.set_CullMode(OldCullMode);
 	}

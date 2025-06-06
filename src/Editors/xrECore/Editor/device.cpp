@@ -642,10 +642,14 @@ void CEditorRenderDevice::SetRS(D3DRENDERSTATETYPE p1, u32 p2)
 			float(color_get_A(p2)) / 255.f
 		);
 		break; /*case D3DCOLOR used for multi-texture blend */
+	case D3DRS_CULLMODE:
+	{
+		RCache.set_CullMode(p2);
+		break;
+	}
 
 	case D3DRS_SRCBLEND: break;   /*case D3DBLEND */
 	case D3DRS_DESTBLEND: break;   /*case D3DBLEND */
-	case D3DRS_CULLMODE: break;   /*case D3DCULL */
 	case D3DRS_ZFUNC: break;   /*case D3DCMPFUNC */
 	case D3DRS_ALPHAREF: break;   /*case D3DFIXED */
 	case D3DRS_ALPHAFUNC: break;   /*case D3DCMPFUNC */
