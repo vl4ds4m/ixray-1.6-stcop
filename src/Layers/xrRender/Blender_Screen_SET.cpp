@@ -2,7 +2,7 @@
 #pragma hdrstop
 
 #include "Blender_Screen_SET.h"
-#include "..\Layers\xrRender\uber_deffer.h"
+#include "uber_deffer.h"
 
 #define		VER_2_oBlendCount	7
 #define		VER_4_oBlendCount	9

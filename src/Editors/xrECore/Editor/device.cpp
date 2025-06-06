@@ -588,6 +588,8 @@ void CEditorRenderDevice::DP(D3DPRIMITIVETYPE pt, ref_geom geom, u32 vBase, u32 
 	for (u32 dwPass = 0; dwPass<dwRequired; dwPass++){
 		RCache.set_Shader	(S,dwPass);
 		RCache.set_Geometry(geom);
+		StateManager.SetCullMode(CullMode);
+		StateManager.SetFillMode(EDevice->dwFillMode != 2 ? FillMode : EDevice->dwFillMode);
 		RCache.Render		(pt,vBase,pc);
 	}
 }
@@ -597,8 +599,12 @@ void CEditorRenderDevice::DIP(D3DPRIMITIVETYPE pt, ref_geom geom, u32 baseV, u32
 	ref_shader S 			= m_CurrentShader?m_CurrentShader: ShaderTransform;
 	u32 dwRequired			= S->E[0]->passes.size();
 	RCache.set_Geometry		(geom);
-	for (u32 dwPass = 0; dwPass<dwRequired; dwPass++){
+	for (u32 dwPass = 0; dwPass<dwRequired; dwPass++)
+	{
 		RCache.set_Shader	(S,dwPass);
+		StateManager.SetCullMode(CullMode);
+		StateManager.SetFillMode(EDevice->dwFillMode != 2 ? FillMode : EDevice->dwFillMode);
+
 		RCache.Render		(pt,baseV,startV,countV,startI,PC);
 	}
 }
@@ -623,7 +629,7 @@ void CEditorRenderDevice::SetRS(D3DRENDERSTATETYPE p1, u32 p2)
 		RCache.set_Z(p2);
 		break;    /*case D3DZBUFFERTYPE (or TRUE/FALSE for legacy) */
 	case D3DRS_FILLMODE: 
-		StateManager.SetFillMode(p2);
+		FillMode = p2;
 		break;    /*case D3DFILLMODE */
 	case D3DRS_SHADEMODE: 
 		R_ASSERT(0);
@@ -649,7 +655,7 @@ void CEditorRenderDevice::SetRS(D3DRENDERSTATETYPE p1, u32 p2)
 		break; /*case D3DCOLOR used for multi-texture blend */
 	case D3DRS_CULLMODE:
 	{
-		RCache.set_CullMode(p2);
+		CullMode = p2;
 		break;
 	}
 
@@ -752,9 +758,6 @@ void CEditorRenderDevice::SetRS(D3DRENDERSTATETYPE p1, u32 p2)
 	default:
 		break;
 	}
-
-	xrCriticalSectionGuard guard(Dx11Guard);
-	StateManager.Apply();
 }
 
 void CEditorRenderDevice::ReloadTextures()
