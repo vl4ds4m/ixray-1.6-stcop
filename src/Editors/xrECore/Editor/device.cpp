@@ -493,6 +493,7 @@ bool CEditorRenderDevice::Begin()
 
 	VERIFY(FALSE == g_bRendering);
 
+	xrCriticalSectionGuard guard(EDevice->Dx11Guard);
 	Clear();
 
 	RCache.OnFrameBegin();
@@ -506,6 +507,7 @@ void CEditorRenderDevice::End()
 	VERIFY(b_is_Ready);
 	g_bRendering = 	FALSE;
 	// end scene
+	xrCriticalSectionGuard guard(EDevice->Dx11Guard);
 	RCache.OnFrameEnd();
 
 	RSwapchain->Present(0, 0);
@@ -742,6 +744,7 @@ void CEditorRenderDevice::SetRS(D3DRENDERSTATETYPE p1, u32 p2)
 		break;
 	}
 
+	xrCriticalSectionGuard guard(Dx11Guard);
 	StateManager.Apply();
 }
 

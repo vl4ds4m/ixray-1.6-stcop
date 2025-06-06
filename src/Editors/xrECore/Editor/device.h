@@ -89,6 +89,7 @@ public:
 
 	// Dependent classes
 	CResourceManager* Resources;
+	xrCriticalSection Dx11Guard;
 
 public:
 	CEditorRenderDevice();

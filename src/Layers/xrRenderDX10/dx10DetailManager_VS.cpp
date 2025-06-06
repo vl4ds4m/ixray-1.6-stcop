@@ -164,6 +164,7 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 					if(L->position.distance_to_sqr(Instance.pos) >= _sqr(L->range))
 						continue;
 				}
+#endif
 				static InstanceData* c_storage = NULL;
 				if (dwBatch == 0)
 					RCache.get_ConstantDirect(strArray, hw_BatchSize*sizeof(InstanceData), (void**)&c_storage, 0, 0);
