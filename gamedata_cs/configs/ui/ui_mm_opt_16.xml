@@ -719,6 +719,13 @@
       <options_item entry="enable_dof_reload" group="mm_opt_video_adv" depend="vid"/>
     </check_dof_reload>
 
+    <cap_dof_talk x="17" y="0" width="119" height="21">
+      <text font="letterica16" color="ui_6">ui_mm_dof_talk</text>
+    </cap_dof_talk>
+    <check_dof_talk x="162" y="0" width="27" height="21" stretch="1">
+      <options_item entry="enable_dof_talk" group="mm_opt_video_adv" depend="vid"/>
+    </check_dof_talk>
+
     <cap_volumetric_light x="17" y="0" width="119" height="21">
       <text font="letterica16" color="ui_6">ui_mm_volumetric_light</text>
     </cap_volumetric_light>

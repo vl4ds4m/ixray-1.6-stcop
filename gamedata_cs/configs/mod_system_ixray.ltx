@@ -17,8 +17,8 @@ offset_right = -0.4,0.2,0.0
 offset_left = 0.314,0.2,0.0
 
 ;actor.ltx
-![actor_hud]
-visual = dynamics\weapons\wpn_hand\wpn_hand_0
+![actor]
+player_hud_default = actor_hud_05
 
 ;m_controller.ltx
 ![m_controller_e]
@@ -70,20 +70,12 @@ sound_deactivate        = device\torch_click_off
 ;anm_bore = dev_detector_3_idle_bore
 ;anm_bore_16x9 = dev_detector_3_idle_bore_ws, dev_detector_1_idle_bore
 
-;w_binoc.ltx
-![wpn_binoc]
-use_condition = false
-
 ;w_f1.ltx
 ![grenade_f1]
 detonation_threshold_hit= 0.3
 explosion_on_hit = true
 explosion_hit_types = 6, 8 
 explosive_while_not_activated = true
-
-;w_rg6.ltx
-![wpn_rg-6]
-!reload_dof
 
 ;w_rgd5.ltx
 ![grenade_rgd5]
