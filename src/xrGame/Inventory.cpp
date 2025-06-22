@@ -24,6 +24,7 @@
 #include "WeaponMagazined.h"
 #include "Car.h"
 #include "Grenade.h"
+#include "../xrScripts/script_callback_ex.h"
 
 using namespace InventoryUtilities;
 
