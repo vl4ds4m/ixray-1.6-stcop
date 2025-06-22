@@ -217,9 +217,9 @@ function main_menu:OnButton_options_clicked()
 		self.opt_dlg.owner = self
 	end
 	
-	self.opt_dlg:UpdateControls()
-	self:GetHolder():start_stop_menu(self.opt_dlg, true)
-	self:GetHolder():start_stop_menu(self, true) --new
+	self.opt_dlg:SetCurrentValues()
+	self.opt_dlg:ShowDialog(true)
+	self:HideDialog()
 	self:Show(false)
 end
 

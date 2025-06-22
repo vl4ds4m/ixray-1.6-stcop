@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<string_table>
+    <string id="renderer_r4">
+		<text>Ул. полное освещение (DX11)</text>
+    </string>
+	<string id="ui_mm_r4_enable_tessellation">
+		<text>Тесселяция</text>
+	</string>
+	<string id="ui_mm_ssao_text">
+		<text>Режим SSAO</text>
+	</string>
+	<string id="st_opt_extreme">
+		<text>макс. высоко</text>
+	</string>
+ </string_table>

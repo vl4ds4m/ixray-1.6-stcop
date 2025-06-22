@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+<string_table>
+    <string id="renderer_r4">
+		<text>Enhanced full dyn. lighting (DX11)</text>
+    </string>
+	<string id="ui_mm_r4_enable_tessellation">
+		<text>Tessellation</text>
+	</string>
+	<string id="ui_mm_ssao_text">
+		<text>SSAO mode</text>
+	</string>
+	<string id="st_opt_extreme">
+		<text>max high</text>
+	</string>
+ </string_table>
