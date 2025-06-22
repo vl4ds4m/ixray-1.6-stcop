@@ -4,7 +4,7 @@
 		<auto_static x="-86" y="0" width="86" height="768" stretch="1">
 			<texture>ui_inGame2_back_pdaw10_l</texture>
 		</auto_static>
-		<auto_static x="854" y="0" width="86" height="768" stretch="1">
+		<auto_static x="854" y="0" width="87" height="768" stretch="1">
 			<texture>ui_inGame2_back_pdaw10_r</texture>
 		</auto_static>
 	</main>

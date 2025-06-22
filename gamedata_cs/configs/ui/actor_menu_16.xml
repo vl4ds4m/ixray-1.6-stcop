@@ -4,7 +4,7 @@
       <texture>ui_inGame2_inventory_back</texture>
     </auto_static>
 
-    <auto_static x="938" y="0" width="86" height="768" stretch="1">
+    <auto_static x="938" y="0" width="87" height="768" stretch="1">
       <texture>ui_inGame2_back_invw10_r</texture>
     </auto_static>
 
