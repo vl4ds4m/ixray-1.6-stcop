@@ -100,7 +100,7 @@
     <cap_preset x="20" y="10" width="143" height="21">
       <text font="letterica16" color="ui_6">ui_mm_quality_presets</text>
     </cap_preset>
-    <list_presets x="194" y="10" width="261" height="21" list_length="5"  always_show_scroll="0">
+    <list_presets x="194" y="10" width="261" height="21" list_length="6"  always_show_scroll="0">
 			<options_item entry="_preset" group="mm_opt_video_preset" depend="vid"/>
 			<text_color>
 				<e r="216" g="186" b="140"/>
