@@ -206,7 +206,6 @@ function act_state_mgr_weapon_drop:initialize()
 	local weap = get_weapon(self.object, self.st.target_state)
 	if strappable_weapon(weap) then
 		self.object:set_item(object.drop, weap)
-		death_manager.set_weapon_drop_condition(weap)
 	else
 		self.object:set_item(object.idle, nil)
 	end
