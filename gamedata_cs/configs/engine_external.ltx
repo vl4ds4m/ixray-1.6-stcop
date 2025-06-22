@@ -2,8 +2,20 @@
 Platform = cs ; Platform mode. Supported values: cop (Call of Pripyat), cs (Clear Sky)
 title = st_ixray_title ; Mod name
 
+[shaders_options]
+USE_LEGACY_LIGHT = 1
+
+; Hozar: For PBS pipeline
+; IBL_FAKE_IRRADANCE = 1
+; IBL_REMAP_IRRADANCE = 1
+; IBL_REMAP_REFLECTIONS = 1
+; IBL_REMAP_POSITIVE_Y = 1
+; IBL_MAX_LOD = 10
+; USE_FULL_SKY_SPHERE = 1
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Engine features
+
 [ui]
 HQIcons = false
 DisableCharacterInfo = false
@@ -29,11 +41,12 @@ EnableWeaponCollision = false           ; Shoker Mod Style
 EnableArtefactDegradation = false
 DisableSprintWhileOverweight = false
 EnableActorStepWallmarks = false        ; AIW Style
+EnableAlternateZoomFovCalc = false		; Don't turn it on unnecessarily! Breaks the original weapon system.
 EnableInventoryPistolSlot = true ; 2nd slot for pistols only (like in CS/SoC)
 
 [render]
 DisableLoadScreenTips = true
-LargeFontAtlas = false
+FontAtlasSize = 4096
 
 [environment]
 ReadSunConfig = false
@@ -42,7 +55,7 @@ ReadSunConfig = false
 ;; Extended sections
 
 [player_hud]
-;PlayerHudOmfAdditional = dynamics\weapons\hud_hands_animation\*.omf ; Place your omf file pathes 
+PlayerHudOmfAdditional = dynamics\weapons\hud_hands_animation\*.omf ; Place your omf file pathes 
 
 ; Need [gameplay]:EnableActorStepWallmarks
 [step_wallmark] 
