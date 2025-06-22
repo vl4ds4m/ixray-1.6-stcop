@@ -699,7 +699,7 @@ void CCC_Register()
 	CMD3(CCC_Mask, "rs_device_active", &psDeviceFlags, rsDeviceActive);
 	
 	CMD2(CCC_Boolean,	"rs_fps_show",			&IsFpsShow);
-	CMD4(CCC_Integer,	"rs_fps_limit",			&g_dwFPSlimit,		0, 1000);
+	CMD4(CCC_Integer,	"rs_fps_limit",			&g_dwFPSlimit,		30, 1000);
 
 	CMD3(CCC_Mask,		"rs_v_sync",			&psDeviceFlags,		rsVSync				);
 	

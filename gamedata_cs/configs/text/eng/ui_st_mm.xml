@@ -615,6 +615,9 @@
 	<string id="ui_mm_vsync">
 		<text>Vertical sync</text>
 	</string>
+	<string id="ui_mm_fps_limit">
+		<text>FPS limit</text>
+	</string>
 	<string id="ui_st_last_set">
 		<text>Last loadout</text>
 	</string>
