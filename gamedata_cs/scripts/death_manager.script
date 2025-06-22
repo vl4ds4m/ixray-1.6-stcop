@@ -150,7 +150,21 @@ end
 --' Функция вызывается для каждого предмета, если вернет false то предмет удалится.
 function keep_item(npc, item)
     local section = item:section()
-	printf("keep_item:item ["..item:name().."] npc_name ["..npc:name().."]")
+	
+	local ini = npc:spawn_ini()
+
+	if ini and ini:section_exist("keep_items")
+			and	section ~= "guitar_a"
+			and	section ~= "harmonica_a"
+			and section ~= "wpn_binoc"
+			and section ~= "device_torch"
+			and section ~= "device_pda" then
+		return
+	end
+	
+	if isArtefact(item) then
+		return
+	end
     if section == "bolt" then
     	printf("1")
         return
@@ -164,6 +178,7 @@ function keep_item(npc, item)
 		set_weapon_drop_condition(item)
 		return
 	end
+	alife():release(alife():object(item:id()), true)
 	--[[
     local item_id = item:id()
     local item_in_slot = npc:item_in_slot(1)
