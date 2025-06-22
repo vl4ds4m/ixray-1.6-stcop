@@ -18,4 +18,10 @@
 	<string id="ui_mm_r1_detail_textures">
 		<text>Detailed textures</text>
 	</string>
+	<string id="ui_st_trade_hint">
+		<text>Open trading window ($$ACTION_SPRINT_TOGGLE$$)</text>
+	</string>
+	<string id="ui_st_upgrade_hint">
+		<text>Open repair and modification window ($$ACTION_SPRINT_TOGGLE$$)</text>
+	</string>
 </string_table>
