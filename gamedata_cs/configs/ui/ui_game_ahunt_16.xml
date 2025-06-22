@@ -102,9 +102,9 @@
 	</fraglimit>
 	
 	<global width="1024" height="768">
-	    <auto_static x="394" y="0" width="234" height="47" stretch="1">
+	    <!--auto_static x="394" y="0" width="234" height="47" stretch="1">
 		    <texture>ui_hud_fragBig</texture>
-	    </auto_static>
+	    </auto_static-->
     </global>	
 
 </w>
