@@ -160,17 +160,15 @@ function keep_item(npc, item)
 		printf("2")
         return
     end
-
+	if isWeapon(item) and not(get_clsid(item)==clsid.wpn_grenade_rgd5_s or get_clsid(item)==clsid.wpn_grenade_f1_s) then
+		set_weapon_drop_condition(item)
+		return
+	end
+	--[[
     local item_id = item:id()
     local item_in_slot = npc:item_in_slot(1)
     if item_in_slot ~= nil and item_in_slot:id() == item_id
     then
-	--[[	if level.name() == "y_arena" then
-			 item:unload_magazine()
-			 npc:drop_item(item_in_slot)
-			 alife():release(alife():object(item_in_slot:id()),true)
-			 return
-		end]]--
 
         --item:unload_magazine()
 		--' Тут надо уменьшить кондишн оружия
@@ -181,12 +179,6 @@ function keep_item(npc, item)
     item_in_slot = npc:item_in_slot(2)
     if item_in_slot ~= nil and item_in_slot:id() == item_id
     then
-	--[[	if level.name() == "y_arena" then
-			 item:unload_magazine()
-			 npc:drop_item(item_in_slot)
-			 alife():release(alife():object(item_in_slot:id()),true)
-			 return
-		end]]--
         --item:unload_magazine()
 		--' Тут надо уменьшить кондишн оружия
 		item:set_condition((math.random(15)+65)/100)
@@ -205,6 +197,13 @@ function keep_item(npc, item)
 		printf("releasing object ["..item:name().."]")
 		alife():release(alife():object(item:id()), true)
 	end
+	]]
+end
+
+function set_weapon_drop_condition(item)
+	local condition  = (math.random(40)+40)/100
+	--printf("condition [%s]", tostring(condition))
+	item:set_condition(condition)	
 end
 
 --' Функция спавнит необходимое число предметов
