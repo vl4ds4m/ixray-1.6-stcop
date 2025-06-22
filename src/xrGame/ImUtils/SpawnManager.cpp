@@ -935,12 +935,19 @@ void SpawnManager_HandleButtonPress(CInifile::Sect* section)
 			sprintf_s(text_news, sizeof(text_news), "[%s] x [%d]", section->Name.c_str(), count);
 		}
 
+		const char* pTextureName = "ui_inGame2_Predmet_poluchen";
+
+		if (EngineExternal().ClearSkyMode())
+		{
+			pTextureName = "ui_iconsTotal_found_thing";
+		}
+
 		GAME_NEWS_DATA				news_data;
 		news_data.m_type = GAME_NEWS_DATA::eNewsType::eNews;
 		news_data.news_caption = g_pStringTable->translate("general_in_item");
 		news_data.news_text = text_news;
 		news_data.show_time = 3000;
-		news_data.texture_name = "ui_inGame2_Predmet_poluchen";
+		news_data.texture_name = pTextureName;
 		Actor()->AddGameNews(news_data);
 	}
 
