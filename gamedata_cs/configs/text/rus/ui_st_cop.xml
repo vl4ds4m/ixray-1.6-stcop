@@ -33,4 +33,10 @@
 	<string id="ui_st_disable_hud">
 		<text>Показывать интерфейс</text>
 	</string>
+	<string id="ui_ammo_count">
+		<text>Ёмк. магазина</text>
+	</string>
+	<string id="ui_ammo_types">
+		<text>Боеприпасы</text>
+	</string>
 </string_table>
