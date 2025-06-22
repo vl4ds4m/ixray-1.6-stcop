@@ -80,11 +80,10 @@ void SBoneProtections::add(const shared_str& bone_sect, IKinematics* kinematics)
 	VERIFY(kinematics);
     float defaultHitFraction = 0.0f;
 
-    if (EngineExternal().ClearSkyMode())
-    {
-        defaultHitFraction = READ_IF_EXISTS(pSettings, r_float, bone_sect, "hit_fraction", defaultHitFraction);
-    }
-    m_fHitFracNpc += READ_IF_EXISTS(pSettings, r_float, bone_sect.c_str(), "hit_fraction_npc", defaultHitFraction);
+	if (pSettings->line_exist(bone_sect, "hit_fraction_npc"))
+		m_fHitFracNpc = READ_IF_EXISTS(pSettings, r_float, bone_sect, "hit_fraction_npc", defaultHitFraction);
+	else
+		m_fHitFracNpc = READ_IF_EXISTS(pSettings, r_float, bone_sect, "hit_fraction", defaultHitFraction);
 
 	CInifile::Sect	&protections = pSettings->r_section(bone_sect);
 	for(CInifile::SectCIt i=protections.Data.begin(); protections.Data.end()!=i; ++i) 
