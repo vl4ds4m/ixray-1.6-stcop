@@ -67,7 +67,7 @@
 		<texture>ui_hud_icon_artefact</texture>
 	</artefact_static>
 
-	<disk_io x="760" y="750" width="14" height="16" stretch="1">
+	<disk_io x="760" y="750" width="12" height="16" stretch="1">
 		<texture>ui\ui_disk_io</texture>
 	</disk_io>
 
@@ -81,13 +81,13 @@
 
 	<new_contact_snd>detectors\contact_1</new_contact_snd>	
 
-	<hud_states x="802" y="647" width="222" height="121">
+	<hud_states x="802.5" y="647.5" width="222" height="121">
 
 		<back x="0" y="0" width="222" height="121" stretch="1">
 			<texture>ui_hud2_rad01_back</texture>
 			<!--text x ="10" y="0" align="c" font="letterica16" r="238" g="155" b="225" a="0"/-->
 		</back>
-		<back_v x="203" y="-219" width="19" height="219" stretch="1">
+		<back_v x="203" y="-218" width="19" height="219" stretch="1">
 			<texture>ui_hud2_rad01_back2v</texture>
 		</back_v>
 		<back_over_arrow x="150" y="70" width="55" height="51" stretch="1">
