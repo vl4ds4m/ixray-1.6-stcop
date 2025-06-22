@@ -180,7 +180,7 @@
 		<cap_screenshot_format x="17" y="10" width="119" height="21">
 			<text font="letterica16" color="ui_6">ui_mm_screenshot_format</text>			
 		</cap_screenshot_format>
-		<list_screenshot_format x="162" y="10" width="218" height="21" list_length="5"  always_show_scroll="0">
+		<list_screenshot_format x="162" y="10" width="218" height="21" list_length="3"  always_show_scroll="0">
 			<options_item entry="r__screenshot_format" group="mm_opt_video_preset" depend="runtime"/>
 			<text_color>
 				<e r="216" g="186" b="140"/>
@@ -758,10 +758,10 @@
       <text font="letterica16" color="ui_6">ui_mm_dynamic_music</text>
     </check_dynamic_music>
 
-    <track_mastervolume x="162" y="20" width="217" height="21">
+    <track_mastervolume x="162" y="20" width="217" height="21" show_value="1">
 			<options_item entry="snd_volume_eff" group="mm_opt_sound"/>
 		</track_mastervolume>
-		<track_musicvolume x="162" y="50" width="217" height="21">
+		<track_musicvolume x="162" y="50" width="217" height="21" show_value="1">
 			<options_item entry="snd_volume_music" group="mm_opt_sound"/>
 		</track_musicvolume>
 

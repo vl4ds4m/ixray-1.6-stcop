@@ -12,4 +12,10 @@
 	<string id="st_opt_extreme">
 		<text>max high</text>
 	</string>
- </string_table>
+	<string id="ui_mm_confirm_changes">
+		<text>Apply changes? All changes will be reverted in</text>
+	</string>
+	<string id="ui_mm_r1_detail_textures">
+		<text>Detailed textures</text>
+	</string>
+</string_table>
