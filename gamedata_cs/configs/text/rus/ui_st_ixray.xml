@@ -349,7 +349,13 @@
         <text>.png</text>
     </string>
 	
-	<string id="st_press_any_key">
-		<text>Ќажмите любую клавишу дл€ перехода к игре</text>
+	<string id="ui_mm_lang">
+		<text>язык</text>
+	</string>
+    <string id="rus">
+		<text>–усский</text>
+	</string>
+	<string id="eng">
+		<text>English</text>
 	</string>
 </string_table>

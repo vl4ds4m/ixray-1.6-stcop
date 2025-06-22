@@ -24,4 +24,13 @@
 	<string id="ui_st_upgrade_hint">
 		<text>Открыть окно ремонта и модификации ($$ACTION_SPRINT_TOGGLE$$)</text>
 	</string>
+	<string id="st_press_any_key">
+		<text>Нажмите любую клавишу для перехода к игре</text>
+	</string>
+	<string id="ui_mm_crouch_toggle">
+		<text>Режим сесть/встать</text>
+	</string>
+	<string id="ui_st_disable_hud">
+		<text>Показывать интерфейс</text>
+	</string>
 </string_table>
