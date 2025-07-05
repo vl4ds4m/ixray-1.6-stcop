@@ -116,7 +116,7 @@ void UIWeatherPropForm::Draw()
             {
                 ImGui::BeginGroup();
                 ImGui::SameLine(0, 3);
-                ImGui::InputFloat("Speed", &m_speed_time, 1.f, 10000.f, 1.f, 1);
+                ImGui::InputFloat("Speed", &m_speed_time, 1.f, 10000.f/*, 1.f, 1*/);
                 /*ImGui::SameLine(0);
                 if (ImGui::Button("Apply Speed"_RU >> u8"Применить"))
                     env.fTimeFactor = m_speed_time;*/
