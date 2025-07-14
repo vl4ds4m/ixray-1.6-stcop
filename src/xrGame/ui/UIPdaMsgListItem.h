@@ -11,6 +11,6 @@ public:
 	
 	CUIStatic			UIIcon;
 	CUITextWnd			UITimeText;
-	CUITextWnd			UICaptionText;
+	CUITextWnd*			UICaptionText;
 	CUITextWnd			UIMsgText;
 };
