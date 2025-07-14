@@ -59,6 +59,9 @@ void CUIOutfitImmunity::InitFromXml( CUIXml& xml_doc, LPCSTR base_str, u32 hit_t
 	string256 buf;
 	
 	xr_strconcat(buf, base_str, ":", immunity_names[hit_type] );
+	if (!xml_doc.NavigateToNode(buf))
+		return;
+
 	CUIXmlInit::InitWindow( xml_doc, buf, 0, this );
 	CUIXmlInit::InitStatic( xml_doc, buf, 0, &m_name );
 	m_name.TextItemControl()->SetTextST( immunity_st_names[hit_type] );
