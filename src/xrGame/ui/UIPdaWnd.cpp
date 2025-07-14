@@ -586,6 +586,10 @@ void CUIPdaWnd::PdaContentsChanged	(pda_section::part type)
 			UIPdaContactsWnd->Reload			();
 		b = false;
 	}
+	else
+	{
+		b = false;
+	}
 
 	if(b)
 	{
