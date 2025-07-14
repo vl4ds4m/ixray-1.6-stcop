@@ -9,6 +9,7 @@ class CHelmet;
 class CUIStatic;
 class CUIDoubleProgressBar;
 class CUIXml;
+class CUIScrollView;
 
 class CUIOutfitImmunity : public CUIWindow
 {
@@ -39,11 +40,14 @@ public:
 			void 	InitFromXml			( CUIXml& xml_doc );
 			void 	UpdateInfo			( CCustomOutfit* cur_outfit, CCustomOutfit* slot_outfit = NULL );	
 			void 	UpdateInfo			( CHelmet* cur_helmet, CHelmet* slot_helmet = NULL );	
+			void	SetItem				(CCustomOutfit* outfit, u32 hitType, bool force_add);
 protected:
 	enum				{ max_count = ALife::eHitTypeMax-4 };
 	
 	CUIStatic*			m_caption;
 	CUIStatic*			m_Prop_line;
 	CUIOutfitImmunity*	m_items[max_count];
+	CUIStatic*			m_items_legacy[max_count];
+	CUIScrollView*		m_listWnd;
 
 }; // class CUIOutfitInfo

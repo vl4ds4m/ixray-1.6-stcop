@@ -63,6 +63,7 @@ public:
 	void				AddQuestion			(LPCSTR str, LPCSTR value, int number, SPhraseInfo &phInfo);
 	void				AddAnswer			(LPCSTR SpeakerName, const char* str, bool bActor);
 	void				AddIconedAnswer		(LPCSTR caption, LPCSTR text, LPCSTR texture_name, LPCSTR templ_name);
+	void				AddIconedAnswer		(LPCSTR text, LPCSTR texture_name, Frect texture_rect, LPCSTR templ_name);
 	void				ClearAll			();
 	void				ClearQuestions		();
 
@@ -126,5 +127,6 @@ class CUIAnswerItemIconed :public CUIAnswerItem
 public:
 					CUIAnswerItemIconed		(CUIXml* xml_doc, LPCSTR path);
 	void			Init					(LPCSTR text, LPCSTR name, LPCSTR texture_name);
+    void			Init					(LPCSTR text, LPCSTR texture_name, Frect texture_rect);
 
 };
