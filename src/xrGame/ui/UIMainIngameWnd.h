@@ -58,6 +58,9 @@ public:
 	CUIMotionIcon*		UIMotionIcon;
 	CUIZoneMap*			UIZoneMap;
 
+	//иконка, показывающая количество активных PDA
+	CUIStatic*			UIPdaOnline;
+
 	CUIHudStatesWnd*	m_ui_hud_states;
 
 public:

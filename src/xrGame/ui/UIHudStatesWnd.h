@@ -23,7 +23,6 @@ private:
 
 	CUIStatic*			m_back_v;
 	CUIStatic*			m_back_over_arrow;
-	CUIStatic*			m_static_armor;
 	CUIStatic*			m_bleeding;
 
 	CUIStatic*			m_resist_back[it_max];
@@ -31,8 +30,6 @@ private:
 	CUIStatic*			m_ind_starvation;
 	CUIStatic*			m_resist_back_starvation;
 
-	CUITextWnd*			m_ui_weapon_sign_ammo;
-	Frect				m_ui_weapon_icon_rect;
 
 	CUIProgressShape*	m_progress_self;
 	CUIArrow*			m_arrow;
@@ -70,6 +67,11 @@ public:
 	CUITextWnd*			m_ui_grenade;
 	II_BriefInfo		m_item_info;
 	CUIStatic*			m_radia_damage;
+	Frect				m_ui_weapon_icon_rect;
+	CUITextWnd*			m_ui_weapon_sign_ammo;
+	CUIStatic*			m_static_armor;
+	CUIStatic*			m_static_health;
+	CUIStatic*			m_static_weapon;
 	
 	CUIProgressBar*		m_ui_health_bar;
 	CUIProgressBar*		m_ui_armor_bar;
