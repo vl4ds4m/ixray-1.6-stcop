@@ -29,7 +29,9 @@ enum class EEngineExternalGame
 	EnableActorStepWallmarks,
 	DisableSprintWhileOverweight,
 	EnableAlternateZoomFovCalc,
-	EnableInventoryPistolSlot
+	EnableInventoryPistolSlot,
+	// SoC only
+	UseNewScopeSystem
 };
 
 enum class EEngineExternalRender 
