@@ -10,12 +10,14 @@ class CMotionDef;
 #include "inventory_space.h"
 #include "HudSound.h"
 #include "InertionData.h"
+#include "HudTorchLight.h"
 #include "../xrScripts/script_export_space.h"
 
 #include "HudTorchLight.h"
 
 struct attachable_hud_item;
 class motion_marks;
+class HudLightTorch;
 
 //class HudLightTorch;
 
