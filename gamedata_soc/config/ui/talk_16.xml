@@ -1,14 +1,14 @@
 <?xml version='1.0' encoding="UTF-8"?>
 <window>
 
-	<left_character_icon x="15" y="32" width="150" height="220"  stretch="1">
+	<left_character_icon x="111" y="32" width="150" height="220"  stretch="1">
 		<texture>ui_charinfo_left</texture>
-		<texture_offset x="-6" y="0"/>
+		<texture_offset x="-4" y="0"/>
 	</left_character_icon>
 	
-	<right_character_icon x="850" y="32" width="150" height="220" stretch="1">
+	<right_character_icon x="777" y="32" width="150" height="220" stretch="1">
 		<texture>ui_charinfo_right</texture>
-		<texture_offset x="2" y="0"/>
+		<texture_offset x="4" y="0"/>
 	</right_character_icon>
 	
 	<top_background x="85" y="0" width="854" height="32" stretch="1">
