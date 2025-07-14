@@ -151,6 +151,7 @@ CLevelGraph::CLevelGraph()
 				}
 				m_nodes[i].light(Dst[i].light());
 			}
+			break;
 		}
 		case XRAI_MINIMAL_VERSION: // ver 10 - CS/CoP format
 		{
