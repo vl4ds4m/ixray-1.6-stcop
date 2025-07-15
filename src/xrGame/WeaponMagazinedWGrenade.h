@@ -67,8 +67,9 @@ public:
 	virtual shared_str SetCurrentReloadAnimation();
 	virtual shared_str SetCurrentStateAnimation(const shared_str& first_name);
 	virtual shared_str SetCurrentShootAnimation();
-	
+
 	virtual bool	IsGrenadeMode() const { return m_bGrenadeMode; }
+	virtual CWeaponMagazinedWGrenade*cast_weapon_magazined_w_grenade	()					{return this;}
 private:
 	virtual	void	net_Spawn_install_upgrades	( Upgrades_type saved_upgrades );
 	virtual bool	install_upgrade_impl		( LPCSTR section, bool test );

@@ -16,6 +16,7 @@ class CMotionDef;
 
 struct attachable_hud_item;
 class motion_marks;
+class CWeapon;
 
 //class HudLightTorch;
 
@@ -291,6 +292,7 @@ public:
 	virtual void				debug_draw_firedeps		() {};
 
 	virtual CHudItem*			cast_hud_item			()				{ return this; }
+	virtual CWeapon*			cast_weapon			()					{ return nullptr; }
 protected:
 	DECLARE_SCRIPT_REGISTER_FUNCTION
 };

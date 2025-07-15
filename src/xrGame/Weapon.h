@@ -24,6 +24,7 @@ class ENGINE_API CMotionDef;
 class CSE_ALifeItemWeapon;
 class CSE_ALifeItemWeaponAmmo;
 class CWeaponMagazined;
+class CWeaponMagazinedWGrenade;
 class CParticlesObject;
 class CUIWindow;
 class CBinocularsVision;
@@ -49,6 +50,7 @@ public:
 	
 	virtual CWeapon			*cast_weapon			()					{return this;}
 	virtual CWeaponMagazined*cast_weapon_magazined	()					{return 0;}
+	virtual CWeaponMagazinedWGrenade*cast_weapon_magazined_w_grenade	()					{return 0;}
 
 
 	//serialization

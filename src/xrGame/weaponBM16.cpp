@@ -33,14 +33,14 @@ void CWeaponBM16::PlayAnimReload()
 	VERIFY(GetState()==eReload);
 	
 	if ((m_magazine.size() == 1 || !b_both) && (m_set_next_ammoType_on_reload == undefined_ammo_type || m_ammoType == m_set_next_ammoType_on_reload))
-		PlayHUDMotion("anm_reload_1", TRUE, GetState());
+		PlayHUDMotion(HudAnimationExist("anm_reload_1") ? "anm_reload_1" : "anim_reload_1", TRUE, GetState());
 	else
-		PlayHUDMotion("anm_reload_2", TRUE, GetState());
+		PlayHUDMotion(HudAnimationExist("anm_reload_2") ? "anm_reload_2" : "anim_reload", TRUE, GetState());
 }
 
 shared_str CWeaponBM16::SetCurrentShootAnimation()
 {
-	shared_str anim = (HudAnimationExist("anm_shot_2") || HudAnimationExist("anm_shot_1")) ? "anm_shot" : "anm_shoot";
+	shared_str anim = (HudAnimationExist("anm_shot_2") || HudAnimationExist("anm_shot_1")) ? "anm_shot" : HudAnimationExist("anm_shoot") ? "anm_shoot" : "anim_shoot";
 	string16 new_suffix = {};
 
 	if (H_Parent() && H_Parent() == Level().CurrentControlEntity())
@@ -62,8 +62,7 @@ shared_str CWeaponBM16::SetCurrentShootAnimation()
 	}
 	else
 	{
-		xr_sprintf(new_suffix, "%s%s", anim.c_str(), "_2");
-		anim = new_suffix;
+		AddSuffixName(anim, "_2");
 	}
 
 	return anim;
@@ -94,8 +93,7 @@ shared_str CWeaponBM16::SetCurrentStateAnimation(const shared_str& first_name)
 	}
 	else
 	{
-		xr_sprintf(new_suffix, "%s%s", anim.c_str(), "_2");
-		anim = new_suffix;
+		AddSuffixName(anim, "_2");
 	}
 
 	return anim;
