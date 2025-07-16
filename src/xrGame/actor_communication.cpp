@@ -202,9 +202,6 @@ void   CActor::UpdateAvailableDialogs	(CPhraseDialogManager* partner)
 	for(u32 i = 0; i<pInvOwnerPartner->CharacterInfo().ActorDialogs().size(); i++)
 		AddAvailableDialog(pInvOwnerPartner->CharacterInfo().ActorDialogs()[i], partner);
 
-	if (EngineExternal().ClearSkyMode())
-		AddAvailableDialog("actor_break_dialog", partner);
-
 	CPhraseDialogManager::UpdateAvailableDialogs(partner);
 }
 
