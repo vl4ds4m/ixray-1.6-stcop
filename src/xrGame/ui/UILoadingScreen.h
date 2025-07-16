@@ -12,8 +12,7 @@ class UILoadingScreen :
     public CUIWindow 
 {
     CUIStatic* loadingProgressBackground;
-    CUIProgressBar* loadingProgress;
-    CUIProgressBar* loadingProgressRight;
+    CUIStatic* loadingProgress;
     CUIStatic* loadingLogo;
     CUIStatic* loadingProgressPercent;
 
@@ -21,8 +20,11 @@ class UILoadingScreen :
     CUIStatic* loadingHeader;
     CUIStatic* loadingTipNumber;
     CUIStatic* loadingTip;
-    bool rightProgressbarPresent;
-
+    bool useLegacyProgressbarMode;
+    ui_shader hShader;
+private:
+    int m_load_stage;
+    int m_max_load_stage;
 public:
     UILoadingScreen();
 
@@ -34,4 +36,5 @@ public:
     void SetLevelLogo(const char* name) const override;
     void SetStageTitle(const char* title) const override;
     void SetStageTip(const char* header, const char* tipNumber, const char* tip) const override;
+    virtual void Draw();
 };
