@@ -3,7 +3,7 @@
 #include "../../xrEngine/ILoadingScreen.h"
 #include "../../xrUI/Widgets/UIStatic.h"
 #include "../../xrUI/Widgets/UIWindow.h"
-#include "../../xrUI/Widgets/UIProgressBar.h"
+#include "../../xrUI/Widgets/UILoadingScreenProgress.h"
 
 class CApplication;
 
@@ -12,7 +12,7 @@ class UILoadingScreen :
     public CUIWindow 
 {
     CUIStatic* loadingProgressBackground;
-    CUIStatic* loadingProgress;
+    CUILoadingScreenProgress* loadingProgress;
     CUIStatic* loadingLogo;
     CUIStatic* loadingProgressPercent;
 
@@ -20,11 +20,7 @@ class UILoadingScreen :
     CUIStatic* loadingHeader;
     CUIStatic* loadingTipNumber;
     CUIStatic* loadingTip;
-    bool useLegacyProgressbarMode;
-    ui_shader hShader;
-private:
-    int m_load_stage;
-    int m_max_load_stage;
+    bool progressUnderBackground;
 public:
     UILoadingScreen();
 
