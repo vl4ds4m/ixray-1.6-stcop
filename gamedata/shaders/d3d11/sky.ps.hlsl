@@ -32,7 +32,12 @@ void main(in v2p I, out sky O)
 	float3 s1 = s_sky1.SampleLevel(smp_rtlinear, TexCoord, 0.0f).xyz;
 	float3 sky = L_sky_color.xyz * lerp(s0, s1, I.factor.w);
 
+#ifdef USE_LEGACY_SKY_TONEMAP
+	O.Color = float4(detonemap(sky * 0.66f), 0.0f);
+#else
 	O.Color = float4(PushGamma(sky), 0.0f);
+#endif
+
 	O.Velocity = I.hpos_curr.xy / I.hpos_curr.w - I.hpos_old.xy / I.hpos_old.w;
 }
 
