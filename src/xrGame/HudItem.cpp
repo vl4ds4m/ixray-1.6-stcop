@@ -131,10 +131,10 @@ void CHudItem::PlaySound(LPCSTR alias, const Fvector& position, bool allowOverla
 	m_sounds.PlaySound(alias, position, object().H_Root(), !!GetHUDmode(), false, allowOverlap);
 }
 
-void CHudItem::renderable_Render()
+void CHudItem::renderable_Render(IDSGraphManager* DM)
 {
 	UpdateXForm					();
-	BOOL _hud_render			= ::Render->get_HUD() && GetHUDmode();
+	BOOL _hud_render			= DM->get_HUD() && GetHUDmode();
 	
 	if(_hud_render  && !IsHidden())
 	{ 
@@ -143,7 +143,7 @@ void CHudItem::renderable_Render()
 	{
 		if (!object().H_Parent() || (!_hud_render && !IsHidden()))
 		{
-			on_renderable_Render		();
+			on_renderable_Render		(DM);
 			debug_draw_firedeps			();
 		}else
 		if (m_object&&object().H_Parent())
@@ -152,7 +152,7 @@ void CHudItem::renderable_Render()
 				m_object->H_Parent()->cast_inventory_owner()->attached(m_object->cast_inventory_item())) 
 				||
 				(item().BaseSlot() == INV_SLOT_3 /*|| item().BaseSlot() == INV_SLOT_2*/))
-				on_renderable_Render();
+				on_renderable_Render(DM);
 		}
 	}
 }

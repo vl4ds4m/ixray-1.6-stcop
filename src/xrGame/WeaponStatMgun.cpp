@@ -264,9 +264,9 @@ void CWeaponStatMgun::cam_Update			(float dt, float fov)
 
 }
 
-void CWeaponStatMgun::renderable_Render	()
+void CWeaponStatMgun::renderable_Render	(IDSGraphManager* DM)
 {
-	inheritedPH::renderable_Render	();
+	inheritedPH::renderable_Render	(DM);
 
 	RenderLight();
 }
