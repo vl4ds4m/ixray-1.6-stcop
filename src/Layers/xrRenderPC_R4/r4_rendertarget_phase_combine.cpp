@@ -4,6 +4,8 @@
 
 #include "../xrRender/dxEnvironmentRender.h"
 
+ENGINE_API extern bool turn_nvg; //Переместить в более подходящее место
+
 void CRenderTarget::DoAsyncScreenshot()
 {
 	//	Igor: screenshot will not have postprocess applied.
@@ -388,6 +390,7 @@ void CRenderTarget::phase_combine()
 	}
 	
 	//Aight, so here we should enable/disable nvg
+	if (turn_nvg)
 	{
 		PIX_EVENT(phase_nvg);
 		phase_nvg();
