@@ -32,6 +32,7 @@ Texture2D s_dn_a; //
 
 Texture2D s_refl;
 TextureCube s_env;
+TextureCube s_env_depth;
 
 TextureCube env_s0;
 TextureCube env_s1;
