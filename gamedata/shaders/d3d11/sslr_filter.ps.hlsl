@@ -118,9 +118,12 @@ float4 main(PSInput I) : SV_Target
 	}
 	
 	EndProj.xy = EndProj.xy * rcp(EndProj.w) * float2(0.5f, -0.5f) + 0.5f;
-
-	float4 Image = s_image.Sample(smp_rtlinear, EndProj.xy);
-	SSLRMain.w *= GetBorderAtten(EndProj.xy);
+	
+	float2 vel = s_velocity.Sample(smp_rtlinear, EndProj.xy).xy * float2(0.5f, -0.5f);
+	float2 PrevSpecularUV = saturate(EndProj.xy - vel);
+	
+	float4 Image = s_image.Sample(smp_rtlinear, PrevSpecularUV.xy);
+	SSLRMain.w *= GetBorderAtten(PrevSpecularUV);
 	Image.xyz = PopGamma(Image.xyz);
 	Image.w = L;
 	
@@ -132,8 +135,12 @@ float4 main(PSInput I) : SV_Target
 	Color.xyz *= rcp(1.00001f - Color.xyz);
 	Color.xyz = PopGamma(Color.xyz);
 	
+	Color.w = length(cubemap_depth_to_vector(SSLRMain.xyz, s_env_depth.SampleLevel(smp_linear, SSLRMain.xyz, 0.0f)));
+	
 	Image = lerp(Color, Image, SSLRMain.w);
 	SSLRMain.w = 1.0f;
+	
+	O.Hemi = lerp(saturate(O.Hemi * 20), O.Hemi, saturate(Image.w * fog_params.w + fog_params.x));
 #endif
 	
 	if(O.Depth < 0.02f) {
