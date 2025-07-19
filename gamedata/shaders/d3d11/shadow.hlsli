@@ -2,9 +2,15 @@
 #define SHADOW_H
 
 #include "common.hlsli"
+
+//Sun
+Texture2DArray<float> s_smap_sun;
+uniform float4x4 m_shadow_sun[3];
+
+//Point-spot
+Texture2D s_smap : register(ps, t0);
 uniform float4x4 m_shadow;
 
-Texture2D s_smap : register(ps, t0);
 SamplerComparisonState smp_smap;
 sampler smp_jitter;
 
@@ -16,6 +22,72 @@ Texture2D jitter1;
 #else
     #define KERNEL 1.0f
 #endif
+
+bool calc_cascades(in float3 position, in float4x4 smap_vp_matrix[3], inout int cascade_index, inout float3 smap_texcoord)
+{
+	bool is_in_bounds = false;
+
+	for(cascade_index = 0; cascade_index < 3; cascade_index++)
+	{
+		//Transform position into UV space
+		float4 temp = mul(smap_vp_matrix[cascade_index], float4(position, 1.0));
+		smap_texcoord = temp.xyz / temp.w;
+
+		//Check the bounds
+		if(all(abs(smap_texcoord.xyz - 0.5) < 0.5))
+		{
+			is_in_bounds = true;
+			break;
+		}
+	}
+	return is_in_bounds;
+}
+
+//From: https://github.com/TheRealMJP/Shadows
+float pcf_5x5(Texture2DArray<float> shadow_tex, SamplerComparisonState shadow_comp_sampler, float3 tc, float2 shadow_res, float bias, int index)
+{
+	tc.z -= bias;
+
+	float2 uv = tc.xy * shadow_res.x;
+
+    float2 base_uv = floor(uv.xy + 0.5);
+    float2 st = (uv.xy + 0.5 - base_uv.xy);
+
+    base_uv -= float2(0.5, 0.5);
+    base_uv *= shadow_res.y;
+
+	float uw0 = (4.0 - 3.0 * st.x);
+	float uw1 = 7.0;
+	float uw2 = (1.0 + 3.0 * st.x);
+
+	float u0 = (3.0 - 2.0 * st.x) / uw0 - 2;
+	float u1 = (3.0 + st.x) / uw1;
+	float u2 = st.x / uw2 + 2.0;
+
+	float vw0 = (4.0 - 3.0 * st.y);
+	float vw1 = 7.0;
+	float vw2 = (1.0 + 3.0 * st.y);
+
+	float v0 = (3.0 - 2.0 * st.y) / vw0 - 2.0;
+	float v1 = (3.0 + st.y) / vw1;
+	float v2 = st.y / vw2 + 2.0;
+
+	float sum = 0.0;
+	sum += uw0 * vw0 * shadow_tex.SampleCmpLevelZero(shadow_comp_sampler, float3(base_uv + float2(u0, v0) * shadow_res.y, index), tc.z);
+	sum += uw1 * vw0 * shadow_tex.SampleCmpLevelZero(shadow_comp_sampler, float3(base_uv + float2(u1, v0) * shadow_res.y, index), tc.z);
+	sum += uw2 * vw0 * shadow_tex.SampleCmpLevelZero(shadow_comp_sampler, float3(base_uv + float2(u2, v0) * shadow_res.y, index), tc.z);
+
+	sum += uw0 * vw1 * shadow_tex.SampleCmpLevelZero(shadow_comp_sampler, float3(base_uv + float2(u0, v1) * shadow_res.y, index), tc.z);
+	sum += uw1 * vw1 * shadow_tex.SampleCmpLevelZero(shadow_comp_sampler, float3(base_uv + float2(u1, v1) * shadow_res.y, index), tc.z);
+	sum += uw2 * vw1 * shadow_tex.SampleCmpLevelZero(shadow_comp_sampler, float3(base_uv + float2(u2, v1) * shadow_res.y, index), tc.z);
+
+	sum += uw0 * vw2 * shadow_tex.SampleCmpLevelZero(shadow_comp_sampler, float3(base_uv + float2(u0, v2) * shadow_res.y, index), tc.z);
+	sum += uw1 * vw2 * shadow_tex.SampleCmpLevelZero(shadow_comp_sampler, float3(base_uv + float2(u1, v2) * shadow_res.y, index), tc.z);
+	sum += uw2 * vw2 * shadow_tex.SampleCmpLevelZero(shadow_comp_sampler, float3(base_uv + float2(u2, v2) * shadow_res.y, index), tc.z);
+
+	return sum / 144.0;
+}
+
 
 float4 sm_gather(float2 tc, int2 offset)
 {
