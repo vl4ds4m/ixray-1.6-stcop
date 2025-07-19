@@ -118,12 +118,9 @@ float4 main(PSInput I) : SV_Target
 	}
 	
 	EndProj.xy = EndProj.xy * rcp(EndProj.w) * float2(0.5f, -0.5f) + 0.5f;
-	
-	float2 vel = s_velocity.Sample(smp_rtlinear, EndProj.xy).xy * float2(0.5f, -0.5f);
-	float2 PrevSpecularUV = saturate(EndProj.xy - vel);
-	
-	float4 Image = s_image.Sample(smp_rtlinear, PrevSpecularUV.xy);
-	SSLRMain.w *= GetBorderAtten(PrevSpecularUV);
+
+	float4 Image = s_image.Sample(smp_rtlinear, EndProj.xy);
+	SSLRMain.w *= GetBorderAtten(EndProj.xy);
 	Image.xyz = PopGamma(Image.xyz);
 	Image.w = L;
 	
