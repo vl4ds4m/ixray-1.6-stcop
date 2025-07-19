@@ -136,6 +136,9 @@ private:
 	ref_rt						rt_smaa_edgetex;
 	ref_rt						rt_smaa_blendtex;
 
+	ref_rt						rt_ssgi;
+	ref_rt						rt_ssgi_old;
+
 	ref_rt						rt_sslr;
 	ref_rt						rt_sslr_temp;
 	ref_rt						rt_sslr_old;
@@ -270,6 +273,7 @@ public:
 	void						phase_cas				();
 	void						phase_gtao				();
 	void						phase_sslr				();
+	void						phase_ssgi				();
 	void						phase_vslr_combine		();
 
 	void						phase_puddles			();
