@@ -32,7 +32,7 @@ float4 main(PSInput I) : SV_Target
 	float Shadow = 1.0;
 
 	if(is_in_bounds)
-		Shadow = pcf_5x5(s_smap_sun, smp_smap, smap_texcoord, float2(SMAP_size, 1.0 / SMAP_size), 0.0, cascade_index);
+		Shadow = shadow_sun(smap_texcoord, cascade_index);
 
 	//Hozar's far cascade tricks!
 	if(cascade_index == 2)
