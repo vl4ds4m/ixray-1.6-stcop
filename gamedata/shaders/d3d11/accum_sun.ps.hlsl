@@ -36,7 +36,7 @@ float4 main(PSInput I) : SV_Target
 
 	//Hozar's far cascade tricks!
 	//Imperfect port, fix it later.
-	if(cascade_index == 3 && I.texcoord.x < 0.5)
+	if(cascade_index == 3)
 	{
 		float3 Factor = smoothstep(0.5f, 0.45f, abs(smap_texcoord - 0.5f));
 		float Fade = Factor.x * Factor.y * Factor.z;
