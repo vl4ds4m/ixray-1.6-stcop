@@ -438,6 +438,8 @@ CRenderTarget::CRenderTarget()
 		DisplayRT(rt_ssgi);
 		DisplayRT(rt_ssao_temp);
 		DisplayRT(rt_Velocity);
+		DisplayRT(rt_Reflection);
+		DisplayRT(rt_Reflection_Depth);
 
 #undef DisplayRT
 
@@ -531,11 +533,13 @@ CRenderTarget::CRenderTarget()
 
 	if(RImplementation.o.offscreen_reflecitons)
 	{
-		u32 RefSize = 256;
-		auto flags = CRT::CRTCreationFlags::MIPPED_RT_FLAG;
+		u32 RefSize = 256, OctReflectinSize = 512;
+		auto flags = CRT::CRTCreationFlags::AUTOMIP_RT_FLAG;
 
 		//LVutner: I'm not sure if we really need to apply previous frame reflections in forward... TBD: Remove temp cubemap
-		rt_Reflection.create(r2_RT_env, RefSize, DxgiFormat::DXGI_FORMAT_R11G11B10_FLOAT, flags);
+		rt_Reflection.create(r2_RT_env, OctReflectinSize, OctReflectinSize, DxgiFormat::DXGI_FORMAT_R10G10B10A2_UNORM, 1, flags);
+		rt_Reflection_Depth.create(r2_RT_env_depth, OctReflectinSize, OctReflectinSize, DxgiFormat::DXGI_FORMAT_R24G8_TYPELESS);
+
 		rt_Reflection_temp.create(r2_RT_env_temp, RefSize, DxgiFormat::DXGI_FORMAT_R11G11B10_FLOAT);
 
 		//LVutner: Create everything by hand. CRT/CRTC sucks.
@@ -572,7 +576,7 @@ CRenderTarget::CRenderTarget()
 			}
 
 			//Now bind create SRV for it
-			cubemap_zbuffer.create(r2_RT_env_depth);
+			cubemap_zbuffer.create(r2_RT_env_depth"1");
 			cubemap_zbuffer->surface_set(cubemap_zbuffer_tex);
 		}
 	}

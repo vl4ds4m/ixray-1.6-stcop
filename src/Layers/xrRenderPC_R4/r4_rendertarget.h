@@ -68,8 +68,10 @@ public:
 	ref_rt						rt_SurfaceTemp;
 	ref_rt						rt_Velocity;
 
-	ref_rtc						rt_Reflection;
 	ref_rtc						rt_Reflection_temp;
+
+	ref_rt						rt_Reflection;
+	ref_rt						rt_Reflection_Depth;
 
 	ID3DTexture2D*				cubemap_zbuffer_tex;
 	ID3D11DepthStencilView*		cubemap_zbuffer_dsv[6];

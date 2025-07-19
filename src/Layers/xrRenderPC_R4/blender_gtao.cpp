@@ -109,13 +109,13 @@ void CBlender_gtao::Compile(CBlender_Compile& C)
 
         break;
     case 5:
-        C.r_Pass("stub_fullscreen_triangle", "vslr_combine", FALSE, FALSE, FALSE);
+        C.r_Pass("stub_fullscreen_triangle", "vslr_combine", false, FALSE, TRUE);
 
         C.r_dx10Texture("sky_s0", r2_T_sky0);
         C.r_dx10Texture("sky_s1", r2_T_sky1);
 
-        C.r_dx10Texture("s_env_depth", r2_RT_env_depth);
-        C.r_dx10Texture("s_env", r2_RT_env_temp);
+        C.r_dx10Texture("s_cube_depth", r2_RT_env_depth"1");
+        C.r_dx10Texture("s_cube", r2_RT_env_temp);
 
         C.r_dx10Sampler("smp_linear");
         C.r_dx10Sampler("smp_rtlinear");

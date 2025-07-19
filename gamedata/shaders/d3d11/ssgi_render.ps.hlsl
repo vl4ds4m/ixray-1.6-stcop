@@ -70,7 +70,7 @@ float4 main(PSInput I) : SV_Target
 		float Weight = 1; //length(Sample); //length(LastSample - Sample);
 		
 		if(Delta >= MaxDelta && rcp(Scale) > 0.01f) {
-			float3 envColor = s_env.SampleLevel(smp_rtlinear, Sample, 0).xyz;
+			float3 envColor = s_env.SampleLevel(smp_rtlinear, NormalEncode(-Sample), 0).xyz;
 			envColor *= rcp(1.00001f - envColor);
 			envColor.xyz = PopGamma(envColor.xyz);
 

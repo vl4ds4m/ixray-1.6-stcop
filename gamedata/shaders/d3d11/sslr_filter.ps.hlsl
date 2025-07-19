@@ -80,7 +80,8 @@ float4 main(PSInput I) : SV_Target
 	
 	float4 SSLR4 = s_refl.SampleLevel(smp_nofilter, I.texcoord, 0);
 
-	if(O.Depth >= 1.0f) {
+	if(O.Depth >= 1.0f)
+	{
 		float4 Enviroment = CompureSpecularIrradance(O.View, 0.5f, 0.35f).xyzz;
 		Enviroment.w = 0.0f;
 		
@@ -97,7 +98,7 @@ float4 main(PSInput I) : SV_Target
 	float4 SSLR7 = s_refl.SampleLevel(smp_nofilter, I.texcoord, 0, int2(-1, -1));
 	float4 SSLR8 = s_refl.SampleLevel(smp_nofilter, I.texcoord, 0, int2(-1, -1));
 	
-	float4 SSLRMain = median9(SSLR0, SSLR1, SSLR2, SSLR3, SSLR4, SSLR5, SSLR6, SSLR7, SSLR8);
+	float4 SSLRMain = SSLR4; //median9(SSLR0, SSLR1, SSLR2, SSLR3, SSLR4, SSLR5, SSLR6, SSLR7, SSLR8);
 	float Lod = 0.0f;
 	
 	float L = O.ViewDist + length(SSLRMain.xyz);
@@ -131,11 +132,8 @@ float4 main(PSInput I) : SV_Target
 	O.Roughness = 0.0f;
 #endif
 	
-	float4 Enviroment = CompureSpecularIrradance(SSLRMain.xyz, O.Hemi, O.Roughness).xyzz;
-	Enviroment.w = fog_params.z;
-	
 #ifdef USE_OFFSCREEN_REFLECTIONS
-	float4 Color = s_env.SampleLevel(smp_linear, SSLRMain.xyz, Lod);
+	float4 Color = s_env.SampleLevel(smp_rtlinear, NormalEncode(-SSLRMain.xyz), Lod);
 	Color.xyz *= rcp(1.00001f - Color.xyz);
 	Color.xyz = PopGamma(Color.xyz);
 	
@@ -146,6 +144,9 @@ float4 main(PSInput I) : SV_Target
 	
 	O.Hemi = lerp(saturate(O.Hemi * 20), O.Hemi, saturate(Image.w * fog_params.w + fog_params.x));
 #endif
+
+	float4 Enviroment = CompureSpecularIrradance(SSLRMain.xyz, 1, O.Roughness).xyzz;
+	Enviroment.w = fog_params.z;
 	
 	if(O.Depth < 0.02f) {
 		L = Image.w;

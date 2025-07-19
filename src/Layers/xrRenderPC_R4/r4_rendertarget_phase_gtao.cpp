@@ -188,8 +188,6 @@ void CRenderTarget::phase_vslr_combine()
 	RCache.Vertex.Unlock(3, g_combine->vb_stride);
 
 	RCache.set_Element(s_gtao->E[5]);
-
-	RCache.set_c("m_View", Device.mView);
 	RCache.set_Geometry(g_combine);
 
 	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 3, 0, 1);

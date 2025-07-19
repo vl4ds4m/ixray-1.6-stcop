@@ -80,9 +80,12 @@ float4 main(PSInput I) : SV_Target
 	
 	float4 SSLR4 = s_image.SampleLevel(smp_nofilter, I.texcoord, 0);
 	
-	if(O.Depth >= 1.0f) {
+	if(O.Depth >= 1.0f)
+	{
 		return float4(SSLR4.xyz, O.Depth);
 	}
+	
+	O.Roughness = 0.0f;
 	
 	float4 SSLR0 = s_image.SampleLevel(smp_nofilter, I.texcoord, 0, int2(+1, +0));
 	float4 SSLR1 = s_image.SampleLevel(smp_nofilter, I.texcoord, 0, int2(-0, +1));

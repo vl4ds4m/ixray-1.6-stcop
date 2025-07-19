@@ -56,7 +56,7 @@ float4 main(PSInput I) : SV_Target
 	// O.Normal.xyz = normalize(O.Normal.xyz);	
 	
 	float3 Enviroment = reflect(O.View, O.Normal) * fog_params.z;
-	O.Roughness = O.Roughness * 0.85f + 0.15f;
+	O.Roughness = O.Roughness * 0.95f + 0.05f;
 	
 #ifdef USE_VASYAN_CUTOFF
 	// O.Roughness = min(O.Roughness, 0.5f);
@@ -74,8 +74,8 @@ float4 main(PSInput I) : SV_Target
 	float2 Jitter = s_blue_noise[uint3(uint2(I.hpos.xy) % 128, uint(m_taa_jitter.w) % 32)].xy;
 	Jitter.y *= 0.5f; // Bias like screen space stochastic reflections 2015
 	
-	// O.Normal.xyz = normalize(cross(ddx(O.PointReal.xyz), ddy(O.PointReal.xyz)));
-	float4 H = ImportanceSampleGGX(O.Normal, Jitter, O.Roughness);
+	O.Normal.xyz = normalize(cross(ddx(O.PointReal.xyz), ddy(O.PointReal.xyz)));
+	float4 H = ImportanceSampleGGX(O.Normal, Jitter, 0.1f);
 	
 	// H.xyz = normalize(cross(ddx(O.PointReal.xyz), ddy(O.PointReal.xyz)));
 	// H.xyz = O.Normal;
@@ -97,7 +97,7 @@ float4 main(PSInput I) : SV_Target
 		
 #ifdef USE_OFFSCREEN_REFLECTIONS
 		float4 VSLR = FastViewReflections(StartPoint, RefRef);
-		Enviroment.xyz = lerp(Enviroment, VSLR.xyz, VSLR.w);
+		Enviroment.xyz = VSLR.xyz; //lerp(Enviroment, VSLR.xyz, VSLR.w);
 #endif
 	}
 	

@@ -66,7 +66,7 @@ void BinaryRefinement(inout float3 EndProj, inout float HitDepth, float3 Reflect
 		Reflect *= 0.5f;
 		EndProj += vector_to_cubemap_depth(EndProj) > HitDepth ? -Reflect : Reflect;
 		
-		HitDepth = s_env_depth.SampleLevel(smp_nofilter, EndProj.xyz, 0).x;
+		HitDepth = s_env_depth.SampleLevel(smp_nofilter, NormalEncode(-EndProj.xyz), 0).x;
 	}
 }
 
@@ -114,7 +114,7 @@ float4 FastViewReflections(float3 Point, float3 Reflect)
 		
 		SamplePoint.xyz = Point.xyz + Reflect * L;
 		
-		HitDepth = s_env_depth.SampleLevel(smp_nofilter, SamplePoint.xyz, 0).x;
+		HitDepth = s_env_depth.SampleLevel(smp_nofilter, NormalEncode(-SamplePoint.xyz), 0).x;
 
 		Delta = vector_to_cubemap_depth(SamplePoint) - HitDepth;
 		

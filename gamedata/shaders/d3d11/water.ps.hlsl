@@ -66,13 +66,13 @@ float4 main(vf I, float4 pos2d : SV_POSITION) : SV_Target
 		float Fog = saturate(length(vslr.xyz) * fog_params.w + fog_params.x);
 		vslr.w *= 1.f - Fog * Fog;
 		
-		vslr.xyz = s_env.SampleLevel(smp_rtlinear, vslr.xyz, 0.0f);
+		vslr.xyz = s_env.SampleLevel(smp_rtlinear, NormalEncode(-vslr.xyz), 0.0f);
 		vslr.xyz *= rcp(1.00001f - vslr.xyz);
 	#endif
 #else
 	#ifdef USE_OFFSCREEN_REFLECTIONS
 		float3 Reflect = mul((float3x3)m_V, vreflect);
-		float4 vslr = s_env.SampleLevel(smp_rtlinear, Reflect.xyz, 0.0f);
+		float4 vslr = s_env.SampleLevel(smp_rtlinear, NormalEncode(-Reflect.xyz), 0.0f);
 		vslr.xyz *= rcp(1.00001f - vslr.xyz);
 		
 		float Fog = saturate(vslr.w * fog_params.w + fog_params.x);

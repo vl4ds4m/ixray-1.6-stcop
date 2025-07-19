@@ -418,7 +418,7 @@ void CRender::Render()
 		static Fvector cmNorm[6]{}, cmDir[6]{};
 
 		auto& CurrentEnv = *g_pGamePersistent->Environment().CurrentEnv;
-		u32 RefSize = Target->rt_Reflection->dwSize;
+		u32 RefSize = Target->rt_Reflection_temp->dwSize;
 
 		cProj.build_projection(PI_DIV_2 + 0.002f, 1.0f,
 			Device.fViewportNear, CurrentEnv.far_plane * ps_r4_vslr_distance);
@@ -475,20 +475,15 @@ void CRender::Render()
 			r_dsgraph_render_graph(0);
 		}
 
-		for (auto i = 0; i < 6; ++i)
-		{
-			RCache.set_xform_view(cView[i]);
-
-			Target->u_setrt(RefSize, RefSize, Target->rt_Reflection->pRT[i], NULL, NULL, NULL);
-
-			RImplementation.rmNormal();
-			Target->phase_vslr_combine();
-		}
-
-		RContext->GenerateMips(Target->rt_Reflection->pTexture->get_SRView());
-
 		RCache.set_xform_project(Device.mProject);
 		RCache.set_xform_view(Device.mView);
+
+		Target->u_setrt(Target->rt_Reflection, NULL, Target->rt_Reflection_Depth->pZRT);
+
+		RImplementation.rmNormal();
+		Target->phase_vslr_combine();
+
+		RContext->GenerateMips(Target->rt_Reflection->pTexture->get_SRView());
 
 		is_render_cubemap = false;
 		phase = PHASE_NORMAL;
