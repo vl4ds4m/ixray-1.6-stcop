@@ -16,6 +16,7 @@
 #include "blender_cas.h"
 #include "blender_gtao.h"
 #include "blender_taa.h"
+#include "blender_nvg.h"
 #include "../xrRenderDX10/DX10 Rain/dx10RainBlender.h"
 #include "../xrRender/blender_fxaa.h"
 #include "../xrRender/blender_smaa.h"
@@ -594,6 +595,12 @@ CRenderTarget::CRenderTarget()
 		rt_Generic_0_prev.create(r2_RT_generic0_prev, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT);	
 	}
 
+	//NVG
+	{
+		b_nvg = new CBlender_nvg();
+		s_nvg.create(b_nvg);
+	}
+
 	// OCCLUSION
 	s_occq.create(b_occq, "r2\\occq");
 
@@ -952,6 +959,7 @@ CRenderTarget::~CRenderTarget	()
 	xr_delete(b_cas);
 	xr_delete(b_gtao);
 	xr_delete(b_taa);
+	xr_delete(b_nvg);
 
 	g_Fsr2Wrapper.Destroy();
 	g_DLSSWrapper.Destroy();

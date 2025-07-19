@@ -45,6 +45,7 @@ public:
 	IBlender*					b_cas;
 	IBlender*					b_gtao;
 	IBlender*					b_taa;
+	IBlender*					b_nvg;
 
 #ifdef DEBUG
 	struct		dbg_line_t		{
@@ -121,6 +122,7 @@ private:
 	ref_shader					s_gtao;
 	ref_shader					s_puddles;
 	ref_shader					s_taa;
+	ref_shader					s_nvg;
 
 	// OCCq
 	ref_shader					s_occq;
@@ -263,6 +265,8 @@ public:
 	void						phase_cas				();
 	void						phase_gtao				();
 	void						phase_sslr				();
+
+	void						phase_nvg				();
 
 	void						phase_puddles			();
 
