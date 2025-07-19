@@ -963,14 +963,16 @@ CRenderTarget::~CRenderTarget	()
 	_RELEASE					(t_ss_async);
 
 	//D3D11
-	cubemap_zbuffer->surface_set(nullptr);
-	_RELEASE(cubemap_zbuffer_tex);
-
-	for(auto i = 0; i < 6; ++i)
+	if (cubemap_zbuffer != nullptr)
 	{
-		_RELEASE(cubemap_zbuffer_dsv[i]);
-	}
+		cubemap_zbuffer->surface_set(nullptr);
+		_RELEASE(cubemap_zbuffer_tex);
 
+		for(auto i = 0; i < 6; ++i)
+		{
+			_RELEASE(cubemap_zbuffer_dsv[i]);
+		}
+	}
 	rt_smap_depth_sun->surface_set(nullptr);
 	_RELEASE(rt_smap_depth_sun_tex);
 
