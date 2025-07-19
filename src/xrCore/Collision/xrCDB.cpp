@@ -66,7 +66,6 @@ void MODEL::build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callbac
 {
 	// verts
 	status = S_BUILD;
-	xrCriticalSectionGuard guard(&cs);
 	verts_count = Vcnt;
 	verts = xr_alloc<Fvector>(verts_count);
 	CopyMemory(verts, V, verts_count * sizeof(Fvector));
