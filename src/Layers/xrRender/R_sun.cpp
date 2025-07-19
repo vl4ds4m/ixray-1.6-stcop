@@ -71,11 +71,11 @@ void CRender::render_sun_cascades()
 		render_sun_cascade ( i );
 #else
 	//Set viewport for shadow rendering
-	D3D11_VIEWPORT viewport[1] =
+	D3D11_VIEWPORT viewport =
 	{
 		0.f, 0.f, (float)RImplementation.o.smapsize, (float)RImplementation.o.smapsize, 0.f, 1.f
 	};
-	RContext->RSSetViewports(1, viewport);
+	RContext->RSSetViewports(1, &viewport);
 
 	//Fill shadow array
 	for( u32 i = 0; i < m_sun_cascades.size(); ++i )
@@ -89,11 +89,9 @@ void CRender::render_sun_cascades()
 	RCache.set_xform_project(Device.mProject);
 
 	//Restore viewport
-	viewport[1] =
-	{
-	0.f, 0.f, (float)RCache.get_width(), (float)RCache.get_height(), 0.f, 1.f
-	};
-	RContext->RSSetViewports(1, viewport);
+	viewport.Width = (float)RCache.get_width();
+	viewport.Height = (float)RCache.get_height();
+	RContext->RSSetViewports(1, &viewport);
 
 	//Draw direct shading
 	Target->accum_direct_cascade();
