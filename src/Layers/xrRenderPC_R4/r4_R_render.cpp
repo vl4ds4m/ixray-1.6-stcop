@@ -692,7 +692,7 @@ void CRender::Render()
 #pragma todo("Hozar 2 Drombeyz: add comman or external")
 	if(1)
 	{
-		PIX_EVENT(PhaseWinter);
+		GPU_EVENT(PhaseWinter);
 
 		RContext->CopyResource(Target->rt_NormalTemp->pSurface, Target->rt_Normal->pSurface);
 		RContext->CopyResource(Target->rt_SurfaceTemp->pSurface, Target->rt_Surface->pSurface);
