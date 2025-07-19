@@ -34,6 +34,19 @@ float4 main(PSInput I) : SV_Target
 	if(is_in_bounds)
 		Shadow = pcf_5x5(s_smap_sun, smp_smap, smap_texcoord, float2(SMAP_size, 1.0 / SMAP_size), 0.0, cascade_index);
 
+	//Hozar's far cascade tricks!
+	//Imperfect port, fix it later.
+	if(cascade_index == 3 && I.texcoord.x < 0.5)
+	{
+		float3 Factor = smoothstep(0.5f, 0.45f, abs(smap_texcoord - 0.5f));
+		float Fade = Factor.x * Factor.y * Factor.z;
+
+		O.SSS *= 0.5f + 0.5f * Fade;	
+		float FarShadow = dot(Ldynamic_dir.xyz, O.Normal.xyz);
+		FarShadow = smoothstep(0.75f, 0.6f, FarShadow) * saturate(O.Hemi * 8.0f - 2.0f);
+		Shadow = lerp(FarShadow, Shadow, Fade);
+	}
+
 	//Eval BRDF
     float3 Light = DirectLight(Ldynamic_color, Ldynamic_dir.xyz, O.Normal, O.View.xyz, O.Color, O.Metalness, O.Roughness, O.F0);
     Light += SimpleTranslucency(Ldynamic_color.xyz, Ldynamic_dir.xyz, O.Normal) * O.SSS * O.Color;
