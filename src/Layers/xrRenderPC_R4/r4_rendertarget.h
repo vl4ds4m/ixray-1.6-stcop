@@ -75,6 +75,10 @@ public:
 	ID3D11DepthStencilView*		cubemap_zbuffer_dsv[6];
 	ref_texture					cubemap_zbuffer;
 
+	ID3DTexture2D*				rt_smap_depth_sun_tex;
+	ID3D11DepthStencilView*		rt_smap_depth_sun_dsv[3];
+	ref_texture					rt_smap_depth_sun;
+
 	// 
 	ref_rt						rt_Accumulator;		// 64bit		(r,g,b,specular)
 	ref_rt						rt_Generic_0;		// 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
