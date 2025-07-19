@@ -60,12 +60,13 @@ void MODEL::build(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, vo
 	R_ASSERT((Vcnt >= 4) && (Tcnt >= 2));
 
 	build_internal(V, Vcnt, T, Tcnt, bc, bcp, pRW, RWMode);
-	status = S_READY;
 }
 
 void MODEL::build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, void* bcp, void* pRW, bool RWMode)
 {
 	// verts
+	status = S_BUILD;
+	xrCriticalSectionGuard guard(&cs);
 	verts_count = Vcnt;
 	verts = xr_alloc<Fvector>(verts_count);
 	CopyMemory(verts, V, verts_count * sizeof(Fvector));
@@ -87,6 +88,7 @@ void MODEL::build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callbac
 		if (tree->Restore(pReader))
 		{
 			Msg("* Level collision DB cache found...");
+			status = S_READY;
 			return;
 		}
 		else
@@ -97,14 +99,13 @@ void MODEL::build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callbac
 	}
 
 	CreateNewTree(RWMode ? nullptr : (IWriter*)pRW);
+
+	status = S_READY;
 }
 
 
 void CDB::MODEL::CreateNewTree(IWriter* pCache)
 {
-	// Release data pointers
-	status = S_BUILD;
-
 	// Allocate temporary "OPCODE" tris + convert tris to 'pointer' form
 	u32* temp_tris = xr_alloc<u32>(tris_count * 3);
 	if (0 == temp_tris) {
