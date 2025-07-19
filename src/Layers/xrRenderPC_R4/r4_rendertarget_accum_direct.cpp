@@ -94,85 +94,48 @@ void CRenderTarget::accum_direct_cascade()
 	RCache.set_Geometry(g_combine);
 	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 3, 0, 1);
 
-	//	if ((ps_r_sun_shafts>0))
-	//		accum_direct_volumetric(sub_phase, Offset, i_offset, m_shadow);
+	if(ps_r_sun_shafts > 0)
+		accum_direct_volumetric();
 }
 
-void CRenderTarget::accum_direct_volumetric(u32 sub_phase, const u32, const u32 i_offset, const Fmatrix &mShadow)
+void CRenderTarget::accum_direct_volumetric()
 {
 	GPU_EVENT(accum_direct_volumetric);
 
 	if (!need_to_render_sunshafts())
 		return;
 
+	light* fuckingsun = (light*)RImplementation.Lights.sun_adapted._get();
+
+	Fvector L_clr;
+	L_clr.set(fuckingsun->color.r, fuckingsun->color.g, fuckingsun->color.b);
+		
+	Fvector L_dir;
+	L_clr.set(fuckingsun->color.r, fuckingsun->color.g, fuckingsun->color.b);
+
+	Device.mView.transform_dir(L_dir, fuckingsun->direction);
+	L_dir.normalize();
+
 	phase_vol_accumulator();
 	RCache.set_ColorWriteEnable();
 
-	u32 Offset;
-	u32 C = color_rgba(255, 255, 255, 255);
-	float _w = float(dwWidth);
-	float _h = float(dwHeight);
-	Fvector2 p0, p1;
-	p0.set(.5f / _w, .5f / _h);
-	p1.set((_w + .5f) / _w, (_h + .5f) / _h);
-	float d_Z = EPS_S, d_W = 1.f;
+	u32 Offset = 0;
+    constexpr u32 vertex_color = color_rgba(0, 0, 0, 255);
 
-	// Fill vertex buffer
-	FVF::TL2uv* pv = (FVF::TL2uv*)RCache.Vertex.Lock(4, g_combine_2UV->vb_stride, Offset);
-	pv->set(-1, -1, 0, d_W, C, 0, 1, 0, 0);	pv++;
-	pv->set(-1, 1, d_Z, d_W, C, 0, 0, 0, 0); pv++;
-	pv->set(1, -1, d_Z, d_W, C, 1, 1, 0, 0); pv++;
-	pv->set(1, 1, d_Z, d_W, C, 1, 0, 0, 0);	pv++;
-	RCache.Vertex.Unlock(4, g_combine_2UV->vb_stride);
-	RCache.set_Geometry(g_combine_2UV);
+	FVF::TL* pv = (FVF::TL*)RCache.Vertex.Lock(3, g_combine->vb_stride, Offset);
+	pv->set(-1.0, 1.0, 1.0, 1.0, vertex_color, 0.0, 0.0);
+	pv++;
+	pv->set(3.0, 1.0, 1.0, 1.0, vertex_color, 2.0, 0.0);
+	pv++;
+	pv->set(-1.0, -3.0, 1.0, 1.0, vertex_color, 0.0, 2.0);
+	pv++;
+	RCache.Vertex.Unlock(3, g_combine->vb_stride);
 
-	ref_selement Element = s_accum_direct_volumetric->E[0];
+	RCache.set_Element(s_accum_direct_volumetric->E[0]);
 
-	// Perform lighting
-	{
-		light* fuckingsun = (light*)RImplementation.Lights.sun_adapted._get();
+	RCache.set_c("Ldynamic_dir", L_dir.x, L_dir.y, L_dir.z, 0);
+	RCache.set_c("Ldynamic_color", L_clr.x, L_clr.y, L_clr.z, 0);
 
-		Fvector L_clr;
-		L_clr.set(fuckingsun->color.r, fuckingsun->color.g, fuckingsun->color.b);
-		
-		Fvector L_dir;
-		L_clr.set(fuckingsun->color.r, fuckingsun->color.g, fuckingsun->color.b);
-		Device.mView.transform_dir(L_dir, fuckingsun->direction);
-		L_dir.normalize();
-
-		RCache.set_Element(Element);
-		RCache.set_CullMode(CULL_CCW);
-		RCache.set_c("Ldynamic_dir", L_dir.x, L_dir.y, L_dir.z, 0);
-		RCache.set_c("Ldynamic_color", L_clr.x, L_clr.y, L_clr.z, 0);
-		RCache.set_c("m_shadow", mShadow);
-
-		Fmatrix m_Texgen;
-		m_Texgen.identity();
-
-		RCache.xforms.set_W(m_Texgen);
-		RCache.xforms.set_V(Device.mView);
-		RCache.xforms.set_P(Device.mProject);
-		u_compute_texgen_screen(m_Texgen);
-
-		RCache.set_c ("m_texgen", m_Texgen);
-
-		// nv-DBT
-		float zMin = 0, zMax = ps_r2_sun_far;
-
-		RCache.set_c("volume_range", zMin, zMax, 0, 0);
-
-		Fvector	center_pt = {};
-
-		center_pt.mad(Device.vCameraPosition, Device.vCameraDirection, zMin);
-		Device.mFullTransform.transform(center_pt);
-		zMin = center_pt.z;
-
-		center_pt.mad(Device.vCameraPosition, Device.vCameraDirection, zMax);
-		Device.mFullTransform.transform(center_pt);
-		zMax = center_pt.z;
-
-		RCache.set_ZFunc(D3DCMP_ALWAYS);
-
-		RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
-	}
+	RCache.set_Geometry(g_combine);
+	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 3, 0, 1);
 }
