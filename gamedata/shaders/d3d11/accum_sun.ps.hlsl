@@ -35,8 +35,7 @@ float4 main(PSInput I) : SV_Target
 		Shadow = pcf_5x5(s_smap_sun, smp_smap, smap_texcoord, float2(SMAP_size, 1.0 / SMAP_size), 0.0, cascade_index);
 
 	//Hozar's far cascade tricks!
-	//Imperfect port, fix it later.
-	if(cascade_index == 3)
+	if(cascade_index == 2)
 	{
 		float3 Factor = smoothstep(0.5f, 0.45f, abs(smap_texcoord - 0.5f));
 		float Fade = Factor.x * Factor.y * Factor.z;
