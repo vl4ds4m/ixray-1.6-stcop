@@ -674,13 +674,8 @@ void CScriptGameObject::StartTrade(CScriptGameObject* obj)
 	if (!pOtherOwner)
 		return;
 
-	CUIActorMenu& ActorMenu = CurrentGameUI()->ActorMenu();
-
-	ActorMenu.SetActor(pActorInv);
-	ActorMenu.SetPartner(pOtherOwner);
-
-	ActorMenu.SetMenuMode(mmTrade);
-	ActorMenu.ShowDialog(true);
+	if (CurrentGameUI())
+		CurrentGameUI()->StartTrade(pActorInv, pOtherOwner);
 }
 
 void CScriptGameObject::StartUpgrade(CScriptGameObject* obj)
@@ -697,13 +692,8 @@ void CScriptGameObject::StartUpgrade(CScriptGameObject* obj)
 	if (!pOtherOwner)
 		return;
 
-	CUIActorMenu& ActorMenu = CurrentGameUI()->ActorMenu();
-
-	ActorMenu.SetActor(pActorInv);
-	ActorMenu.SetPartner(pOtherOwner);
-
-	ActorMenu.SetMenuMode(mmUpgrade);
-	ActorMenu.ShowDialog(true);
+	if (CurrentGameUI())
+		CurrentGameUI()->StartUpgrade(pActorInv, pOtherOwner);
 }
 
 void CScriptGameObject::PhantomSetEnemy(CScriptGameObject* enemy)
