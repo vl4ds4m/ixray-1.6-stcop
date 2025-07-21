@@ -25,7 +25,14 @@ public:
 			void	SetInfo					(CInventoryItem& pInvItem);
 
 protected:
-	UIArtefactParamItem*	m_immunity_item[ALife::infl_max_count];
+    UIArtefactParamItem* CreateItem(CUIXml& uiXml, pcstr section,
+        shared_str translationId, shared_str translationId2 = nullptr);
+	
+    UIArtefactParamItem* CreateItem(CUIXml& uiXml, pcstr section,
+        float magnitude, bool isSignInverse, const shared_str& unit,
+        shared_str translationId, shared_str translationId2 = nullptr);
+
+	UIArtefactParamItem*	m_immunity_item[ALife::eHitTypeWound_2];
 	UIArtefactParamItem*	m_restore_item[ALife::eRestoreTypeMax];
 	UIArtefactParamItem*	m_disp_condition;
 	UIArtefactParamItem*	m_additional_weight;
@@ -37,45 +44,33 @@ protected:
 
 	bool is_artefact() const { return object_type == CParamType::eParamTypeArtefact; }
 
-protected: // SoC
-	enum {
-		_item_start = 0,
-		_item_health_restore_speed = _item_start,
-		_item_radiation_restore_speed,
-		_item_satiety_restore_speed,
-		_item_power_restore_speed,
-		_item_bleeding_restore_speed,
-
-		_max_item_index1,
-
-		_item_burn_immunity = _max_item_index1,
-		_item_strike_immunity,
-		_item_shock_immunity,
-		_item_wound_immunity,
-		_item_radiation_immunity,
-		_item_telepatic_immunity,
-		_item_chemical_burn_immunity,
-		_item_explosion_immunit,
-		_item_fire_wound_immunity,
-
-		_max_item_index,
-
-	};
-	CUIStatic* m_info_items[_max_item_index];
 }; // class CUIArtefactParams
 
 // -----------------------------------
 
-class UIArtefactParamItem : public CUIWindow
+class UIArtefactParamItem : public CUIStatic
 {
 public:
 				UIArtefactParamItem	();
 	virtual		~UIArtefactParamItem();
 		
-		void	Init				( CUIXml& xml, LPCSTR section );
+    enum class InitResult
+    {
+        Failed,
+        Normal,
+        Plain
+    };
+
+	InitResult	Init				( CUIXml& xml, LPCSTR section );
+
+		void	SetDefaultValuesPlain(float magnitude, bool isSignInverse, const shared_str& unit);
 		void	SetCaption			( LPCSTR name );
 		void	SetValue			( float value );
-	
+		bool	GetLegacyMode		() { return !(m_caption->IsShown() && m_value->IsShown()); }
+
+protected:
+	InitResult	InitPlain			(CUIXml& xml, pcstr section);
+
 private:
 	CUIStatic*	m_caption;
 	CUITextWnd*	m_value;
