@@ -18,6 +18,8 @@ enum
 	TORCH_SLOT,		// torch
 	ARTEFACT_SLOT,	// artefact
 	HELMET_SLOT,
+	
+	PISTOL_SLOT_NEW,
 
 	CUSTOM_SLOT_1,
 	CUSTOM_SLOT_2,
