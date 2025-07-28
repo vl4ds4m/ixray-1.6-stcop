@@ -22,8 +22,7 @@ using Implicit_it = Implicit::iterator;
 #	include "CUDA/CUDARayCast.h"
 #endif
 
-class ImplicitThread :
-	public CThread
+class ImplicitThread : public CThread
 {
 public:
 
@@ -44,9 +43,11 @@ void ImplicitThread::Execute()
 }
 
 // 2 : Mainthread + UI thread
-ImplicitCalcGlobs cl_globs;
 int ThreadTaskID_Implication = 0;
 CTimer tImplicit;
+
+xrCriticalSection csLockImplicit;
+ImplicitCalcGlobs cl_globs;
 
 void RunImplicitMultithread(ImplicitDeflector& defl)
 {
@@ -63,10 +64,6 @@ void RunImplicitMultithread(ImplicitDeflector& defl)
 
 	tmanager.wait();
 }
-
-
-xrCriticalSection csLockImplicit;
-
 
 void ImplicitExecute::Execute()
 {
@@ -190,10 +187,10 @@ void RunTaskGPU()
 	Fvector2* Jitter;
 	Jitter_Select(Jitter, Jcount);
 
-	xr_map<std::pair<u32, u32>, u32>	    FCountMap;
 
 	GPUTaskinSystem.RestartALL();
- 
+
+
 	u32 flags = (inlc_global_data()->b_nosun() ? LP_dont_sun : 0);
 	GPUTaskinSystem.current_flags = flags;
 
@@ -239,7 +236,7 @@ void RunTaskGPU()
 			{
 				clMsg("* THREAD #%d: Access violation. Possibly recovered.");//,thID
 			}
-			FCountMap[{U, V}] = Fcount;
+			GPUTaskinSystem.FCountMap[{U, V}] = Fcount;
 		}
 	}
 
@@ -247,16 +244,13 @@ void RunTaskGPU()
 	GPUTaskinSystem.LightPointPackedRun();
 
 	CTimer tColors; tColors.Start();
-
- 	for (auto& T : GPUTaskinSystem.Colors)
+  	for (auto& T : GPUTaskinSystem.Colors)
 	{
 		auto UV = T.first;
 		int U = UV.first;
 		int V = UV.second;
 
-		// Msg("UV: %u, %u : ColorHemi: %f", U, V, T.second.hemi);
-
-		u32 Fcount = FCountMap[UV];
+		u32 Fcount = GPUTaskinSystem.FCountMap[UV];
 		if (Fcount)
 		{
 			auto& C = T.second;
@@ -271,8 +265,7 @@ void RunTaskGPU()
 			defl.Marker(U, V) = 0;
 		}
 	}
-	GPUTaskinSystem.Colors.clear();
-
+ 	GPUTaskinSystem.RestartALL();
 
 	clMsg("*** GPU: %llu | Rays:%llu| Copy:%llu| Col:%llu | LMAP: %u ms | total: %u ms",
 

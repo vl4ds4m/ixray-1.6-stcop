@@ -94,9 +94,34 @@ void	CBuild::LMapsLocal				()
  
 }
 
+#include "../xrLC_Light/xrDeflectorLight_Packed.h"
+
 void	CBuild::LMaps					()
 {
-	LMapsLocal();
+	// LMapsLocal();
+	std::shuffle(lc_global_data()->g_deflectors().begin(), lc_global_data()->g_deflectors().end(), rng);
+
+	Status("Lighting Precalculate for GPU...");
+	 
+	CTimer t;
+	t.Start();
+	HASH			H;
+	for (auto& D : lc_global_data()->g_deflectors())
+ 		D->LightGPU(H);
+
+	clMsg("*** [LMAPS] CPU rays calculation : %u ms", t.GetElapsed_ms());
+
+	t.Start();
+	GPUTaskinSystem.LightPointPackedDeflectorsRun();
+	clMsg("*** [LMAPS] GPU rays calculation : %u ms", t.GetElapsed_ms());
+
+	t.Start();
+	for (auto& D : lc_global_data()->g_deflectors())
+		D->ApplyGPU();
+	clMsg("*** [LMAPS] CPU rays apply : %u ms", t.GetElapsed_ms());
+
+
+	GPUTaskinSystem.RestartALL();
 }
   
 void CBuild::BuildAdaptiveHT()
@@ -130,7 +155,8 @@ void CBuild::Light()
 
 	if (!gCompilerMode.LC_BackingDisabled)
 	{
-		if (!gCompilerMode.CUDA)
+		// se7kills fixed All stage then Disable
+		//if (!gCompilerMode.CUDA)
 		{
 			//****************************************** GLOBAL-RayCast model
 			Phase("Building rcast-CFORM model...");

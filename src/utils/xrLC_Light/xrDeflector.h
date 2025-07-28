@@ -83,8 +83,10 @@ static	CDeflector*		read_create					();
 	}
 
 	// se7kills Освещение на GPU
-	void LightGPU(base_lighting* LightsSelected, HASH& H);
-	void L_DirectGPU(base_lighting* LightsSelected, HASH& H);
+	void ApplyGPU();
+
+	void LightGPU( HASH& H);
+	void L_DirectGPU( HASH& H);
 };
 
 

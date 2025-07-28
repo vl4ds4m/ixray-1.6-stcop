@@ -5,11 +5,13 @@
 #include "light_point.h"
 #include "xrFace.h"
 
-void CDeflector::LightGPU(base_lighting* LightsSelected, HASH& H)
+void CDeflector::LightGPU( HASH& H )
 {
 	// Geometrical bounds
-	Fbox bb;		bb.invalidate();
-	try {
+	Fbox bb;	
+	bb.invalidate();
+	try 
+	{
 		for (u32 fid = 0; fid < UVpolys.size(); fid++)
 		{
 			Face* F = UVpolys[fid].owner;
@@ -22,15 +24,19 @@ void CDeflector::LightGPU(base_lighting* LightsSelected, HASH& H)
 		clMsg("* ERROR: CDeflector::Light - sphere calc");
 	}
 
+
+	// se7kills todo: Аналог на GPU
 	// Convert lights to local form
-	LightsSelected->select(inlc_global_data()->L_static(), Sphere.P, Sphere.R);
+	// LightsSelected->select(inlc_global_data()->L_static(), Sphere.P, Sphere.R);
 
 	// Calculate and fill borders
-	try {
+	try
+	{
 		lm_layer& lm = layer;
 
 		// UV & HASH
 		RemapUV(0, 0, lm.width, lm.height, lm.width, lm.height, FALSE);
+		
 		Fbox2			bounds;
 		Bounds_Summary(bounds);
 		H.initialize(bounds, (u32)UVpolys.size());
@@ -44,7 +50,7 @@ void CDeflector::LightGPU(base_lighting* LightsSelected, HASH& H)
 		R_ASSERT(lm.width <= (getLMSIZE() - 2 * BORDER));
 		R_ASSERT(lm.height <= (getLMSIZE() - 2 * BORDER));
 		lm.create(lm.width, lm.height);
-		L_DirectGPU(LightsSelected, H);
+		L_DirectGPU(H);
 	}
 	catch (...)
 	{
@@ -62,7 +68,7 @@ void CDeflector::LightGPU(base_lighting* LightsSelected, HASH& H)
 
 extern void Jitter_Select(Fvector2*& Jitter, u32& Jcount);
  
-void CDeflector::L_DirectGPU(  base_lighting* LightsSelected, HASH& H)
+void CDeflector::L_DirectGPU(   HASH& H)
 {
 	auto FromBarry = [&](Face* F, Fvector& wP, Fvector& wN, Fvector& B)
 		{
@@ -151,28 +157,15 @@ void CDeflector::L_DirectGPU(  base_lighting* LightsSelected, HASH& H)
 						Face* F = (*it)->owner;
 						FromBarry(F, wP, wN, B);
  						GPUTaskinSystem.LightPointPackedDeflector(U, V, this, wP, wN, flags, F);
- 						// LightPoint(DB, inlc_global_data()->RCAST_Model(), C, wP, wN, *LightsSelected, flags, F);
- 						Fcount += 1;
+  						Fcount += 1;
  						break;
 					}
 				}
 			}
 
-			GPUTaskinSystem.FCountMap[{U, V}] = Fcount;
+			GPUTaskinSystem.DEF_FCountMap[this][{U, V}] = Fcount;
 		}
 	}
-
-	
-	// if (Fcount) {
-	// 	C.scale(Fcount);
-	// 	C.mul(.5f);
-	// 	lm.surface[V * lm.width + U]._set(C);
-	// 	lm.marker[V * lm.width + U] = 255;
-	// }
-	// else {
-	// 	lm.surface[V * lm.width + U]._set(C);	 
-	// 	lm.marker[V * lm.width + U] = 0;
-	// }
 
 	// *** Render Edges
 	// float texel_size = (1.f / float(_max(lm.width, lm.height))) / 8.f;
@@ -184,4 +177,29 @@ void CDeflector::L_DirectGPU(  base_lighting* LightsSelected, HASH& H)
 	// 	EdgeProcessing(T.uv[1], T.uv[2], F->v[1]->P, F->v[2]->P, F->N, texel_size, F);
 	// 	EdgeProcessing(T.uv[2], T.uv[0], F->v[2]->P, F->v[0]->P, F->N, texel_size, F);
 	// }
+}
+
+void CDeflector::ApplyGPU()
+{
+	lm_layer& lm = layer;
+	auto UVColors = GPUTaskinSystem.DEF_Colors[this];
+
+	for (auto& [key, C] : UVColors)
+	{
+		u32 U = key.first;
+		u32 V = key.second;
+	
+		u32 Fcount = GPUTaskinSystem.DEF_FCountMap[this][key];
+		if (Fcount)
+		{
+			C.scale(Fcount);
+			C.mul(.5f);
+			lm.surface[V * lm.width + U]._set(C);
+			lm.marker[V * lm.width + U] = 255;
+		}
+		else {
+			lm.surface[V * lm.width + U]._set(C);
+			lm.marker[V * lm.width + U] = 0;
+		}
+	}
 }

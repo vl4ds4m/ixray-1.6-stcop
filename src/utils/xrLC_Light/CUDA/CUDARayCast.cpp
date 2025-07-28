@@ -236,26 +236,26 @@ struct OPTICK_Params
  	// 
 	unsigned char	    flags; 
 	hardware_raytask*	rays;
-	hardware_color*		colors;  // Position, Direction, Color
-	hardware_lighting*	lights;	 // Lights
+	hardware_color*		colors;				// Position, Direction, Color
+	hardware_lighting*	lights;				// Lights
 	int					counts_lights;
 };
 
 class RayTracer
 {
 	// Colors (Result)
-	hardware_color*		  h_colors;		// CPU alloc
-	hardware_color*		  d_colors;		// GPU alloc
+	hardware_color*		  h_colors;			// CPU alloc
+	hardware_color*		  d_colors;			// GPU alloc
 
 	// Positions Rays (Incoming)
-	hardware_raytask*		h_rays;		// CPU alloc
-	hardware_raytask*		d_rays;		// GPU alloc
+	hardware_raytask*		h_rays;			// CPU alloc
+	hardware_raytask*		d_rays;			// GPU alloc
 
 
 	// Lighting 
 	int					  size_lights;
-	hardware_lighting*    h_lights;	// CPU alloc
-	hardware_lighting*	  d_lights;	// GPU alloc
+	hardware_lighting*    h_lights;			// CPU alloc
+	hardware_lighting*	  d_lights;			// GPU alloc
 
 
 	// Parrrams (.cu export __constant__ Params g_params; )
@@ -263,7 +263,7 @@ class RayTracer
 	OPTICK_Params*		  d_params;			// GPU alloc)
 	
 	
-	CUstream	  stream;			// Отдельный стрим
+	CUstream	  stream;					// Отдельный стрим
 	int			  max_rays;					// Макс. количество лучей в батче
  
 public:
@@ -272,8 +272,13 @@ public:
 	~RayTracer()
 	{
 		if (h_params) cudaFreeHost(h_params);
-	//	if (h_results) cudaFreeHost(h_results);
-	}
+		if (h_rays) cudaFreeHost(h_rays);
+		if (h_colors) cudaFreeHost(h_colors);
+
+		if (d_params) cudaFree(d_params);
+		if (d_rays) cudaFree(d_rays);
+		if (d_colors) cudaFree(d_colors);
+ 	}
 	
 	void Init(int max_rays)
 	{
@@ -281,8 +286,8 @@ public:
   		CUDA_CHECK(cudaStreamCreate(&stream));	
 		
 		// parrams
-		CUDA_CHECK(cudaMallocHost(&h_params,  sizeof(OPTICK_Params)));							// Host Alloc
-		CUDA_CHECK(cudaMalloc(&d_params,	  sizeof(OPTICK_Params)));								// Device Alloc
+		CUDA_CHECK(cudaMallocHost(&h_params,  sizeof(OPTICK_Params)));										// Host Alloc
+		CUDA_CHECK(cudaMalloc(&d_params,	  sizeof(OPTICK_Params)));										// Device Alloc
 
 		// colors
 		CUDA_CHECK(cudaMallocHost(&h_colors, max_rays * sizeof(hardware_color)));							// Host Alloc
@@ -352,7 +357,7 @@ public:
 	}
 	
 
-	void TraceRaysNew(PackedLighting& data_gpu)
+	void TraceRaysNew(RayRecvestIndex* tasks, base_color_c* colors, u32 TaskPoolSize, u8 current_flags)
 	{
  		// Подготавливаем данные на хосте
 		CTimer t;
@@ -360,9 +365,9 @@ public:
 
  		int IndexRay = 0;
 		
-		for (auto taskID = 0; taskID < data_gpu.IndexTask; taskID++)
+		for (auto taskID = 0; taskID < TaskPoolSize; taskID++)
 		{
-			auto& Task = data_gpu.GetRays(taskID);
+			auto& Task = tasks[taskID];
 
 			h_rays[IndexRay] =
 			{
@@ -377,13 +382,14 @@ public:
 		{
 			.handle = CommitedScene.tlasHandle,
 			// Result Buffer
-			.flags  = data_gpu.current_flags,
+			.flags  = current_flags,
 			.rays   = d_rays,
 			.colors = d_colors,
 			.lights = d_lights,
 			.counts_lights = size_lights,
 		};
  		
+		clMsg("CPU Copy Rays Launch: %u ms", t.GetElapsed_ms());
 		clMsg("Processing Size: %u | Lightings: %u", IndexRay, size_lights);
 
 
@@ -397,9 +403,10 @@ public:
 				stream
 			)
 		);
-
-
-		RayTracingCopy += t.GetElapsed_mcs(); t.Start();
+ 
+		RayTracingCopy += t.GetElapsed_mcs();
+		
+		t.Start();
 		// Копируем на устройство
 		CUDA_CHECK(cudaMemcpyAsync(
 			d_params,
@@ -433,8 +440,9 @@ public:
  
 		// Синхронизируем только один раз
 		CUDA_CHECK(cudaStreamSynchronize(stream));
-		RayTracingTime += t.GetElapsed_mcs();
+		clMsg("GPU Waiting Stream Launch: %u ms", t.GetElapsed_ms());
  
+		t.Start();
 
 		auto copy_color = [&](hardware_color& Chw, base_color_c& C)
 		{
@@ -446,21 +454,23 @@ public:
 
 		for (auto i = 0; i < IndexRay; i++)
 		{
-			copy_color (h_colors[i], data_gpu.task_pools[i].C);
+			copy_color (h_colors[i], colors[i]);
 		}
+
+		clMsg("CPU copy results: %u ms", t.GetElapsed_ms());
 
 	}
 };
 
 thread_local RayTracer Tracer;
-void XRay::RayTrace::CUDA::RayTracePackNew(PackedLighting& data_gpu, base_lighting& L)
+void XRay::RayTrace::CUDA::RayTracePackNew(RayRecvestIndex* tasks, base_color_c* colors, u32 TaskPoolSize, u8 current_flags, base_lighting& L)
 {
 	if (!Tracer.isInitialized)
 	{
-		Tracer.Init(MAX_RAYS_PER_TASK + 1024);
+		Tracer.Init(MAX_RAYS_PER_TASK + (1024 * 1024 * 10) );
 		Tracer.InitializeLights(L);
 	}
 	
-	Tracer.TraceRaysNew(data_gpu);
+	Tracer.TraceRaysNew(tasks, colors, TaskPoolSize, current_flags);
 }
  
