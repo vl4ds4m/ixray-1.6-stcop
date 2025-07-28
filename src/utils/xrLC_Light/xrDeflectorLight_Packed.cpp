@@ -194,6 +194,9 @@ void PackedLighting::LightPointPacked(u32 U, u32 V, Fvector& P, Fvector& N, u32 
 {
 	tStats.Start();
 
+	if (task_pools.size() >= MAX_RAYS_PER_TASK - 1)
+ 		LightPointPackedRun();
+ 
 	u32 SIZE = task_pools.size();
  	if (PrevCount < SIZE)
 	{
@@ -206,49 +209,58 @@ void PackedLighting::LightPointPacked(u32 U, u32 V, Fvector& P, Fvector& N, u32 
  	task_data.P = P;
 	task_data.N = N;
 
-	task_pools.push_back(task_data);
+	task_pools.emplace_back( std::move(task_data) );
 
  	StatsRaysAdd += tStats.GetElapsed_mcs();
 }
 
 void PackedLighting::LightPointPackedRun()
 {
+ 	// Инициализируем
 	if (!isInitializedGPU)
 	{
 		InitializeGPU();
-		isInitializedGPU = true;
+ 		isInitializedGPU = true;
 	}
+	clMsg("*** Allocated Used : %u", task_pools.size());
+	XRay::RayTrace::CUDA::RayTraceInitialize(lc_global_data()->L_static(), current_flags);
 
-	tStats.Start();
-	// GPU TASKING
- 	xr_vector<base_color_c> colors;
-	colors.resize(task_pools.size());
+ 	// Устанавливаем параметры 
+ 	for (auto& task : task_pools)
+ 		XRay::RayTrace::CUDA::RayTraceAddRay(task);
+	
+	// Запускаем трейсинг
+	XRay::RayTrace::CUDA::RayTraceRun();
 
-	XRay::RayTrace::CUDA::RayTracePackNew(task_pools.data(), colors.data(), task_pools.size(), current_flags, lc_global_data()->L_static());
-	StatsCopyToVec += tStats.GetElapsed_mcs();
- 	clMsg("*** Allocated Used : %u", task_pools.size());
-
-	tStats.Start();
-  	for (auto it = 0; it < task_pools.size(); it++) // Последний таск ID (Тоесть size)
+	// Получаем результаты
+	auto& colors = XRay::RayTrace::CUDA::RayTraceResult();
+	
+	// Копируем то что получили
+   	for (auto it = 0; it < task_pools.size(); it++) // Последний таск ID (Тоесть size)
 	{
 		auto& INFO = task_pools[it];
 		Colors[INFO.INDEX_TASK].add(colors[it]);
 	}
- 	StatsTotalGPUCopy += tStats.GetElapsed_mcs();
 
+
+	// Очистка
+   	task_pools.clear();
 	colors.clear();
-	task_pools.clear();
+ 	PrevCount = 0;
 }
 
 // Deflectors
 
 void PackedLighting::LightPointPackedDeflector(u32 U, u32 V, CDeflector* D, Fvector& P, Fvector& N, u32 flags, Face* skip)
 {
-  	if (PrevCount < SizeTotalRays)
+  	if (PrevCount < task_pools.size())
 	{
-		clMsg("*** Allocated Used : %u", SizeTotalRays);
-		PrevCount = SizeTotalRays + (1024 * 1024);
+		clMsg("*** Allocated Used : %u", task_pools.size() );
+		PrevCount = task_pools.size() + (1024 * 1024);
 	}
+
+	if (task_pools.size() >= MAX_RAYS_PER_TASK - 1)
+		LightPointPackedRun();
 
 	tStats.Start();
  	 
@@ -257,57 +269,42 @@ void PackedLighting::LightPointPackedDeflector(u32 U, u32 V, CDeflector* D, Fvec
 	task_data.P = P;
 	task_data.N = N;
 	task_data.Owner = D;
- 	task_pools.push_back(task_data);
+ 	task_pools.emplace_back( std::move(task_data) );
 
 	StatsRaysAdd += tStats.GetElapsed_mcs();
-
-	SizeTotalRays++;
 }
 
 void PackedLighting::LightPointPackedDeflectorsRun()
-{
+{	
+ 	// Initialize
 	if (!isInitializedGPU)
 	{
 		InitializeGPU();
 		isInitializedGPU = true;
 	}
+	XRay::RayTrace::CUDA::RayTraceInitialize(lc_global_data()->L_static(), current_flags);
+ 	 
+	// Устанавливаем параметры 
+ 	for (auto& task : task_pools)
+		XRay::RayTrace::CUDA::RayTraceAddRay(task);
 
-	// GPU TASKING
- 	CTimer t; t.Start();
+	// Запускаем трейсинг
+	XRay::RayTrace::CUDA::RayTraceRun();
+	 
+	// Получаем результаты
+	auto& colors = XRay::RayTrace::CUDA::RayTraceResult();
 
-   	xr_vector<RayRecvestIndex>  rays;
-	xr_vector<base_color_c>		colors;
-
-	auto RunTask = [&](bool Forced)
+	// Заполняем в дефолекторы
+	int it = 0;
+	for (auto RAY_INFO : task_pools)
 	{
-		if (rays.size() >= MAX_RAYS_PER_TASK || Forced && rays.size() > 0)
-		{
-			colors.resize(rays.size());
-			XRay::RayTrace::CUDA::RayTracePackNew(rays.data(), colors.data(), rays.size(), current_flags, lc_global_data()->L_static());
-
-			int it = 0;
-			for (auto RAY_INFO : rays)
-			{
-				// Заполняем в дефолекторы
-				DEF_Colors[RAY_INFO.Owner][RAY_INFO.INDEX_TASK].add(colors[it]);
-				it++;
- 			}
-
-			colors.clear();
-			rays.clear();
- 		}
-	};
-
-	for (auto& TASK : task_pools)
-	{
- 		rays.push_back(TASK);
- 		// Check Limits
-		RunTask(false);
- 	}
-	
-	RunTask(true);
-
-	clMsg("--- CPU Copy Task: %u ms", t.GetElapsed_ms());
-	SizeTotalRays = 0;
+		DEF_Colors[RAY_INFO.Owner][RAY_INFO.INDEX_TASK].add(colors[it]);
+		it++;
+	}
+ 
+	// Очистка
+	task_pools.clear();
+	colors.clear();
+ 	PrevCount = 0;
 }
 

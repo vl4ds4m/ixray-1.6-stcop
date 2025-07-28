@@ -58,5 +58,13 @@ namespace XRay::RayTrace::CUDA
     void InitializeRayTracing();
  
     // Ray Trace Call
-    void RayTracePackNew(RayRecvestIndex* tasks, base_color_c* colors, u32 TaskPoolSize, u8 current_flags, base_lighting& L);
+    // void RayTracePackNew(RayRecvestIndex* tasks, base_color_c* colors, u32 TaskPoolSize, u8 current_flags);
+
+    void RayTraceInitialize(base_lighting& L, u8 CurrentFlags);
+
+    void RayTraceAddRay(RayRecvestIndex& ray);
+    void RayTraceRun();
+
+    xr_vector<base_color_c>& RayTraceResult();
 }
+ 

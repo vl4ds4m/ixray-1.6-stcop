@@ -83,10 +83,15 @@ static	CDeflector*		read_create					();
 	}
 
 	// se7kills Освещение на GPU
+	bool ApplyResolution = false;
 	void ApplyGPU();
 
 	void LightGPU( HASH& H);
 	void L_DirectGPU( HASH& H);
+	void ApplyEdges(bool isFirst);
+	
+	void LowerResolutionGPU(HASH& H);
+	void ApplyExpadBordersGPU();
 };
 
 

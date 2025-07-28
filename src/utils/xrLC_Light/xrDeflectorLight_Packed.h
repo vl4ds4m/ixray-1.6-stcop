@@ -14,7 +14,7 @@ enum LGroup : u8
 };
 
 // Initialize TASKS
-#define MAX_RAYS_PER_TASK   1024 * 1024 * 40 // Нужно еще учесть что там будут лампочек может быть по 256 за 1 таск
+#define MAX_RAYS_PER_TASK   1024 * 1024 * 200 // Нужно еще учесть что там будут лампочек может быть по 256 за 1 таск
  
 // Recvest Class
 struct RayRecvestIndex
@@ -55,14 +55,12 @@ public:
 	void LightPointPackedDeflector(u32 U, u32 V, CDeflector* D, Fvector& P, Fvector& N, u32 flags, Face* skip);
 	void LightPointPackedDeflectorsRun();
  
-	u32 SizeTotalRays = 0;
-	u32 PrevCount = 0;
+ 	u32 PrevCount = 0;
 	void RestartALL()
 	{
 		// start
 		current_flags = 0;
-		SizeTotalRays = 0;
-		PrevCount	  = 0;
+ 		PrevCount	  = 0;
 
 		// Stats
 		StatsTotalGPUCopy = 0;
@@ -79,8 +77,6 @@ public:
 		// Deflectors
  		DEF_FCountMap.clear();
 		DEF_Colors.clear();
-
-		task_pools.reserve(MAX_RAYS_PER_TASK);
 	}
 
  
