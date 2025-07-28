@@ -57,11 +57,6 @@ void CDeflector::LightGPU( HASH& H )
 		clMsg("* ERROR: CDeflector::L_Calculate");
 	}
 
-
-	for (u32 ref = 254; ref > 0; ref--)
-		if (!ApplyBorders(layer, ref))
-			break;
-
 }
 
 
@@ -202,4 +197,12 @@ void CDeflector::ApplyGPU()
 			lm.marker[V * lm.width + U] = 0;
 		}
 	}
+
+
+
+
+	for (u32 ref = 254; ref > 0; ref--)
+		if (!ApplyBorders(layer, ref))
+			break;
+
 }
