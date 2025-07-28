@@ -134,7 +134,6 @@ void CBuild::xrPhase_AdaptiveHT	()
 			EmbreeMain.IntelEmbereUNLOAD();
 		}
 	}
-#ifdef LCCUDA_BUILD
 	else
 	{
 		for (size_t VertexID = 0; VertexID < lc_global_data()->g_vertices().size(); VertexID++)
