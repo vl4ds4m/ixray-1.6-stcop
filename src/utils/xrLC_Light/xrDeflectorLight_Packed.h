@@ -14,7 +14,7 @@ enum LGroup : u8
 };
 
 // Initialize TASKS
-#define MAX_RAYS_PER_TASK   1024 * 1024 * 200 // Нужно еще учесть что там будут лампочек может быть по 256 за 1 таск
+#define MAX_RAYS_PER_TASK   1024 * 1024 * 10 // Нужно еще учесть что там будут лампочек может быть по 256 за 1 таск
  
 // Recvest Class
 struct RayRecvestIndex
@@ -60,20 +60,17 @@ public:
 		// start
 		current_flags = 0;
  
-		// Stats
-		// StatsTotalGPU = 0;
-		// StatsRaysAdd = 0;
-
-
-		// Basic Tasks
+	 	// Basic Tasks
 		task_pools.clear();
   		Colors.clear();
 		FCountMap.clear();
 
-
 		// Deflectors
  		DEF_FCountMap.clear();
 		DEF_Colors.clear();
+
+		// task pool memory clear
+		task_pools.shrink_to_fit();
 	}
 
  
@@ -95,6 +92,8 @@ public:
 	size_t StatsTotalGPU = 0;
 	size_t StatsTraverseGPU = 0;
  	size_t StatsRaysAdd = 0;
+
+	xrCriticalSection csRayLaunched;
 
 	// tasks	
 	concurrency::concurrent_vector<RayRecvestIndex>							 task_pools;			// BASIC UV

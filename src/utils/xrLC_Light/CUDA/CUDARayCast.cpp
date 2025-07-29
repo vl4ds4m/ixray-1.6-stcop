@@ -353,7 +353,7 @@ public:
 
 
 	u32 CurrentWritedRays = 0;
-	u8 current_flags = 0;
+	u8  current_flags = 0;
 
 	// Заполнять после вызова StartRayTracing (чтобы индекс начинался с 0) (при каждой новой стадии освещения)
 	void WriteRayToBuffer(RayRecvestIndex& Task)
@@ -365,24 +365,13 @@ public:
 		};
 		CurrentWritedRays++;
   	}
+	
+	xr_vector<base_color_c> colors;
 
 	// Вызывать только после вызова RayTrace
  	xr_vector<base_color_c>& GetColors()
 	{
-		static xr_vector<base_color_c> colors;
-
-		auto copy_color = [&](hardware_color& Chw, base_color_c& C)
-		{
-			C.hemi = Chw.hemi;
-			C.sun = Chw.sun;
-			C.rgb = { Chw.rgb.x, Chw.rgb.y, Chw.rgb.z };
-		};
- 		colors.clear();
-		colors.resize(CurrentWritedRays);
-		CopyMemory(colors.data(), h_colors, sizeof(base_color_c) * CurrentWritedRays);
-		// for (int it = 0; it < CurrentWritedRays; it++)
- 		//  	copy_color(h_colors[it], colors[it]);
- 		return colors;
+  		return colors;
 	}
 
 	void ClearDeviceResult()
@@ -393,9 +382,7 @@ public:
 
 	void TraceRaysNew()
 	{
-		CTimer t;
-		t.Start();
-
+		CTimer t;t.Start();
   		// Подготавливаем данные на хосте
  		h_params[0] =
 		{
@@ -454,6 +441,26 @@ public:
 		CUDA_CHECK(cudaStreamSynchronize(stream));
 
 		clMsg("*** GPU Stream Processing: %u ms | RaysTasks : %u ", t.GetElapsed_ms(), CurrentWritedRays);
+
+		// Копия цветов
+		auto copy_color = [&](hardware_color& Chw, base_color_c& C)
+		{
+			C.hemi = Chw.hemi;
+			C.sun = Chw.sun;
+			C.rgb = { Chw.rgb.x, Chw.rgb.y, Chw.rgb.z };
+		};
+
+		// Добавляем результат в конец списка
+		for (int it = 0; it < CurrentWritedRays; it++)
+		{
+			base_color_c C;
+			copy_color(h_colors[it], C);
+			colors.push_back(C); 
+		}
+
+		// Чистим списки и результаты
+		ClearDeviceResult();
+		CurrentWritedRays = 0;
 	}
 };
 
@@ -470,7 +477,7 @@ void XRay::RayTrace::CUDA::RayTraceInitialize(base_lighting& L, u8 CurrentFlags)
 
 	GPURayTracer.current_flags = CurrentFlags;
 	GPURayTracer.CurrentWritedRays = 0;
-	GPURayTracer.ClearDeviceResult();
+	GPURayTracer.colors.clear();
 }
 
 void XRay::RayTrace::CUDA::RayTraceAddRay(RayRecvestIndex& task)
