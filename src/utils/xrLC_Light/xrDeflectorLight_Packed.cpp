@@ -193,24 +193,15 @@ void PackedLighting::InitializeGPU()
 void PackedLighting::LightPointPacked(u32 U, u32 V, Fvector& P, Fvector& N, u32 flags, Face* skip)
 {
 	tStats.Start();
-
 	if (task_pools.size() >= MAX_RAYS_PER_TASK - 1)
  		LightPointPackedRun();
  
-	u32 SIZE = task_pools.size();
- 	if (PrevCount < SIZE)
-	{
-		clMsg("*** Allocated Used : %u", SIZE);
-		PrevCount = SIZE + (1024 * 1024);
-	}
-
 	RayRecvestIndex task_data;		// MT SAFE
  	task_data.INDEX_TASK = { U, V };
  	task_data.P = P;
 	task_data.N = N;
 
-	task_pools.emplace_back( std::move(task_data) );
-
+	task_pools.push_back( std::move(task_data) );
  	StatsRaysAdd += tStats.GetElapsed_mcs();
 }
 
@@ -222,7 +213,10 @@ void PackedLighting::LightPointPackedRun()
 		InitializeGPU();
  		isInitializedGPU = true;
 	}
-	clMsg("*** Allocated Used : %u", task_pools.size());
+	
+	tStats.Start();
+
+	clMsg("*** Start Tracing Rays: %u", task_pools.size());
 	XRay::RayTrace::CUDA::RayTraceInitialize(lc_global_data()->L_static(), current_flags);
 
  	// Устанавливаем параметры 
@@ -230,8 +224,9 @@ void PackedLighting::LightPointPackedRun()
  		XRay::RayTrace::CUDA::RayTraceAddRay(task);
 	
 	// Запускаем трейсинг
+	CTimer t; t.Start();
 	XRay::RayTrace::CUDA::RayTraceRun();
-
+	StatsTraverseGPU += t.GetElapsed_mcs();
 	// Получаем результаты
 	auto& colors = XRay::RayTrace::CUDA::RayTraceResult();
 	
@@ -241,25 +236,19 @@ void PackedLighting::LightPointPackedRun()
 		auto& INFO = task_pools[it];
 		Colors[INFO.INDEX_TASK].add(colors[it]);
 	}
-
-
+ 
 	// Очистка
    	task_pools.clear();
 	colors.clear();
- 	PrevCount = 0;
+
+	StatsTotalGPU += tStats.GetElapsed_mcs();
 }
 
 // Deflectors
 
 void PackedLighting::LightPointPackedDeflector(u32 U, u32 V, CDeflector* D, Fvector& P, Fvector& N, u32 flags, Face* skip)
 {
-  	if (PrevCount < task_pools.size())
-	{
-		clMsg("*** Allocated Used : %u", task_pools.size() );
-		PrevCount = task_pools.size() + (1024 * 1024);
-	}
-
-	if (task_pools.size() >= MAX_RAYS_PER_TASK - 1)
+   	if (task_pools.size() >= MAX_RAYS_PER_TASK - 1)
 		LightPointPackedRun();
 
 	tStats.Start();
@@ -269,19 +258,23 @@ void PackedLighting::LightPointPackedDeflector(u32 U, u32 V, CDeflector* D, Fvec
 	task_data.P = P;
 	task_data.N = N;
 	task_data.Owner = D;
- 	task_pools.emplace_back( std::move(task_data) );
+ 	task_pools.push_back( std::move(task_data) );
 
 	StatsRaysAdd += tStats.GetElapsed_mcs();
 }
 
 void PackedLighting::LightPointPackedDeflectorsRun()
 {	
+	tStats.Start();
  	// Initialize
 	if (!isInitializedGPU)
 	{
 		InitializeGPU();
 		isInitializedGPU = true;
 	}
+
+	clMsg("*** Start Tracing Rays: %u", task_pools.size());
+
 	XRay::RayTrace::CUDA::RayTraceInitialize(lc_global_data()->L_static(), current_flags);
  	 
 	// Устанавливаем параметры 
@@ -289,7 +282,9 @@ void PackedLighting::LightPointPackedDeflectorsRun()
 		XRay::RayTrace::CUDA::RayTraceAddRay(task);
 
 	// Запускаем трейсинг
+	CTimer t; t.Start();
 	XRay::RayTrace::CUDA::RayTraceRun();
+	StatsTraverseGPU += t.GetElapsed_mcs();
 	 
 	// Получаем результаты
 	auto& colors = XRay::RayTrace::CUDA::RayTraceResult();
@@ -305,6 +300,7 @@ void PackedLighting::LightPointPackedDeflectorsRun()
 	// Очистка
 	task_pools.clear();
 	colors.clear();
- 	PrevCount = 0;
+
+	StatsTotalGPU += tStats.GetElapsed_mcs();
 }
 

@@ -224,10 +224,6 @@ void XRay::RayTrace::CUDA::InitializeTextures(xr_vector<TextureData>& gpuTexture
 #include <xrDeflector.h>
 #include "Vector3HW.h"
 
-u64 RayTracingTime = 0;  
-u64 RayTracingCopy = 0;
-u64 RayTracingResults = 0;
-
 #include <optix_function_table_definition.h>
 struct OPTICK_Params
 {
@@ -397,11 +393,11 @@ public:
 
 	void TraceRaysNew()
 	{
- 		// Подготавливаем данные на хосте
 		CTimer t;
 		t.Start();
- 
-		h_params[0] =
+
+  		// Подготавливаем данные на хосте
+ 		h_params[0] =
 		{
 			.handle = CommitedScene.tlasHandle,
 			// Result Buffer
@@ -411,11 +407,7 @@ public:
 			.lights = d_lights,
 			.counts_lights = size_lights,
 		};
- 		
-		clMsg("CPU Copy Rays Launch: %u ms", t.GetElapsed_ms());
-		clMsg("GPU Tasks Size: %u | Lightings: %u", CurrentWritedRays, size_lights);
-
-
+ 		 
 		// Копируем Стартовые параметры !!! асинхронно
 		CUDA_CHECK(
 			cudaMemcpyAsync(
@@ -426,10 +418,7 @@ public:
 				stream
 			)
 		);
- 
-		RayTracingCopy += t.GetElapsed_mcs();
-		
-		t.Start();
+ 		
 		// Копируем на устройство
 		CUDA_CHECK(cudaMemcpyAsync(
 			d_params,
@@ -463,7 +452,8 @@ public:
  
 		// Синхронизируем только один раз
 		CUDA_CHECK(cudaStreamSynchronize(stream));
-		clMsg("GPU Waiting Stream Launch: %u ms", t.GetElapsed_ms());
+
+		clMsg("*** GPU Stream Processing: %u ms | RaysTasks : %u ", t.GetElapsed_ms(), CurrentWritedRays);
 	}
 };
 

@@ -161,14 +161,8 @@ void ImplicitExecute::Execute()
 }
 
 #ifdef LCCUDA_BUILD
-extern u64 RayTracingTime;
-extern u64 RayTracingCopy;
-extern u64 RayTracingResults;
-
 void RunTaskGPU()
 {
-	RayTracingTime = RayTracingCopy = RayTracingResults = 0;
-
 	CTimer tStats;
 	tStats.Start();
 
@@ -265,29 +259,16 @@ void RunTaskGPU()
 			defl.Marker(U, V) = 0;
 		}
 	}
- 	GPUTaskinSystem.RestartALL();
-
-	clMsg("*** GPU: %llu | Rays:%llu| Copy:%llu| Col:%llu | LMAP: %u ms | total: %u ms",
-
-		// gpu_data.TotalRaysProcessed,
-		RayTracingTime / 1000,
-		GPUTaskinSystem.StatsRaysAdd / 1000,
-		GPUTaskinSystem.StatsCopyToVec / 1000,
-		GPUTaskinSystem.StatsTotalGPUCopy / 1000,
+ 
+	AditionalData("CPU Code: %u | GPU Code : (%u|RayTracing: %u) | Colors : %u | Total Code: %u",
+ 		GPUTaskinSystem.StatsRaysAdd / 1000,
+ 		GPUTaskinSystem.StatsTotalGPU / 1000,
+		GPUTaskinSystem.StatsTraverseGPU / 1000,
 		tColors.GetElapsed_ms(),
 		tStats.GetElapsed_ms()
 	);
-
-	AditionalData("CUDA( (GPU) code:%u, (CPU)copy:%u, (CPU)result:%u) | (CPU)Rays:%u| (CPU)Col: %u | Total : %u ms",
-		RayTracingTime / 1000,
-		RayTracingCopy / 1000,
-		RayTracingResults / 1000,
-		GPUTaskinSystem.StatsRaysAdd / 1000,
-		// GPUTaskinSystem.StatsCopyToVec / 1000, 
-		GPUTaskinSystem.StatsTotalGPUCopy / 1000,
-		tStats.GetElapsed_ms()
-	);
-
+	
+	GPUTaskinSystem.RestartALL();
 }
 #endif
 

@@ -55,17 +55,14 @@ public:
 	void LightPointPackedDeflector(u32 U, u32 V, CDeflector* D, Fvector& P, Fvector& N, u32 flags, Face* skip);
 	void LightPointPackedDeflectorsRun();
  
- 	u32 PrevCount = 0;
-	void RestartALL()
+ 	void RestartALL()
 	{
 		// start
 		current_flags = 0;
- 		PrevCount	  = 0;
-
+ 
 		// Stats
-		StatsTotalGPUCopy = 0;
-		StatsCopyToVec = 0;
-		StatsRaysAdd = 0;
+		// StatsTotalGPU = 0;
+		// StatsRaysAdd = 0;
 
 
 		// Basic Tasks
@@ -95,12 +92,12 @@ public:
 	u8	    current_flags = 0;
 
 	CTimer tStats;
-	u64 StatsTotalGPUCopy = 0;
-	u64 StatsCopyToVec = 0;
-	u64 StatsRaysAdd = 0;
+	size_t StatsTotalGPU = 0;
+	size_t StatsTraverseGPU = 0;
+ 	size_t StatsRaysAdd = 0;
 
 	// tasks	
-	xr_vector<RayRecvestIndex>							 task_pools;			// BASIC UV
+	concurrency::concurrent_vector<RayRecvestIndex>							 task_pools;			// BASIC UV
  };
 
 extern PackedLighting GPUTaskinSystem;
