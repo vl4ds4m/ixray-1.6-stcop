@@ -109,19 +109,19 @@ void CBuild::xrPhase_AdaptiveHT	()
 
 	// Tesselate + calculate
 	Status			("Building RayTrace Model...");
- 
+	
+	
+	Light_prepare();
+	// Build model
+	BuildRapid(FALSE);
+	EmbreeMain.AttachGeometrys(false);
+
 	if (!gCompilerMode.CUDA)
 	{
- 		Light_prepare();
-		// Build model
-		BuildRapid(FALSE);
-		EmbreeMain.AttachGeometrys(false);
- 
 		// Prepare
 		Status("AdaptiveHT : base hemisphere ...");
 		ThreadWorkID_Adaptive = 0;
-
-		for (u32 thID = 0; thID < gCompilerMode.ThreadsPerWork; thID++)
+ 		for (u32 thID = 0; thID < gCompilerMode.ThreadsPerWork; thID++)
 			precalc_base_hemi.start(new CPrecalcBaseHemiThread(thID));
 		precalc_base_hemi.wait();
 
