@@ -191,7 +191,6 @@ void SDL_Application()
 	bool done = false;
 
 	// se7kills (4000 FPS) !!!
- 
 	while (!done)
 	{
 		// Poll and handle events (inputs, window resize, etc.)
@@ -227,7 +226,7 @@ void SDL_Application()
 		SDL_RenderPresent(renderer);
 
 		// se7kills (fix big GPU Usage)
-		Sleep(10);
+		Sleep(41);
 	}
 
 	// Cleanup

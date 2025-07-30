@@ -148,10 +148,10 @@ void CBuild::xrPhase_AdaptiveHT	()
 
 		for (auto& TASK : GPUTaskinSystem.Colors)
 		{
-			auto& INDEX = TASK.first.first;
+			u32 U   = GPUTaskinSystem.GetU(TASK.first);
 			auto& C = TASK.second;
 			C.mul(0.5f);
-			lc_global_data()->g_vertices()[INDEX]->C._set(C);
+			lc_global_data()->g_vertices()[U]->C._set(C);
 		}
 
 		GPUTaskinSystem.RestartALL();
