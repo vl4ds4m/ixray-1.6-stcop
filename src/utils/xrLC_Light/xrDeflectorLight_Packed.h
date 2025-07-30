@@ -15,8 +15,8 @@ enum LGroup : u8
 };
 
 // Initialize TASKS
-#define MAX_RAYS_PER_TASK   1024 * 1024 * 10 // Нужно еще учесть что там будут лампочек может быть по 256 за 1 таск
-#define MAX_RAYS_PER_GPU	1024 * 128
+#define MAX_RAYS_PER_TASK   1024 * 1024 * 100 // Нужно еще учесть что там будут лампочек может быть по 256 за 1 таск
+#define MAX_RAYS_PER_GPU	1024 * 1024
 
 // Recvest Class
 struct RayRecvestIndex
