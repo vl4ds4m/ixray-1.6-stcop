@@ -535,7 +535,8 @@ protected:
 			void					SaveNetState						(NET_Packet& P)																	;
 	virtual	void					RestoreNetState						(CSE_PHSkeleton* po)															;
 			void					SetDefaultNetState					(CSE_PHSkeleton* po)															;
-
+	virtual void					save(NET_Packet& output_packet) override;
+	virtual void					load(IReader& input_packet) override;
 	virtual bool					IsHudModeNow		(){return false;};
 	
 public:
@@ -565,7 +566,7 @@ private:
 
 public:
 	virtual bool unlimited_ammo() { return false; };
-
+	virtual bool infinite_fire() { return false; }
 	virtual CCar* cast_car() override { return this; }
 	// Inventory for the car	
 	CInventory* GetInventory() { return &CInventoryOwner::inventory(); }

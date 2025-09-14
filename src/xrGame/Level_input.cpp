@@ -23,6 +23,12 @@
 
 #include "../Include/xrRender/DebugRender.h"
 
+//Alundaio
+#include "pch_script.h"
+#include "../../xrScripts/script_engine.h" 
+using namespace luabind;
+//-Alundaio
+
 #ifdef DEBUG
 #	include "ai/monsters/BaseMonster/base_monster.h"
 
@@ -131,6 +137,11 @@ void CLevel::IR_OnKeyboardPress	(int key)
 		}
 		return;
 	}
+	if (_curr == kSCREENSHOT)
+	{
+		Render->Screenshot();
+		return;
+	}
 
 	if(	g_bDisableAllInput )	return;
 
@@ -139,10 +150,6 @@ void CLevel::IR_OnKeyboardPress	(int key)
 
 	switch ( _curr ) 
 	{
-	case kSCREENSHOT:
-		Render->Screenshot();
-		return;
-		break;
 
 	case kCONSOLE:
 		Console->Show				();
@@ -169,6 +176,14 @@ void CLevel::IR_OnKeyboardPress	(int key)
 			}
 			return;
 		}break;
+	case kALIFE_CMD: {
+		if (m_isStartAttack)
+		{
+		luabind::functor<void>	functor;
+			R_ASSERT2(ai().script_engine().functor(m_onStartAttack, functor), "failed to get OnStartAttack functor");
+		functor();
+		}
+	}break;
 	};
 
 	if ( !bReady || !b_ui_exist )			return;
@@ -182,6 +197,16 @@ void CLevel::IR_OnKeyboardPress	(int key)
 		)	return;
 
 	if ( game && game->OnKeyboardPress(get_binded_action(key)) )	return;
+
+	if (m_isKeyPress)
+	{
+		luabind::functor<bool>	funct;
+		R_ASSERT2(ai().script_engine().functor(m_onKeyPress, funct), "failed to get OnKeyPress functor");
+
+		if (funct(key, _curr))
+			return;
+		
+	}
 
 	if(_curr == kQUICK_SAVE && IsGameTypeSingle())
 	{

@@ -15,10 +15,13 @@
 #include "../xrCore/associative_vector.h"
 #include "alife_movement_manager_holder.h"
 #include "../xrPhysics/net_physics_state.h"
+#include "../xrGame/ai/stalker/ai_stalker_state_net.h"
 
 class CALifeMonsterBrain;
 class CALifeHumanBrain;
 class CALifeOnlineOfflineGroupBrain;
+
+xr_string TranslateName(LPCSTR nameStr);
 
 #pragma warning(push)
 #pragma warning(disable:4005)
@@ -48,6 +51,8 @@ SERVER_ENTITY_DECLARE_BEGIN0(CSE_ALifeTraderAbstract)
 	CHARACTER_RANK_VALUE			m_rank;
 	xr_string						m_character_name;
 	shared_str						m_icon_name;
+	xr_string						m_character_name_raw;
+
 	bool							m_deadbody_can_take;
 	bool							m_deadbody_closed;
 
@@ -315,6 +320,7 @@ SERVER_ENTITY_DECLARE_BEGIN3(CSE_ALifeCreatureActor,CSE_ALifeCreatureAbstract,CS
 //	float							fArmor;
 	float							fRadiation;
 	u8								weapon;
+	bool							IsWaunded;
 	///////////////////////////////////////////
 	u16								m_u16NumItems;
 	u16								m_holderID;
@@ -350,6 +356,8 @@ SERVER_ENTITY_DECLARE_BEGIN3(CSE_ALifeCreatureActor,CSE_ALifeCreatureAbstract,CS
 	virtual CSE_ALifeTraderAbstract	*cast_trader_abstract	() {return this;};
 public:
 	virtual BOOL					Net_Relevant			();
+	virtual void SyncRead(NET_Packet& Packet);
+	virtual void SyncWrite(NET_Packet& Packet);
 SERVER_ENTITY_DECLARE_END
 
 SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeCreatureCrow,CSE_ALifeCreatureAbstract)
@@ -397,6 +405,7 @@ SERVER_ENTITY_DECLARE_BEGIN2(CSE_ALifeMonsterRat,CSE_ALifeMonsterAbstract,CSE_AL
 	virtual const CSE_Abstract		*base				() const;
 	virtual CSE_Abstract			*cast_abstract			() {return this;};
 	virtual CSE_ALifeInventoryItem	*cast_inventory_item	() {return this;};
+
 SERVER_ENTITY_DECLARE_END
 
 SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeMonsterZombie,CSE_ALifeMonsterAbstract)
@@ -446,6 +455,10 @@ SERVER_ENTITY_DECLARE_BEGIN2(CSE_ALifeMonsterBase,CSE_ALifeMonsterAbstract,CSE_P
 	virtual CSE_Abstract			*cast_abstract			() {return this;}
 	virtual void					spawn_supplies			(LPCSTR){}
 	virtual void					spawn_supplies			(){}
+
+	virtual void SyncRead(NET_Packet& Packet) override;
+	virtual void SyncWrite(NET_Packet& Packet) override;
+
 #ifdef XRGAME_EXPORTS
 	virtual void					on_spawn				();
 	virtual	void					add_online				(const bool &update_registries);
@@ -503,11 +516,17 @@ SERVER_ENTITY_DECLARE_END
 
 SERVER_ENTITY_DECLARE_BEGIN2(CSE_ALifeHumanStalker,CSE_ALifeHumanAbstract,CSE_PHSkeleton)
 	shared_str						m_start_dialog;
-
+#ifdef XRGAME_EXPORTS
+	aistalker_state_net				m_state_mngr;
+#endif
 									CSE_ALifeHumanStalker	(LPCSTR caSection);
 	virtual							~CSE_ALifeHumanStalker	();
 	virtual	void					load					(NET_Packet &tNetPacket);
+	virtual BOOL					Net_Relevant() override;
 	virtual CSE_Abstract			*cast_abstract			() {return this;}
+
+	virtual void SyncRead(NET_Packet& Packet);
+	virtual void SyncWrite(NET_Packet& Packet);
 SERVER_ENTITY_DECLARE_END
 
 SERVER_ENTITY_DECLARE_BEGIN3(CSE_ALifeOnlineOfflineGroup,CSE_ALifeDynamicObject,CSE_ALifeSchedulable,CMovementManagerHolder)

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
 project(IXRay)
 
 # CMake options
@@ -24,7 +24,7 @@ option(DEVIXRAY_ENABLE_SHIPPING "Enable shipping build cfg" OFF)
 option(DEVIXRAY_ENABLE_OGL_RENDER "Enable OGL Render" OFF)
 
 # CXX options
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -51,6 +51,16 @@ if (IXRAY_LDEBUG)
     add_compile_definitions(LUA_DEBUG)
 endif()
 
+## Disable user-cheats for Release/Shipping build
+add_compile_definitions("$<$<CONFIG:Debug>:DEBUG>")
+add_compile_definitions("$<$<CONFIG:Debug>:DEBUG_DRAW>")
+add_compile_definitions("$<$<CONFIG:RelWithDebInfo>:DEBUG_DRAW>")
+add_compile_definitions("$<$<CONFIG:Release>:MASTER_GOLD>")
+if (DEVIXRAY_ENABLE_SHIPPING)
+    add_compile_definitions("$<$<CONFIG:Shipping>:MASTER_GOLD>")
+    add_compile_definitions("$<$<CONFIG:Shipping>:SHIPPING_BUILD>")
+endif()
+
 # Download API from GitHub Releases
 include("cmake/github.cmake")
 
@@ -66,6 +76,11 @@ set(IXRAY_SDK_LIB ${CMAKE_CURRENT_SOURCE_DIR}/sdk/libraries/${CMAKE_VS_PLATFORM_
 set(IXRAY_SDK_BIN ${CMAKE_CURRENT_SOURCE_DIR}/sdk/binaries/${CMAKE_VS_PLATFORM_NAME}/)
 set(IXRAY_SDK_INC ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include/)
 
+if (WIN32)
+    set(IXRAY_OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/)
+else()
+    set(IXRAY_OUTPUT ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/)
+endif()
 # Configure dependencies
 set(RENDERDOC_API "${CMAKE_CURRENT_SOURCE_DIR}/src/3rd Party/renderdoc")
 

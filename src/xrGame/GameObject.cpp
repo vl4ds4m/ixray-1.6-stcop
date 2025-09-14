@@ -111,8 +111,8 @@ void CGameObject::net_Destroy	()
 	xr_delete				(m_ini_file);
 
 	m_script_clsid			= -1;
-	if (Visual() && smart_cast<IKinematics*>(Visual()))
-		smart_cast<IKinematics*>(Visual())->Callback	(0,0);
+	if (Visual() && Visual()->dcast_PKinematics())
+		Visual()->dcast_PKinematics()->Callback(0,0);
 
 	inherited::net_Destroy						();
 	setReady									(FALSE);
@@ -274,11 +274,8 @@ BOOL CGameObject::net_Spawn		(CSE_Abstract*	DC)
 		R_ASSERT(Level().Objects.net_Find(E->ID) == nullptr);
 	}
 
-
 	setID							(E->ID);
-//	if (!IsGameTypeSingle())
-//		Msg ("CGameObject::net_Spawn -- object %s[%x] setID [%d]", *(E->s_name), this, E->ID);
-	
+
 	// XForm
 	XFORM().setXYZ					(E->o_Angle);
 	Position().set					(E->o_Position);
@@ -548,7 +545,7 @@ void CGameObject::setup_parent_ai_locations(bool assign_position)
 {
 //	CGameObject				*l_tpGameObject	= static_cast<CGameObject*>(H_Root());
 	VERIFY					(H_Parent());
-	CGameObject				*l_tpGameObject	= static_cast<CGameObject*>(H_Parent());
+	CGameObject				*l_tpGameObject	= H_Parent()->cast_game_object();
 	VERIFY					(l_tpGameObject);
 
 	// get parent's position
@@ -781,10 +778,13 @@ void VisualCallback	(IKinematics *tpKinematics)
 
 CScriptGameObject *CGameObject::lua_game_object		() const
 {
-#ifdef DEBUG
 	if (!m_spawned)
-		Msg							("! you are trying to use a destroyed object [%x]",this);
-#endif
+	{
+		Msg("! you are trying to use a destroyed object [%i]", ID());
+		ai().script_engine().print_stack();
+		return NULL;
+	}
+
 	THROW							(m_spawned);
 	if (!m_lua_game_object)
 		m_lua_game_object			= new CScriptGameObject(const_cast<CGameObject*>(this));
@@ -1112,14 +1112,19 @@ void CGameObject::OnRender			()
 	if (!ai().get_level_graph())
 		return;
 
-	CDebugRenderer					&renderer = Level().debug_renderer();
-	if (/**bDebug && /**/Visual()) {
-		float						half_cell_size = 1.f*ai().level_graph().header().cell_size()*.5f;
-		Fvector						additional = Fvector().set(half_cell_size,half_cell_size,half_cell_size);
+	if (Visual() == nullptr)
+		return;
 
-		render_box					(Visual(),XFORM(),Fvector().set(0.f,0.f,0.f),true,color_rgba(0,0,255,255));
-		render_box					(Visual(),XFORM(),additional,false,color_rgba(0,255,0,255));
-	}
+	if (Visual()->getVisData().hom_frame != Device.dwFrame)
+		return;
+
+	CDebugRenderer					&renderer = Level().debug_renderer();
+	float						half_cell_size = 1.f*ai().level_graph().header().cell_size()*.5f;
+	Fvector						additional = Fvector().set(half_cell_size,half_cell_size,half_cell_size);
+
+	render_box					(Visual(),XFORM(),Fvector().set(0.f,0.f,0.f),true,color_rgba(0,0,255,255));
+	render_box					(Visual(),XFORM(),additional,false,color_rgba(0,255,0,255));
+
 
 	if (0) {
 		Fvector						bc,bd; 

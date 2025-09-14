@@ -39,7 +39,7 @@ void __fastcall sorted_L1		(mapSorted_Node *N)
 void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 {
 	PROF_EVENT("r_dsgraph_render_graph");
-	//PIX_EVENT(r_dsgraph_render_graph);
+	//GPU_EVENT(r_dsgraph_render_graph);
 	CScopeTimer Timer(Device.Statistic->RenderDUMP);
 
 	// **************************************************** NORMAL
@@ -233,7 +233,7 @@ void R_dsgraph_structure::r_dsgraph_render_hud_ui()
 
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render
-void	R_dsgraph_structure::r_dsgraph_render_sorted	()
+void	R_dsgraph_structure::r_dsgraph_render_sorted	(bool render_hud)
 {
 	PROF_EVENT("r_dsgraph_render_sorted");
 	// Rendering
@@ -241,6 +241,15 @@ void	R_dsgraph_structure::r_dsgraph_render_sorted	()
 
 	mapSorted.traverseRL	(sorted_L1);
 	mapSorted.clear			();
+
+	if (render_hud) {
+		r_dsgraph_render_sorted_hud();
+	}
+}
+
+void R_dsgraph_structure::r_dsgraph_render_sorted_hud()
+{
+	PROF_EVENT("r_dsgraph_render_sorted_hud");
 
 	CHudInitializer initalizer(true);
 
@@ -271,6 +280,29 @@ void	R_dsgraph_structure::r_dsgraph_render_emissive	()
 	rmNormal();
 #endif
 }
+// strict-sorted render
+void	R_dsgraph_structure::r_dsgraph_render_scope	()
+{
+#if	RENDER==R_R4
+	GPU_EVENT(SCOPE_BUFFER_RENDER);
+	{
+		GPU_EVENT(ZBUFFER_COPY);
+		RCache.set_ZB(NULL);
+
+		ID3D11Resource* res{};
+		RDepth->GetResource(&res);
+
+		RContext->CopyResource(RImplementation.Target->rt_Position->pSurface, res);
+		_RELEASE(res);
+	}
+
+	RImplementation.Target->u_setrt(NULL, NULL, RDepth);
+	CHudInitializer initalizer(true);
+
+	mapHUDScopeMask.traverseLR(sorted_L1);
+	mapHUDScopeMask.clear();
+#endif
+}
 
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render
@@ -292,6 +324,14 @@ void	R_dsgraph_structure::r_dsgraph_render_distort	()
 	// Sorted (back to front)
 	mapDistort.traverseRL	(sorted_L1);
 	mapDistort.clear		();
+
+	//	HACK: Calculate this only once
+	CHudInitializer initalizer(true);
+
+	rmNear();
+	mapHUDDistort.traverseLR(sorted_L1);
+	mapHUDDistort.clear();
+	rmNormal();
 }
 
 //////////////////////////////////////////////////////////////////////////

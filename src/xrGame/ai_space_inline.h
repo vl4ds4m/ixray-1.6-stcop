@@ -43,7 +43,7 @@ IC	const CALifeSimulator		&CAI_Space::alife					() const
 	return					(*m_alife_simulator);
 }
 
-IC	const CALifeSimulator		*CAI_Space::get_alife				() const
+IC	CALifeSimulator		*CAI_Space::get_alife				() const
 {
 	return					(m_alife_simulator);
 }
@@ -85,4 +85,10 @@ IC	CAI_Space &ai													()
 		g_ai_space->init	();
 	}
 	return					(*g_ai_space);
+}
+
+IC CPatrolPathStorage& CAI_Space::patrol_paths_raw()
+{
+	VERIFY(m_patrol_path_storage);
+	return *m_patrol_path_storage;
 }

@@ -18,12 +18,18 @@ public:
 	//--
 			void			SetTextColor(u32 color);
 			u32				GetTextColor()								{return m_dwTextColor;}
+			void			SetTextGradientColor(u32 color);
+			u32				GetTextGradientColor()						{return m_dwTextGradientColor;}
 			void			SetFont(CGameFont* pFont);
+			void			SetTextGradient(bool val);
 			CGameFont*		GetFont()									{return m_pFont;}
 			void			SetTextAlignment(ETextAlignment al)			{m_eTextAlign = al;}
 			ETextAlignment	GetTextAlignment()							{return m_eTextAlign;}
 			void			SetVTextAlignment(EVTextAlignment al)		{m_eVTextAlign = al;}
 			EVTextAlignment GetVTextAlignment()							{return m_eVTextAlign;}
+
+			void			SetTextGradientMode(CGameFont::EGradientMode gm)			{m_eTextGradientMode = gm;}
+CGameFont::EGradientMode	GetTextGradientMode()						{return m_eTextGradientMode;}
 
 			void			SetTextComplexMode							(bool mode = true);
 			void			SetPasswordMode								(bool mode = true);
@@ -62,9 +68,11 @@ protected:
 
 	shared_str				m_text;
 
+	CGameFont::EGradientMode m_eTextGradientMode;
 	ETextAlignment			m_eTextAlign;
 	EVTextAlignment			m_eVTextAlign;
 	u32						m_dwTextColor;
+	u32						m_dwTextGradientColor;
 
 	CGameFont*				m_pFont;
 

@@ -14,6 +14,7 @@
 #include "secure_messaging.h"
 #include "xrServer_updates_compressor.h"
 #include "xrClientsPool.h"
+#include "FreeMP/ScriptEvents.h"
 
 #ifdef DEBUG
 //. #define SLOW_VERIFY_ENTITIES
@@ -50,6 +51,13 @@ public:
 	shared_str					m_cdkey_digest;
 	secure_messaging::key_t		m_secret_key;
 	s32							m_last_key_sync_request_seed;
+
+
+	u32 m_last_update_time_15 = 0;
+	u32 m_last_update_time_10 = 0;
+	u32 m_last_update_time_05 = 0;
+	u32 m_last_update_time_5 = 0;
+	u32 m_last_update_time_1 = 0;
 
 							xrClientData			();
 	virtual					~xrClientData			();
@@ -114,6 +122,16 @@ private:
 	info_uploaders_t			m_info_uploaders;
 	IReader*					m_server_logo;
 	IReader*					m_server_rules;
+
+	xr_deque<ScriptEvent>		script_server_events;
+	
+	struct UpdatePacket
+	{
+		CSE_Abstract* Entity = nullptr;
+		NET_Packet	  Packet;
+	};
+
+	xr_vector<UpdatePacket> m_update_packets;
 
 	struct DelayedPacket
 	{
@@ -278,6 +296,10 @@ public:
 
 	virtual void			GetServerInfo		( CServerInfo* si );
 			void			SendPlayersInfo		(ClientID const & to_client);
+			void OnScriptEvent(NET_Packet& P, ClientID sender);
+			ScriptEvent* GetLastServerScriptEvent();
+			void PopLastServerScriptEvent();
+			u32 GetSizeServerScriptEvent();
 public:
 	xr_string				ent_name_safe		(u16 eid);
 #ifdef DEBUG

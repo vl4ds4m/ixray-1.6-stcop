@@ -8,7 +8,6 @@ set(IXRAY_FOLDER_GAME FOLDER "Engine/Game")
 add_subdirectory("xrCore")
 
 if(NOT IXRAY_COMPRESSOR_ONLY)
-    add_subdirectory("xrCDB")
     add_subdirectory("xrSound")
     add_subdirectory("xrNetServer")
     add_subdirectory("xrEngine")
@@ -19,7 +18,10 @@ if(NOT IXRAY_COMPRESSOR_ONLY)
 endif()
 
 if(NOT IXRAY_COMPRESSOR_ONLY)
-    if(IXRAY_USE_R1 OR IXRAY_MP)
+    if(IXRAY_MP)
+        add_subdirectory("Layers/xrRenderDS_R0")
+    endif()
+    if(IXRAY_USE_R1)
         add_subdirectory("Layers/xrRenderPC_R1")
     endif()
 
@@ -46,7 +48,6 @@ endif()
 set_target_properties(xrCore PROPERTIES ${IXRAY_FOLDER_ENGINE})
 
 if(NOT IXRAY_COMPRESSOR_ONLY)
-    set_target_properties(xrCDB PROPERTIES ${IXRAY_FOLDER_ENGINE})
     set_target_properties(xrSound PROPERTIES ${IXRAY_FOLDER_ENGINE})
     set_target_properties(xrNetServer PROPERTIES ${IXRAY_FOLDER_ENGINE})
     set_target_properties(xrPhysics PROPERTIES ${IXRAY_FOLDER_ENGINE})
@@ -57,6 +58,10 @@ if(NOT IXRAY_COMPRESSOR_ONLY)
 
     if(IXR_TEST_CI)
         set_target_properties(xrGame PROPERTIES ${IXRAY_FOLDER_GAME})
+    endif()
+    
+    if(IXRAY_MP)
+        set_target_properties(xrRender_DS0 PROPERTIES ${IXRAY_FOLDER_RENDER})
     endif()
 endif()
 

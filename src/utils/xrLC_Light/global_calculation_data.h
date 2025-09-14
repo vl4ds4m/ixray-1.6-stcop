@@ -6,7 +6,7 @@
 #include "global_slots_data.h"
 #include "b_build_texture.h"
 #include "global_slots_data.h"
-#include "../../xrCDB/xrCDB.h"
+#include "../../xrCore/Collision/xrCDB.h"
 
 class Shader_xrLC_LIB;
 //-----------------------------------------------------------------
@@ -23,13 +23,12 @@ struct global_claculation_data
 	global_slots_data				slots_data;//-------=============
 	xr_vector<b_shader>				g_shader_compile;//-----==========
 	xr_vector<b_rc_face>			g_rc_faces;//---------===============
-///////////////////////////////////////////////////////////////////////
- 
-//////////////////////////////////////////////////////////////////////////
 
-///////////////////////////////////////////////////////////////////
 			global_claculation_data		(): g_shaders_xrlc( 0 ) {}
 	void	xrLoad						( );
+
+public:
+	bool use_intel = false;
 };
 extern global_claculation_data	gl_data;
 //-----------------------------------------------------------------

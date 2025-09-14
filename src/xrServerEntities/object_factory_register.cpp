@@ -182,8 +182,10 @@
 #	include "actor_mp_server.h"
 #	include "actor_mp_client.h"
 #	include "smart_cover_object.h"
-#	include "HUDAnimItem.h"
 #	include "EditorLevel.h"
+
+#include "../xrGame/HolderEntityObject.h"
+#include "../xrGame/ActorBackpack.h"
 #endif // NO_XR_GAME
 
 #ifndef NO_XR_GAME
@@ -284,7 +286,7 @@ void CObjectFactory::register_classes	()
 	ADD(CHelicopter				,CSE_ALifeHelicopter			,CLSID_VEHICLE_HELICOPTER		,"helicopter");
 #endif // #ifndef NO_SINGLE
 
-	ADD(CHUDAnimItem			, CSE_ALifeItemsNotSave,		CLSID_OBJECT_ANINFAKE,			"animfakeitem");
+	ADD(CBackpack, CSE_ALifeItem, CLSID_EQUIPMENT_BACKPACK, "equ_backpack");
 
 	// Artefacts
 	ADD(CMercuryBall			,CSE_ALifeItemArtefact			,CLSID_AF_MERCURY_BALL			,"art_mercury_ball");
@@ -420,6 +422,7 @@ void CObjectFactory::register_classes	()
 	ADD(CClimableObject			,CSE_ALifeObjectClimable		,CLSID_OBJECT_CLIMABLE			,"obj_climable");
 	ADD(CPhysicsSkeletonObject	,CSE_ALifePHSkeletonObject		,CLSID_PH_SKELETON_OBJECT		,"obj_phskeleton");
 	ADD(CDestroyablePhysicsObject,CSE_ALifeObjectPhysic			,CLSID_PHYSICS_DESTROYABLE		,"obj_phys_destroyable");
+	ADD(CHolderEntityObject		,CSE_ALifeDynamicObjectVisual	,CLSID_OBJECT_HOLDER_ENT		,"obj_holder_ent");
 
 	ADD(CInventoryBox			,CSE_ALifeInventoryBox			,CLSID_INVENTORY_BOX			,"inventory_box");
 #ifndef NO_SINGLE

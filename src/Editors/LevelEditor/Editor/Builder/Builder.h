@@ -73,6 +73,7 @@ public:
     						b_vertex* verts, int& vert_cnt, int& vert_it,
                             b_face* faces, int& face_cnt, int& face_it, u32* smooth_groups, const Fmatrix& real_transform, CSceneObject* obj);
     BOOL    BuildObject     (CSceneObject* obj);
+    bool    BuildEditableObject(CEditableObject* obj, Fmatrix T, CSceneObject* Owner);
     BOOL    BuildMUObject   (CSceneObject* obj);
 
     void    Clear 			();
@@ -130,7 +131,7 @@ protected:
     BOOL	BuildSceneStat			();
     bool 	BuildHOMModel			();
     bool 	BuildSOMModel			();
-    bool	BuildAIMap				();
+    bool	BuildAIMap				(bool Legacy);
     bool	BuildWallmarks			();
     BOOL 	CompileStatic		   	(bool b_selected_only);
 
@@ -146,7 +147,7 @@ public:
     BOOL 	MakeDetails				();
     BOOL 	MakeHOM					();
 	BOOL 	MakeSOM					();
-    BOOL	MakeAIMap				();
+    BOOL	MakeAIMap				(bool Legacy);
 
     void	OnRender				();
 };

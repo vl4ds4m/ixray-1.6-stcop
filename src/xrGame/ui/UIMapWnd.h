@@ -7,7 +7,7 @@
 class CUICustomMap;
 class CUIGlobalMap;
 class CUIFrameWindow;
-class CUIFixedScrollBar;
+class CUIScrollBar;
 class CUIFrameLineWnd;
 class FRbmkMapActionPlanner;
 class CUITabControl;
@@ -34,6 +34,12 @@ private:
 	Fvector2					m_prev_actor_pos;
 
 private:
+	bool m_isPropertyBoxClicked = false;
+	const char* m_onPropertyBoxClicked = {};
+	
+	bool m_isPropertyBoxAddProperties = false;
+	const char* m_onPropertyBoxAddProperties = {};
+
 	float						m_map_move_step;
 
 	float						m_currentZoom;
@@ -42,8 +48,8 @@ private:
 	
 	CUIFrameWindow*				m_UIMainFrame;
 	bool						m_scroll_mode;
-	CUIFixedScrollBar*				m_UIMainScrollV;
-	CUIFixedScrollBar*				m_UIMainScrollH;
+	CUIScrollBar*				m_UIMainScrollV;
+	CUIScrollBar*				m_UIMainScrollH;
 	CUIWindow*					m_UILevelFrame;
 	FRbmkMapActionPlanner*		m_ActionPlanner;
 

@@ -4,7 +4,7 @@
 class ESceneAIMapTool;
 struct SAINode;
 
-const DWORD InvalidNode		= (1<<24)-1;
+constexpr u32 InvalidNode = 0xffffffff;
 
 #pragma pack(push,1)
 struct SAINode					// definition of "patch" or "node"
@@ -47,7 +47,7 @@ struct SAINode					// definition of "patch" or "node"
 	void		PointRB	(Fvector& D, float patch_size);
 	void		PointBL	(Fvector& D, float patch_size);
 
-    void   		LoadStream			(IReader&, ESceneAIMapTool*);
+    void   		LoadStream			(IReader&, ESceneAIMapTool*, bool = true);
     void   		SaveStream			(IWriter&, ESceneAIMapTool*);
     void   		LoadLTX				(CInifile& ini, LPCSTR sect_name, ESceneAIMapTool*);
     void   		SaveLTX				(CInifile& ini, LPCSTR sect_name, ESceneAIMapTool*);
@@ -100,7 +100,7 @@ protected:
 	void				UpdateLinks				(SAINode* N, bool bIgnoreConstraints);
 
 	void 				UnpackPosition			(Fvector& Pdest, const SNodePositionOld& Psrc, Fbox& bb, SAIParams& params);
-	u32 				UnpackLink				(u32& L);
+	u32 				UnpackLink				(u32& L, bool OldFormat);
 	void				PackPosition			(SNodePositionOld& Dest, Fvector& Src, Fbox& bb, SAIParams& params);
 
    
@@ -175,11 +175,11 @@ public:
     virtual bool   		LoadLTX            		(CInifile&);
     virtual void   		SaveStream         		(IWriter&);
     virtual void   		SaveLTX            		(CInifile&, int id);
-    virtual bool 		can_use_inifile			()								{return false;}
+    virtual bool 		can_use_inifile			(){return false;}
 
     virtual bool		LoadSelection      		(IReader&);
     virtual void		SaveSelection      		(IWriter&);
-    virtual bool   		Export          		(LPCSTR path);
+    virtual bool   		Export          		(LPCSTR path, bool Legacy);
 
 	// device dependent funcs
 	virtual void		OnDeviceCreate			();

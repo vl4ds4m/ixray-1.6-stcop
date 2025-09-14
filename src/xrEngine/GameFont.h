@@ -24,8 +24,17 @@ public:
 		alRight,
 		alCenter
 	};
+	enum EGradientMode
+	{
+		gm_vert = 0,
+		gm_horz = 1,
+		gm_back = 2,
+		gm_down = 3,
+		gm_count
+	};
 
 private:
+
 	struct String
 	{
 		string1024 string;
@@ -34,6 +43,9 @@ private:
 		float height;
 		u32 c;
 		EAligment align;
+		bool gradient;
+		EGradientMode gradientMode;
+		u32 gradientColor;
 	};
 
 	struct BaseData
@@ -50,9 +62,12 @@ protected:
 	float fCurrentHeight = 0.0f;
 	float fCurrentX = 0.0f;
 	float fCurrentY = 0.0f;
+	bool fGradientEnabled = false;
+	EGradientMode fGradientMode = gm_vert;
 
 	u32 uFlags;
 	u32 dwCurrentColor;
+	u32 dwGradientColor;
 
 	EAligment eCurrentAlignment;
 	xr_vector<String> strings;
@@ -61,11 +76,10 @@ protected:
 public:
 	enum
 	{
-		fsGradient = (1 << 0),
-		fsDeviceIndependent = (1 << 1), //#DELETE_ME deprecated
-		fsValid = (1 << 2),
+		fsDeviceIndependent = (1 << 0), //#DELETE_ME deprecated
+		fsValid = (1 << 1),
 
-		fsMultibyte = (1 << 3),
+		fsMultibyte = (1 << 2),
 
 		fsForceDWORD = u32(-1)
 	};
@@ -78,6 +92,7 @@ public:
 
 	void ReInit();
 	inline void SetColor(u32 C) { dwCurrentColor = C; };
+	inline void SetGradientColor(u32 C) { dwGradientColor = C; };
 
 	//inline void SetHeightI(float S);
 	inline void SetHeight(float S);
@@ -102,6 +117,8 @@ public:
 	u16 SplitByWidth(u16* puBuffer, u16 uBufferSize, float fTargetWidth, const char* pszText);
 	u16 GetCutLengthPos(float fTargetWidth, const char* pszText);
 
+	void SetGradient(bool val) { fGradientEnabled = val; }
+	void SetGradientMode(EGradientMode mode) { fGradientMode = mode; }
 	void OutI(float _x, float _y, const char* fmt, ...);
 	void Out(float _x, float _y, const char* fmt, ...);
 	void OutNext(const char* fmt, ...);

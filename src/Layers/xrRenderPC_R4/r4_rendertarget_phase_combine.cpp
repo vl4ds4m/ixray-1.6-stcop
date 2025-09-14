@@ -37,7 +37,7 @@ struct v_aa {
 
 void CRenderTarget::phase_combine()
 {
-	PIX_EVENT(phase_combine);
+	GPU_EVENT(phase_combine);
 
 	//	TODO: DX10: Remove half poxel offset
 	bool _menu_pp = g_pGamePersistent ? g_pGamePersistent->OnRenderPPUI_query() : false;
@@ -75,6 +75,10 @@ void CRenderTarget::phase_combine()
 		}
 	}
 
+	if(RImplementation.o.deffered_reflecitons) {
+		phase_sslr();
+	}
+
 	FLOAT ColorRGBA[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 	u_setrt(rt_Generic_0, 0, 0, RDepth);
 
@@ -94,7 +98,7 @@ void CRenderTarget::phase_combine()
 	// Draw full-screen quad textured with our scene image
 	if (!_menu_pp)
 	{
-		PIX_EVENT(combine_1);
+		GPU_EVENT(combine_1);
 		// Compute params
 		Fmatrix		m_v2w;			m_v2w.invert				(Device.mView		);
 		CEnvDescriptorMixer& envdesc= *g_pGamePersistent->Environment().CurrentEnv		;
@@ -175,13 +179,13 @@ void CRenderTarget::phase_combine()
 
 	if(ps_r2_ls_flags_ext.test(R4FLAG_PUDDLES))
 	{
-		PIX_EVENT(Forward_rendering_puddles);
+		GPU_EVENT(Forward_rendering_puddles);
 		phase_puddles();
 	}
 
 	// Forward rendering
 	{
-		PIX_EVENT(Forward_rendering);
+		GPU_EVENT(Forward_rendering);
 		phase_scene_forward();
 
 		RCache.set_CullMode (CULL_CCW);
@@ -203,11 +207,12 @@ void CRenderTarget::phase_combine()
 	// Distortion filter
 	BOOL bDistort = RImplementation.o.distortion_enabled; // This can be modified
 	{
-		if(RImplementation.mapDistort.size() < 1 && !_menu_pp) {
+		u32 count = RImplementation.mapDistort.size() + RImplementation.mapHUDDistort.size();
+		if((count < 1 && !_menu_pp)) {
 			bDistort= FALSE;
 		}
 		if(bDistort) {
-			PIX_EVENT(render_distort_objects);
+			GPU_EVENT(render_distort_objects);
 			FLOAT ColorRGBA_[4] = {127.0f / 255.0f, 127.0f / 255.0f, 0.0f, 127.0f / 255.0f};
 			u_setrt(rt_Generic_1, 0, 0, RDepth);		// Now RT is a distortion mask
 
@@ -248,21 +253,24 @@ void CRenderTarget::phase_combine()
 			RCache.set_Geometry(g_combine);
 
 			RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
-
 			RContext->CopyResource(rt_Generic_0->pSurface, rt_Generic_2->pSurface);
 		}
 	}
 
 	if(ps_r_scale_mode < 2) {
 		if(ps_r2_aa_type == 1) {
-			PIX_EVENT(phase_fxaa);
+			GPU_EVENT(phase_fxaa);
 			phase_fxaa();
 			RCache.set_Stencil(FALSE);
 		}
 		else if(ps_r2_aa_type == 2) {
-			PIX_EVENT(phase_smaa);
+			GPU_EVENT(phase_smaa);
 			phase_smaa();
 			RCache.set_Stencil(FALSE);
+		}
+		else if(ps_r2_aa_type == 3) {
+			GPU_EVENT(phase_taa);
+			phase_taa();
 		}
 	}
 
@@ -271,16 +279,26 @@ void CRenderTarget::phase_combine()
 
 	switch(ps_r_scale_mode)
 	{
+		case 4:
+		{
+			if(!phase_xess())
+			{
+				ps_proxy_r_scale_mode = ps_r_scale_mode = 1;
+			}
+			break;
+		}
 		case 3:
 		{
-			if(!phase_fsr()) {
+			if(!phase_fsr()) 
+			{
 				ps_proxy_r_scale_mode = ps_r_scale_mode = 1;
 			}
 			break;
 		}
 		case 2:
 		{
-			if(!phase_dlss()) {
+			if(!phase_dlss())
+			{
 				ps_proxy_r_scale_mode = ps_r_scale_mode = 3;
 			}
 			break;
@@ -309,7 +327,7 @@ void CRenderTarget::phase_combine()
 	RCache.set_CullMode(CULL_NONE);
 	RCache.set_Stencil(FALSE);
 	{
-		PIX_EVENT(combine_2);
+		GPU_EVENT(combine_2);
 
 		float _w = (float)get_width();
 		float _h = (float)get_height();
@@ -350,26 +368,26 @@ void CRenderTarget::phase_combine()
 	g_pGamePersistent->Environment().RenderFlares();	// lens-flares
 
 	if(ps_r4_cas_sharpening > EPS) {
-		PIX_EVENT(phase_cas);
+		GPU_EVENT(phase_cas);
 		phase_cas();
 	}
 
 	if (ps_r2_ls_flags_ext.test(R2FLAG_SPP_SATURATION)) {
-		PIX_EVENT(PhaseSaturation);
+		GPU_EVENT(PhaseSaturation);
 		PhaseSaturation();
 	}
 
 	if(ps_r2_ls_flags_ext.test(R2FLAG_SPP_VIGNETTE)) {
-		PIX_EVENT(PhaseVignette);
+		GPU_EVENT(PhaseVignette);
 		PhaseVignette();
 	}
 
 	if(ps_r2_ls_flags_ext.test(R2FLAG_SPP_ABERRATION)) {
-		PIX_EVENT(PhaseAberration);
+		GPU_EVENT(PhaseAberration);
 		PhaseAberration();
 	}
 	{
-		PIX_EVENT(phase_pp);
+		GPU_EVENT(phase_pp);
 		phase_pp();
 	}
 
@@ -500,7 +518,7 @@ void CRenderTarget::phase_wallmarks		()
 
 void CRenderTarget::phase_combine_volumetric()
 {
-	PIX_EVENT(phase_combine_volumetric);
+	GPU_EVENT(phase_combine_volumetric);
 	u32			Offset					= 0;
 	//Fvector2	p0,p1;
 

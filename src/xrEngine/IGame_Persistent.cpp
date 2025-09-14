@@ -3,21 +3,15 @@
 
 #include "IGame_Persistent.h"
 
-#ifndef _EDITOR
 #include "Environment.h"
-#	include "x_ray.h"
-#	include "IGame_Level.h"
-#	include "XR_IOConsole.h"
-#	include "Render.h"
-#	include "ps_instance.h"
-#	include "CustomHUD.h"
-#endif
+#include "x_ray.h"
+#include "IGame_Level.h"
+#include "XR_IOConsole.h"
+#include "Render.h"
+#include "PS_instance.h"
+#include "CustomHUD.h"
 
-#ifdef _EDITOR
-	bool g_dedicated_server	= false;
-#endif
-
-ENGINE_API	IGame_Persistent*		g_pGamePersistent	= nullptr;
+ENGINE_API	IGame_Persistent* g_pGamePersistent = nullptr;
 
 bool IsMainMenuActive() { return  g_pGamePersistent && g_pGamePersistent->m_pMainMenu && g_pGamePersistent->m_pMainMenu->IsActive(); }
 
@@ -45,127 +39,118 @@ IGame_Persistent::~IGame_Persistent	()
 	xr_delete						(pEnvironment);
 }
 
-void IGame_Persistent::OnAppActivate		()
+void IGame_Persistent::OnAppActivate()
 {
 }
 
-void IGame_Persistent::OnAppDeactivate		()
+void IGame_Persistent::OnAppDeactivate()
 {
 }
 
-void IGame_Persistent::OnAppStart	()
+void IGame_Persistent::OnAppStart()
 {
-	Environment().load				();
+	Environment().load();
 }
 
-void IGame_Persistent::OnAppEnd		()
+void IGame_Persistent::OnAppEnd()
 {
-	Environment().unload			 ();
-	OnGameEnd						();
+	Environment().unload();
+	OnGameEnd();
 
-#ifndef _EDITOR
-	DEL_INSTANCE					(g_hud);
-#endif    
+	DEL_INSTANCE(g_hud);
 }
 
 
-void IGame_Persistent::PreStart		(LPCSTR op)
+void IGame_Persistent::PreStart(LPCSTR op)
 {
-	string256						prev_type;
-	params							new_game_params;
-	xr_strcpy							(prev_type,m_game_params.m_game_type);
-	new_game_params.parse_cmd_line	(op);
+	string256 prev_type;
+	params new_game_params;
+	xr_strcpy(prev_type, m_game_params.m_game_type);
+	new_game_params.parse_cmd_line(op);
 
 	// change game type
-	if (0!=xr_strcmp(prev_type,new_game_params.m_game_type)){
-		OnGameEnd					();
+	if (0 != xr_strcmp(prev_type, new_game_params.m_game_type))
+	{
+		OnGameEnd();
 	}
 }
-void IGame_Persistent::Start		(LPCSTR op)
+
+void IGame_Persistent::Start(LPCSTR op)
 {
 	string256						prev_type;
-	xr_strcpy							(prev_type,m_game_params.m_game_type);
-	m_game_params.parse_cmd_line	(op);
+	xr_strcpy(prev_type, m_game_params.m_game_type);
+	m_game_params.parse_cmd_line(op);
 	// change game type
-	if ((0!=xr_strcmp(prev_type,m_game_params.m_game_type))) 
+	if ((0 != xr_strcmp(prev_type, m_game_params.m_game_type)))
 	{
 		if (*m_game_params.m_game_type)
-			OnGameStart					();
-#ifndef _EDITOR
-		if(g_hud)
-			DEL_INSTANCE			(g_hud);
-#endif            
+			OnGameStart();
+
+		if (g_hud)
+			DEL_INSTANCE(g_hud);
 	}
-	else 
+	else
+	{
 		UpdateGameType();
+	}
 }
 
-void IGame_Persistent::Disconnect	()
+void IGame_Persistent::Disconnect()
 {
-#ifndef _EDITOR
 	// clear "need to play" particles
-	destroy_particles					(true);
+	destroy_particles(true);
 
-	if(g_hud)
-			DEL_INSTANCE			(g_hud);
+	if (g_hud)
+		DEL_INSTANCE(g_hud);
 
 	// Kill object - save memory
 	ObjectPool.clear();
 	Render->models_Clear(TRUE);
-#endif
 }
 
 void IGame_Persistent::OnGameStart()
 {
-#ifndef _EDITOR
 	loading_save_timer.Start();
 	loading_save_timer_started = true;
 	Msg("* Game Loading Timer: Started!");
-//	LoadTitle("st_prefetching_objects");
+	SetLoadStageTitle("st_prefetching_objects");
 	LoadTitle();
-	if(!Core.ParamsData.test(ECoreParams::noprefetch))
+
+	if (!Core.ParamsData.test(ECoreParams::noprefetch))
 		Prefetch();
-#endif
 }
 
-#ifndef _EDITOR
 void IGame_Persistent::Prefetch()
 {
-	// prefetch game objects & models
-	float	p_time		=			1000.f*Device.GetTimerGlobal()->GetElapsed_sec();
-	//u32	mem_0			=			Memory.mem_usage()	;
-
-	Log("Loading objects...");
-	ObjectPool.prefetch();
-	Log("Loading models...");
-	Render->models_Prefetch();
-	Log("Loading textures...");
-	Device.m_pRender->ResourcesDeferredUpload();
-
-	p_time				=			1000.f*Device.GetTimerGlobal()->GetElapsed_sec() - p_time;
-	//u32	p_mem		=			Memory.mem_usage() - mem_0	;
-
-	Msg					("* [prefetch] time:    %d ms",	iFloor(p_time));
-	//Msg					("* [prefetch] memory:  %dKb",	p_mem/1024);
-}
-#endif
-
-
-void IGame_Persistent::OnGameEnd	()
-{
-#ifndef _EDITOR
-	ObjectPool.clear					();
-	Render->models_Clear				(TRUE);
-#endif
+	PROF_EVENT("Prefetch");
+	{
+		// prefetch game objects & models
+		PROF_EVENT("Loading objects");
+		Log("Loading objects...");
+		ObjectPool.prefetch();
+	}
+	{
+		PROF_EVENT("Prefetch Loading models");
+		Log("Loading models...");
+		Render->models_Prefetch();
+	}
+	{
+		PROF_EVENT("Loading textures");
+		Log("Loading textures...");
+		Device.m_pRender->ResourcesDeferredUpload();
+	}
 }
 
-void IGame_Persistent::OnFrame		()
+void IGame_Persistent::OnGameEnd()
 {
-#ifndef _EDITOR
+	ObjectPool.clear();
+	Render->models_Clear(TRUE);
+}
 
-	if(!Device.Paused() || Device.dwPrecacheFrame)
-		Environment().OnFrame	();
-#endif
+void IGame_Persistent::OnFrame()
+{
+	if (!Device.Paused() || Device.dwPrecacheFrame)
+		Environment().OnFrame();
 }
 
 void IGame_Persistent::UpdateParticles()
@@ -178,11 +163,16 @@ void IGame_Persistent::UpdateParticles()
 		pInstance->Play(false);
 	}
 
-	for (xr_shared_ptr<CPS_Instance> Part : ps_active_deffer)
+	if (!ps_active_deffer.empty())
 	{
-		ps_active.push_back(Part);
+		ps_active.reserve(ps_active.size() + ps_active_deffer.size());
+
+		for (xr_shared_ptr<CPS_Instance>& Part : ps_active_deffer)
+		{
+			ps_active.push_back(Part);
+		}
+		ps_active_deffer.clear();
 	}
-	ps_active_deffer.clear();
 
 	ps_active.erase(std::remove_if
 	(
@@ -192,19 +182,14 @@ void IGame_Persistent::UpdateParticles()
 			return Obj->m_NeedDestroy;
 		}
 	), ps_active.end());
-
-#ifdef _DEBUG
-	Msg("Suck my particles counter: %ull", ps_active.size());
-#endif
 }
 
-void IGame_Persistent::destroy_particles		(const bool &all_particles)
+void IGame_Persistent::destroy_particles(const bool& all_particles)
 {
-#ifndef _EDITOR
-	ps_needtoplay.clear				();
+	ps_needtoplay.clear();
 
 	// delete active particles
-	if (all_particles) 
+	if (all_particles)
 	{
 		ps_active.clear();
 	}
@@ -221,12 +206,9 @@ void IGame_Persistent::destroy_particles		(const bool &all_particles)
 	}
 
 	VERIFY(ps_needtoplay.empty() && (!all_particles || ps_active.empty()));
-#endif
 }
 
 void IGame_Persistent::OnAssetsChanged()
 {
-#ifndef _EDITOR
-	Device.m_pRender->OnAssetsChanged(); //Resources->m_textures_description.Load();
-#endif    
+	Device.m_pRender->OnAssetsChanged();
 }

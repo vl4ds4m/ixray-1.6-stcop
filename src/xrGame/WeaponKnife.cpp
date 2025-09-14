@@ -49,8 +49,23 @@ void CWeaponKnife::Load	(LPCSTR section)
 	inherited::Load		(section);
 
 	fWallmarkSize = pSettings->r_float(section,"wm_size");
-	m_sounds.LoadSound(section,"snd_shoot"		, "sndShot"		, false, SOUND_TYPE_WEAPON_SHOOTING		);
-	
+
+	if (pSettings->line_exist(section, "snd_kick_1") && pSettings->line_exist(section, "snd_kick_2"))
+	{
+		m_sounds.LoadSound(section, "snd_kick_1", "sndKick1", false, SOUND_TYPE_WEAPON_SHOOTING);
+		m_sounds.LoadSound(section, "snd_kick_2", "sndKick2", false, SOUND_TYPE_WEAPON_SHOOTING);
+	}
+	else
+	{
+		m_sounds.LoadSound(section, "snd_shoot", "sndShot", false, SOUND_TYPE_WEAPON_SHOOTING);
+	}
+
+	if (pSettings->line_exist(section, "snd_draw"))
+		m_sounds.LoadSound(section, "snd_draw", "SndShow", false, ESoundTypes(SOUND_TYPE_ITEM_TAKING));
+
+	if (pSettings->line_exist(section, "snd_holster"))
+		m_sounds.LoadSound(section, "snd_holster", "SndHide", false, ESoundTypes(SOUND_TYPE_ITEM_HIDING));
+
 	m_Hit1SpashDir		=	pSettings->r_fvector3(section, "splash1_direction");
 	m_Hit2SpashDir		=	pSettings->r_fvector3(section, "splash2_direction");
 
@@ -70,6 +85,7 @@ void CWeaponKnife::Load	(LPCSTR section)
 
 	knife_material_idx =  GMLib.GetMaterialIdx(KNIFE_MATERIAL_NAME);
 	m_bShowKnifeStats = READ_IF_EXISTS(pSettings, r_bool, section, "show_knife_stats", true);
+	m_flags.set(FUsingCondition, READ_IF_EXISTS(pSettings, r_bool, section, "use_condition", false));
 }
 
 void CWeaponKnife::OnStateSwitch	(u32 S)
@@ -197,7 +213,7 @@ void CWeaponKnife::MakeShot(Fvector const & pos, Fvector const & dir, float cons
 	iAmmoElapsed					= (u32)m_magazine.size();
 	bool SendHit					= SendHitAllowed(H_Parent());
 
-	PlaySound						("sndShot",pos);
+	PlaySoundIfExist("sndShot", pos);
 
 	CActor* actor = smart_cast<CActor*>(H_Parent());
 	if (actor->active_cam() != eacFirstEye) {
@@ -268,12 +284,19 @@ void CWeaponKnife::state_Attacking	(float)
 
 void CWeaponKnife::switch2_Attacking	(u32 state)
 {
-	if(IsPending())	return;
+	if(IsPending())
+		return;
 
-	if(state==eFire)
-		PlayHUDMotion("anm_attack",		FALSE, this, state);
-	else //eFire2
-		PlayHUDMotion("anm_attack2",	FALSE, this, state);
+	if (state == eFire)
+	{
+		PlayHUDMotion("anm_attack", FALSE, state);
+		PlaySoundIfExist("sndKick1", Position());
+	}
+	else
+	{
+		PlayHUDMotion("anm_attack2", FALSE, state);
+		PlaySoundIfExist("sndKick2", Position());
+	}
 
 	SetPending			(TRUE);
 }
@@ -290,7 +313,8 @@ void CWeaponKnife::switch2_Hiding	()
 {
 	FireEnd					();
 	VERIFY(GetState()==eHiding);
-	PlayHUDMotion("anm_hide", TRUE, this, GetState());
+	PlayHUDMotion("anm_hide", TRUE, GetState());
+	PlaySoundIfExist("SndHide", get_LastFP());
 }
 
 void CWeaponKnife::switch2_Hidden()
@@ -302,9 +326,27 @@ void CWeaponKnife::switch2_Hidden()
 void CWeaponKnife::switch2_Showing	()
 {
 	VERIFY(GetState()==eShowing);
-	PlayHUDMotion("anm_show", FALSE, this, GetState());
+	PlayHUDMotion("anm_show", FALSE, GetState());
+	PlaySoundIfExist("SndShow", get_LastFP());
 }
 
+void CWeaponKnife::UpdateCL()
+{
+	inherited::UpdateCL();
+
+	if (Device.dwFrame == dwUpdateSounds_Frame)
+		return;
+
+	dwUpdateSounds_Frame = Device.dwFrame;
+
+	Fvector P = get_LastFP();
+
+	if (m_sounds.FindSoundItem("SndShow", false))
+		m_sounds.SetPosition("SndShow", P);
+
+	if (m_sounds.FindSoundItem("SndHide", false))
+		m_sounds.SetPosition("SndHide", P);
+}
 
 void CWeaponKnife::FireStart()
 {	

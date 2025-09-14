@@ -65,12 +65,8 @@ void dxFontRender::OnRender(CGameFont& owner)
 
 			u32	clr, clr2;
 			clr2 = clr = str.c;
-			if(owner.uFlags & CGameFont::fsGradient) {
-				u32	_R = color_get_R(clr) / 2;
-				u32	_G = color_get_G(clr) / 2;
-				u32	_B = color_get_B(clr) / 2;
-				u32	_A = color_get_A(clr);
-				clr2 = color_rgba(_R, _G, _B, _A);
+			if(str.gradient) {;
+				clr2 = str.gradientColor;
 			}
 
 			X -= 0.5f;
@@ -121,15 +117,50 @@ void dxFontRender::OnRender(CGameFont& owner)
 				float v1 = float(glyphInfo->TextureCoord.top) / fHeight;
 				float v2 = float(glyphInfo->TextureCoord.bottom) / fHeight;
 
-				vertexes->set(X, GlyphY2, clr2, u1, v2);
-				++vertexes;
-				vertexes->set(X, GlyphY, clr, u1, v1);
-				++vertexes;
-				vertexes->set(X2, GlyphY2, clr2, u2, v2);
-				++vertexes;
-				vertexes->set(X2, GlyphY, clr, u2, v1);
-				++vertexes;
-
+				if (str.gradientMode == CGameFont::gm_horz)
+				{ 
+					vertexes->set(X, GlyphY2, clr, u1, v2);
+					++vertexes;
+					vertexes->set(X, GlyphY, clr, u1, v1);
+					++vertexes;
+					vertexes->set(X2, GlyphY2, clr2, u2, v2);
+					++vertexes;
+					vertexes->set(X2, GlyphY, clr2, u2, v1);
+					++vertexes;
+				}
+				else if (str.gradientMode == CGameFont::gm_back)
+				{
+					vertexes->set(X, GlyphY2, clr2, u1, v2);
+					++vertexes;
+					vertexes->set(X, GlyphY, clr2, u1, v1);
+					++vertexes;
+					vertexes->set(X2, GlyphY2, clr, u2, v2);
+					++vertexes;
+					vertexes->set(X2, GlyphY, clr, u2, v1);
+					++vertexes;
+				}
+				else if (str.gradientMode == CGameFont::gm_down)
+				{
+					vertexes->set(X, GlyphY2, clr, u1, v2);
+					++vertexes;
+					vertexes->set(X, GlyphY, clr2, u1, v1);
+					++vertexes;
+					vertexes->set(X2, GlyphY2, clr, u2, v2);
+					++vertexes;
+					vertexes->set(X2, GlyphY, clr2, u2, v1);
+					++vertexes;
+				}
+				else
+				{
+					vertexes->set(X, GlyphY2, clr2, u1, v2);
+					++vertexes;
+					vertexes->set(X, GlyphY, clr, u1, v1);
+					++vertexes;
+					vertexes->set(X2, GlyphY2, clr2, u2, v2);
+					++vertexes;
+					vertexes->set(X2, GlyphY, clr, u2, v1);
+					++vertexes;
+				}
 				X = X2 + glyphInfo->Abc.abcC + owner.GetLetterSpacing();
 			}
 
@@ -147,7 +178,7 @@ void dxFontRender::OnRender(CGameFont& owner)
 
 void dxFontRender::CreateFontAtlas(u32 width, u32 height, const char* name, void* bitmap) {
 	ID3DTexture2D* pSurface = nullptr;
-
+	PROF_EVENT("dxFontRender::CreateFontAtlas");
 #ifdef USE_DX11
 	D3D_TEXTURE2D_DESC descFontAtlas;
 	ZeroMemory(&descFontAtlas, sizeof(D3D_TEXTURE2D_DESC));

@@ -14,10 +14,12 @@ CUI3tButton::CUI3tButton()
 	m_dwTextColor[S_Disabled] 		= 0xFFAAAAAA;
 	m_dwTextColor[S_Highlighted]	= 0xFFFFFFFF;
 	m_dwTextColor[S_Touched] 		= 0xFFFFFFFF;
+	m_bEnableTextHighlighting = false;
 
 	m_background		= nullptr;
 	m_back_frameline	= nullptr;
-	m_frameline_mode	= false;
+	m_back_framewindow	= nullptr;
+	m_frameline_mode	= Framemode_None;
 }
 
 
@@ -70,7 +72,7 @@ void CUI3tButton::PlaySoundH()
 }
 void CUI3tButton::InitButton(Fvector2 pos, Fvector2 size)
 {
-	if ( m_frameline_mode )
+	if ( m_frameline_mode == Framemode_Line )
 	{
 		if ( !m_back_frameline )
 		{
@@ -80,6 +82,17 @@ void CUI3tButton::InitButton(Fvector2 pos, Fvector2 size)
 		}
 		m_back_frameline->SetWndPos		(Fvector2().set(0,0));
 		m_back_frameline->SetWndSize	(size);
+	}
+	else if (m_frameline_mode == Framemode_Window)
+	{
+		if (!m_back_framewindow)
+		{
+			m_back_framewindow = new CUI_IB_FrameWindow();
+			m_back_framewindow->SetAutoDelete(true);
+			AttachChild(m_back_framewindow);
+		}
+		m_back_framewindow->SetWndPos(Fvector2().set(0, 0));
+		m_back_framewindow->SetWndSize(size);
 	}
 	else
 	{
@@ -101,6 +114,7 @@ void CUI3tButton::SetWidth(float width)
 	CUIButton::SetWidth			(width);
 	if ( m_background )				{	m_background->SetWidth		(width);	}
 	else if ( m_back_frameline )	{	m_back_frameline->SetWidth	(width);	}
+	else if ( m_back_framewindow )	{	m_back_framewindow->SetWidth(width);	}
 }
 
 void CUI3tButton::SetHeight(float height)
@@ -108,9 +122,10 @@ void CUI3tButton::SetHeight(float height)
 	CUIButton::SetHeight		(height);
 	if ( m_background )	{		m_background->SetHeight		(height);	}
 	else if ( m_back_frameline )	{	m_back_frameline->SetHeight	(height);	}
+	else if ( m_back_framewindow )	{	m_back_framewindow->SetHeight(height);	}
 }
 
-void CUI3tButton::InitTexture(LPCSTR tex_name)
+bool CUI3tButton::InitTexture(LPCSTR tex_name, bool /*fatal = true*/)
 {
 	string_path 		tex_enabled;
 	string_path 		tex_disabled;
@@ -133,7 +148,8 @@ void CUI3tButton::InitTexture(LPCSTR tex_name)
 	xr_strcpy				(tex_highlighted, tex_name);
 	xr_strcat				(tex_highlighted, "_h");
 
-	this->InitTexture	(tex_enabled, tex_disabled, tex_touched, tex_highlighted);		
+	this->InitTexture	(tex_enabled, tex_disabled, tex_touched, tex_highlighted);	
+	return true;
 }
 
 void CUI3tButton::InitTexture(LPCSTR tex_enabled, 
@@ -154,6 +170,13 @@ void CUI3tButton::InitTexture(LPCSTR tex_enabled,
 		m_back_frameline->InitState				(S_Disabled,	tex_disabled);
 		m_back_frameline->InitState				(S_Touched,		tex_touched);
 		m_back_frameline->InitState				(S_Highlighted, tex_highlighted);
+	}
+	else if (m_back_framewindow)
+	{
+		m_back_framewindow->InitState(S_Enabled, tex_enabled);
+		m_back_framewindow->InitState(S_Disabled, tex_disabled);
+		m_back_framewindow->InitState(S_Touched, tex_touched);
+		m_back_framewindow->InitState(S_Highlighted, tex_highlighted);
 	}
 
 	this->m_bTextureEnable = true;
@@ -180,9 +203,14 @@ void CUI3tButton::DrawTexture()
 		{
 			m_background->SetStretchTexture(true);
 			m_background->Draw();		
-		}else if ( m_back_frameline )	
+		}
+		else if ( m_back_frameline )	
 		{	
 			m_back_frameline->Draw();	
+		}
+		else if (m_back_framewindow)
+		{
+			m_back_framewindow->Draw();
 		}
 	}
 }
@@ -197,21 +225,25 @@ void CUI3tButton::Update()
 		{
 			if ( m_background )				{	m_background->SetCurrentState( S_Disabled );	}
 			else if ( m_back_frameline )	{	m_back_frameline->SetCurrentState( S_Disabled ); }
+			else if ( m_back_framewindow )	{	m_back_framewindow->SetCurrentState( S_Disabled ); }
 		}
 		else if ( CUIButton::BUTTON_PUSHED == GetButtonState() )
 		{
 			if ( m_background )				{	m_background->SetCurrentState( S_Touched );		}
 			else if ( m_back_frameline )	{	m_back_frameline->SetCurrentState( S_Touched );	}
+			else if ( m_back_framewindow )	{	m_back_framewindow->SetCurrentState( S_Touched );	}
 		}
 		else if ( m_bCursorOverWindow )
 		{
 			if ( m_background )				{	m_background->SetCurrentState( S_Highlighted );		}
 			else if ( m_back_frameline )	{	m_back_frameline->SetCurrentState( S_Highlighted );	}
+			else if ( m_back_framewindow )	{	m_back_framewindow->SetCurrentState( S_Highlighted );	}
 		}
 		else
 		{
 			if ( m_background )				{	m_background->SetCurrentState( S_Enabled );		}
 			else if ( m_back_frameline )	{	m_back_frameline->SetCurrentState( S_Enabled );	}
+			else if ( m_back_framewindow )	{	m_back_framewindow->SetCurrentState( S_Enabled );	}
 		}
 	}
 

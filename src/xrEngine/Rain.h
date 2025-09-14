@@ -6,7 +6,7 @@
 #define RainH
 #pragma once
 
-#include "../xrCDB/xr_collide_defs.h"
+#include "../xrCore/Collision/xr_collide_defs.h"
 
 //refs
 class ENGINE_API IRender_DetailModel;
@@ -68,6 +68,10 @@ private:
 
 	// Sounds
 	ref_sound						snd_Ambient;
+	ref_sound						snd_RoofDroplets;
+	ref_sound						snd_RoofDropletsHard;
+	xrCriticalSection				rainCS;
+	float m_rainVolume = 0.0f;
 
 	// Utilities
 	void							p_create		();
@@ -80,17 +84,19 @@ private:
 	void							p_free			(Particle* P);
 
 	// Some methods
-	void							Born			(Item& dest, float radius);
+	void							Born			(Item& dest, float radius, shared_str& rainType);
 	void							Hit				(Fvector& pos);
-	BOOL							RayPick			(const Fvector& s, const Fvector& d, float& range, collide::rq_target tgt);
 	void							RenewItem		(Item& dest, float height, BOOL bHit);
 public:
+	BOOL							RayPick			(const Fvector& s, const Fvector& d, float& range, collide::rq_target tgt);
 									CEffect_Rain	();
 									~CEffect_Rain	();
 
 	void							Render			();
 	void							OnFrame			();
-	void InvalidateState() { state = stIdle; }
+	void							UpdateItems		();
+	void InvalidateState();
+	float GetRainVolume() const { return m_rainVolume; }
 };
 
 #endif //RainH

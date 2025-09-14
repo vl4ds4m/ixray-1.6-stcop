@@ -14,6 +14,8 @@
 #include "../../step_manager.h"
 #include "../../../xrScripts/script_export_space.h"
 
+#include "ai_stalker_state_net.h"
+
 #ifdef DEBUG
 	template <typename _object_type>
 	class CActionBase;
@@ -55,6 +57,25 @@ namespace smart_cover {
 
 	namespace transitions {
 		class action;
+	};
+};
+
+namespace stalker_interpolation 
+{
+	struct InterpData
+	{
+		Fvector Pos;
+		Fvector Vel;
+		SRotation o_torso;
+		SRotation head;
+	};
+
+	struct net_update_A
+	{
+		SPHNetState State;
+		SRotation o_torso;
+		SRotation head;
+		u32 dwTimeStamp = 0;
 	};
 };
 
@@ -108,7 +129,8 @@ private:
 	// ALife
 private:
 	SBoneProtections*				m_boneHitProtection;
-
+	bool m_isUpdateBestWeapon = false;
+	const char* m_onUpdateBestWeaponName = {};
 	// weapon dispersion
 private:
 	float							m_disp_walk_stand;
@@ -131,6 +153,30 @@ private:
 	float							m_fRankVisibility;
 	float							m_fRankImmunity;
 
+	// for interpolation
+	SPHNetState						LastState;
+	SPHNetState						RecalculatedState;
+	SPHNetState						PredictedState;
+
+	float							SCoeff[3][4];		
+	float							HCoeff[3][4];		
+	Fvector							IPosS, IPosH, IPosL;
+
+
+public:
+	xr_deque<stalker_interpolation::net_update_A>	NET_A;
+
+	stalker_interpolation::net_update_A				NET_A_Last;
+
+	stalker_interpolation::InterpData		IStart;
+	stalker_interpolation::InterpData		IRec;
+	stalker_interpolation::InterpData		IEnd;
+
+	bool							m_bInInterpolation;
+	bool							m_bInterpolate;
+	u32								m_dwIStartTime;
+	u32								m_dwIEndTime;
+	u32								m_dwILastUpdateTime;
 	// best item/ammo selection members
 public:
 	bool							m_item_actuality;
@@ -187,8 +233,13 @@ public:
 	void LookAtActor(CBoneInstance* headBone);
 
 	virtual BOOL						net_Spawn							(CSE_Abstract* DC);
+
 	virtual void						net_Export							(NET_Packet& P);
 	virtual void						net_Import							(NET_Packet& P);
+
+	virtual void SyncRead(NET_Packet& Packet);
+	virtual void SyncWrite(NET_Packet& Packet);
+
 	virtual void						net_Destroy							();
 	virtual void						net_Save							(NET_Packet& P);
 	virtual	BOOL						net_SaveRelevant					();
@@ -219,6 +270,10 @@ public:
 	virtual	void						PHHit								(SHit &H);
 	virtual BOOL						feel_vision_isRelevant				(CObject* who);
 	virtual float						Radius								() const;
+
+	virtual void						ChangeVisual						( shared_str NewVisual );
+	void OnChangeVisual() override;
+
 #ifdef DEBUG_DRAW
 	virtual void						OnHUDDraw							(CCustomHUD* hud);
 	virtual void						OnRender							();
@@ -276,8 +331,10 @@ public:
 			bool						ready_to_detour			();
 			void						update_best_item_info	();
 			void						update_best_item_info_impl();
+			void						ResetBoneProtections	(LPCSTR imm_sect, LPCSTR bone_sect);
 	virtual float						GetWeaponAccuracy		() const;
 	virtual bool						unlimited_ammo			();
+	virtual bool						infinite_fire() override;
 	virtual	void						spawn_supplies			();
 	IC		CAgentManager				&agent_manager			() const;
 	
@@ -289,6 +346,31 @@ public:
 			bool						undetected_anomaly		();
 			bool						inside_anomaly			();
 
+public:
+
+	// State Manager Se7Kills
+	aistalker_state_net state_manager;
+
+	// NET EXPORT-IMPORT APPLY
+	u32 LastUpdateAnims = 0;
+	Fmatrix UpdateMatrix;
+
+	void ApplyAnimation(StalkerMotionData& anims);
+	void UpdateScriptAnim(NET_Packet& packet);
+	void make_Interpolation();
+
+	virtual void PH_B_CrPr() override;
+	virtual void PH_A_CrPr() override;
+	virtual void PH_I_CrPr() override;
+
+	void CalculateInterpolationParams();
+	void postprocess_packet(stalker_interpolation::net_update_A& packet);
+	
+	void OnAnimationChangeTorso(const MotionID& motionID, bool mix, bool continue_position, bool m_step_dependence, bool anim_stand);
+	void OnAnimationChangeHead(const MotionID& motionID, bool mix, bool continue_position, bool m_step_dependence, bool anim_stand);
+	void OnAnimationChangeLegs(const MotionID& motionID, bool mix, bool continue_position, bool m_step_dependence, bool anim_stand);
+	void OnAnimationChangeScript(u8 boneID, const MotionID& motionID, bool mix, bool use_controller, bool local_animation, Fmatrix* target_matrix);
+	void OnAnimationChangeGlobal(u8 boneID, const MotionID& motionID, bool mix, bool use_controller, bool local_animation, Fmatrix* target_matrix);
 private:
 	bool				m_can_kill_member;
 	bool				m_can_kill_enemy;

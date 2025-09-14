@@ -27,13 +27,12 @@ target_compile_definitions(ETools PRIVATE _USRDLL)
 
 # Linker list
 target_link_libraries(ETools PUBLIC xrCore)
-target_link_libraries(ETools PUBLIC xrCDB)
 target_link_libraries(ETools PUBLIC xrSound)
-target_link_libraries(ETools PUBLIC QSlim)
 target_link_libraries(ETools PUBLIC imgui)
 
 # DirectX SDK
 target_link_libraries(ETools PUBLIC ${CMAKE_BINARY_DIR}/packages/Microsoft.DXSDK.D3DX.9.29.952.8/build/native/release/lib/${NUGET_PACKAGE_PLATFORM}/d3dx9.lib)
+target_link_libraries(ETools PUBLIC ${CMAKE_BINARY_DIR}/packages/directxmesh_desktop_2019.2024.6.5.1/native/lib/x64/Release/DirectXMesh.lib)
 target_include_directories(ETools PUBLIC "${CMAKE_BINARY_DIR}/packages/Microsoft.DXSDK.D3DX.9.29.952.8/build/native/include/")
 target_include_directories(ETools PUBLIC "${CMAKE_BINARY_DIR}/packages/directxmesh_desktop_2019.2024.6.5.1/include/")
 

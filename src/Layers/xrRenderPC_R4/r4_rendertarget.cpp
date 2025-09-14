@@ -15,15 +15,18 @@
 #include "blender_scale.h"
 #include "blender_cas.h"
 #include "blender_gtao.h"
+#include "blender_taa.h"
 #include "../xrRenderDX10/DX10 Rain/dx10RainBlender.h"
 #include "../xrRender/blender_fxaa.h"
 #include "../xrRender/blender_smaa.h"
 #include "../xrRender/dxRenderDeviceRender.h"
 #include "magic_enum/magic_enum.hpp"
-#include "FSR2Wrapper.h"
-#include "DLSSWrapper.h"
 
-void	CRenderTarget::u_setrt(const ref_rt& _1, const ref_rt& _2, const ref_rt& _3, const ref_rt& _4, ID3DDepthStencilView* zb)
+#include "OverlayAPI\FSR2Wrapper.h"
+#include "OverlayAPI\DLSSWrapper.h"
+#include "OverlayAPI\XESSWrapper.h"
+
+void CRenderTarget::u_setrt(const ref_rt& _1, const ref_rt& _2, const ref_rt& _3, const ref_rt& _4, ID3DDepthStencilView* zb)
 {
 	VERIFY(_1 || zb);
 	if (_1)	{
@@ -431,10 +434,25 @@ CRenderTarget::CRenderTarget()
 		DisplayRT(rt_Generic_2);
 		DisplayRT(rt_Normal);
 		DisplayRT(rt_Position);
+		DisplayRT(rt_sslr);
+		DisplayRT(rt_sslr_temp);
 		DisplayRT(rt_ssao_temp);
 		DisplayRT(rt_Velocity);
 
 #undef DisplayRT
+
+		static int stack_levels = 3;
+		ImGui::SliderInt("Stack Levels", &stack_levels, 0, 8);
+
+		auto& perf = GPUEvents_Statistics();
+		for (size_t i = 0; i < perf.count; i++) {
+			auto& event = perf.events[i];
+			if (event.stack < stack_levels) {
+				u64 time_micros = (event.end - event.begin) / (event.freq / 1000000);
+				float time_milliseconds = (float)time_micros * 0.001f;
+				ImGui::Text("%*s%s: %.3fms", event.stack * 2, " ", event.name.c_str(), time_milliseconds);
+			}
+		}
 
 		ImGui::End();
 	});
@@ -478,13 +496,16 @@ CRenderTarget::CRenderTarget()
 	// NORMAL
 	{
 		rt_Position.create(r2_RT_P, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R24G8_TYPELESS);
+
 		rt_Surface.create(r2_RT_S, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R8G8B8A8_UNORM);
 		rt_Normal.create(r2_RT_N, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R16G16B16A16_UNORM);
-		rt_Color.create(r2_RT_albedo, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R8G8B8A8_UNORM);
 
+		rt_SurfaceTemp.create(r2_RT_S"_temp", s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R8G8B8A8_UNORM);
+		rt_NormalTemp.create(r2_RT_N"_temp", s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R16G16B16A16_UNORM);
+
+		rt_Color.create(r2_RT_albedo, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R8G8B8A8_UNORM);
 		rt_Accumulator.create(r2_RT_accum, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT);
 
-		// generic(LDR) RTs
 		rt_Generic_0.create(r2_RT_generic0, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT);
 		rt_Generic_1.create(r2_RT_generic1, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R8G8B8A8_UNORM);
 
@@ -498,8 +519,26 @@ CRenderTarget::CRenderTarget()
 		rt_Generic.create(r2_RT_generic, get_target_width(), get_target_height(), DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT, 1, isUAV);
 	}
 
+	if(RImplementation.o.deffered_reflecitons) {
+		rt_sslr_temp.create(r2_RT_sslr_temp, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT);
+		rt_sslr_old.create(r2_RT_sslr_old, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT);
+		rt_sslr.create(r2_RT_sslr, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT);
+	}
+
+	if(RImplementation.o.offscreen_reflecitons) {
+		u32 RefSize = 256;
+		auto flags = CRT::CRTCreationFlags::MIPPED_RT_FLAG;
+
+		// TODO: Optimize memory using
+		rt_Reflection.create(r2_RT_env, RefSize, DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT, flags);
+		rt_Reflection_temp.create(r2_RT_env_temp, RefSize, DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT, flags);
+
+		rt_Depth.create(r2_RT_env_depth, RefSize, RefSize, DxgiFormat::DXGI_FORMAT_R24G8_TYPELESS);
+	}
+
 	init_fsr();
 	init_dlss();
+	init_xess();
 
 	// Scale
 	{
@@ -545,6 +584,14 @@ CRenderTarget::CRenderTarget()
 	//Puddles
 	{
 		s_puddles.create("effects_water_puddles");
+	}
+
+	//TAA
+	{
+		b_taa = new CBlender_taa();
+		s_taa.create(b_taa);
+
+		rt_Generic_0_prev.create(r2_RT_generic0_prev, s_dwWidth, s_dwHeight, DxgiFormat::DXGI_FORMAT_R16G16B16A16_FLOAT);	
 	}
 
 	// OCCLUSION
@@ -904,9 +951,11 @@ CRenderTarget::~CRenderTarget	()
 	xr_delete(b_occq);
 	xr_delete(b_cas);
 	xr_delete(b_gtao);
+	xr_delete(b_taa);
 
 	g_Fsr2Wrapper.Destroy();
 	g_DLSSWrapper.Destroy();
+	g_XESSWrapper.Destroy();
 
 	CImGuiManager::Instance().Unsubscribe("GraphicDebug");
 

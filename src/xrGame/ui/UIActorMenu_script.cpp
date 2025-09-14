@@ -55,6 +55,113 @@ u8 GrabMenuMode()
 	return (u8)(CurrentGameUI()->ActorMenu().GetMenuMode());
 }
 
+void ActorMenuSetPartner_script(CUIActorMenu* menu, CScriptGameObject* GO)
+{
+	CInventoryOwner* io = GO->object().cast_inventory_owner();
+	if (io)
+		menu->SetPartner(io);
+}
+
+void ActorMenuSetInvbox_script(CUIActorMenu* menu, CScriptGameObject* GO)
+{
+	CInventoryBox* inv_box = smart_cast<CInventoryBox*>(&GO->object());
+	if (inv_box)
+		menu->SetInvBox(inv_box);
+}
+
+void ActorMenuSetActor_script(CUIActorMenu* menu, CScriptGameObject* GO)
+{
+	menu->SetActor(Actor()->cast_inventory_owner());
+}
+
+CScriptGameObject* ActorMenuGetPartner_script(CUIActorMenu* menu)
+{
+	CInventoryOwner* io = menu->GetPartner();
+	if (io)
+	{
+		CGameObject* GO = smart_cast<CGameObject*>(io);
+		return GO->lua_game_object();
+	}
+	return (0);
+}
+
+CScriptGameObject* ActorMenuGetInvbox_script(CUIActorMenu* menu)
+{
+	CInventoryBox* inv_box = menu->GetInvBox();
+	if (inv_box)
+	{
+		CGameObject* GO = smart_cast<CGameObject*>(inv_box);
+		return GO->lua_game_object();
+	}
+	return (0);
+}
+
+CScriptGameObject* CUIActorMenu::GetCurrentItemAsGameObject()
+{
+	CGameObject* GO = smart_cast<CGameObject*>(CurrentIItem());
+	if (GO)
+		return GO->lua_game_object();
+
+	return (0);
+}
+
+void CUIActorMenu::HighlightForEachInSlot(const luabind::functor<bool>& functor, u8 type, u16 slot_id)
+{
+	if (!functor)
+		return;
+
+	CUIDragDropListEx* slot_list = m_pInventoryBagList;
+	switch (type)
+	{
+	case EDDListType::iActorBag:
+		slot_list = m_pInventoryBagList;
+		break;
+	case EDDListType::iActorBelt:
+		slot_list = m_pInventoryBeltList;
+		break;
+	case EDDListType::iActorSlot:
+		slot_list = GetSlotList(slot_id);
+		break;
+	case EDDListType::iActorTrade:
+		slot_list = m_pTradeActorBagList;
+		break;
+	case EDDListType::iDeadBodyBag:
+		slot_list = m_pDeadBodyBagList;
+		break;
+	case EDDListType::iPartnerTrade:
+		slot_list = m_pTradePartnerList;
+		break;
+	case EDDListType::iPartnerTradeBag:
+		slot_list = m_pTradePartnerBagList;
+		break;
+	case EDDListType::iQuickSlot:
+		slot_list = m_pQuickSlot;
+		break;
+	case EDDListType::iTrashSlot:
+		slot_list = m_pTrashList;
+		break;
+	}
+
+	if (!slot_list)
+		return;
+
+	u32 const cnt = slot_list->ItemsCount();
+	for (u32 i = 0; i < cnt; ++i)
+	{
+		CUICellItem* ci = slot_list->GetItemIdx(i);
+		PIItem item = (PIItem)ci->m_pData;
+		if (!item)
+			continue;
+
+		if (functor(item->object().cast_game_object()->lua_game_object()) == false)
+			continue;
+
+		ci->m_select_armament = true;
+	}
+
+	m_highlight_clear = false;
+}
+
 void CUIActorMenu::TryRepairItem(CUIWindow* w, void* d)
 {
 	PIItem item = get_upgrade_item();
@@ -66,7 +173,31 @@ void CUIActorMenu::TryRepairItem(CUIWindow* w, void* d)
 	{
 		return;
 	}
+	
+	if (!IsGameTypeSingle())
+	{
+		LPCSTR item_name = item->m_section_id.c_str();
+		luabind::functor<int> funct;
+		R_ASSERT2(ai().script_engine().functor("inventory_upgrades.how_much_repair", funct), make_string<const char*>("Failed to get functor <inventory_upgrades.how_much_repair>, item = %s", item_name));
+		int cost = funct(item_name, item->GetCondition());
+		NET_Packet P;
+		CGameObject::u_EventGen(P, GE_GAME_EVENT, item->object().ID());
+		P.w_u16(GAME_EVENT_MP_REPAIR);
+		P.w_u16(item->object().ID());
+		P.w_s32(cost);
+		CGameObject::u_EventSend(P);
+		return;
+	}
+
 	LPCSTR item_name = item->m_section_id.c_str();
+
+	CEatableItem* EItm = smart_cast<CEatableItem*>(item);
+	if (EItm)
+	{
+		bool allow_repair = !!READ_IF_EXISTS(pSettings, r_bool, item_name, "allow_repair", false);
+		if (!allow_repair)
+			return;
+	}
 	LPCSTR partner = m_pPartnerInvOwner->CharacterInfo().Profile().c_str();
 
 	luabind::functor<bool> funct;
@@ -85,11 +216,46 @@ void CUIActorMenu::TryRepairItem(CUIWindow* w, void* d)
 
 	if(can_repair)
 	{
-		m_repair_mode = true;
+		m_repair_mode = 1;
 		CallMessageBoxYesNo( question );
 	} 
 	else
 		CallMessageBoxOK( question );
+}
+
+void CUIActorMenu::TryDisassembleItem(CUIWindow* w, void* d)
+{
+	PIItem item = get_upgrade_item();
+	if (!item)
+		return;
+
+	const char* partner = m_pPartnerInvOwner->CharacterInfo().Profile().c_str();
+
+	luabind::functor<bool> funct;
+
+	R_ASSERT2(
+		ai().script_engine().functor(m_onCanDisassembleItem, funct),
+		make_string<const char*>("Failed to get functor onCanDisassembleItem, item = %s", item->m_section_id.c_str())
+	);
+
+	bool can_disassemble = funct(item->m_section_id.c_str(), item->GetCondition(), partner);
+
+	luabind::functor<const char*> funct2;
+
+	R_ASSERT2(
+		ai().script_engine().functor(m_onQuestionDisassembleItem, funct2),
+		make_string<const char*>("Failed to get functor onQuestionDisassembleItem, item = %s", item->m_section_id.c_str())
+	);
+
+	const char* question = funct2(item->m_section_id.c_str(), item->GetCondition(), can_disassemble, partner);
+
+	if (can_disassemble)
+	{
+		m_repair_mode = 2;
+		CallMessageBoxYesNo(question);
+	}
+	else
+		CallMessageBoxOK(question);
 }
 
 void CUIActorMenu::RepairEffect_CurItem()
@@ -114,13 +280,33 @@ void CUIActorMenu::RepairEffect_CurItem()
 
 }
 
+void CUIActorMenu::PerformDisassemble()
+{
+	PIItem item = CurrentIItem();
+	if (!item)
+		return;
+
+	const char* partner = m_pPartnerInvOwner->CharacterInfo().Profile().c_str();
+	luabind::functor<void> funct;
+
+	R_ASSERT2(
+		ai().script_engine().functor(m_onEffectDisassemble, funct),
+		make_string<const char*>("Failed to get functor <onEffectDisassemble>, item = %s", item->m_section_id.c_str())
+	);
+
+	funct(item->m_section_id.c_str(), item->GetCondition(), partner);
+
+	SetCurrentItem(nullptr);
+	item->object().DestroyObject();
+}
+
 bool CUIActorMenu::CanUpgradeItem( PIItem item )
 {
 	VERIFY( item && m_pPartnerInvOwner );
 	LPCSTR item_name = item->m_section_id.c_str();
 	LPCSTR partner = m_pPartnerInvOwner->CharacterInfo().Profile().c_str();
 		
-	luabind::functor<bool> funct;
+	luabind::functor<bool> funct; 
 	R_ASSERT2(
 		ai().script_engine().functor( "inventory_upgrades.can_upgrade_item", funct ),
 		make_string<const char*>( "Failed to get functor <inventory_upgrades.can_upgrade_item>, item = %s, mechanic = %s", item_name, partner )
@@ -137,10 +323,63 @@ void CUIActorMenu::CurModeToScript()
 	funct( mode );
 }
 
+void CUIActorMenu::HighlightSectionInSlot(LPCSTR section, u8 type, u16 slot_id)
+{
+	CUIDragDropListEx* slot_list = m_pInventoryBagList;
+	switch (type)
+	{
+	case EDDListType::iActorBag:
+		slot_list = m_pInventoryBagList;
+		break;
+	case EDDListType::iActorBelt:
+		slot_list = m_pInventoryBeltList;
+		break;
+	case EDDListType::iActorSlot:
+		slot_list = GetSlotList(slot_id);
+		break;
+	case EDDListType::iActorTrade:
+		slot_list = m_pTradeActorBagList;
+		break;
+	case EDDListType::iDeadBodyBag:
+		slot_list = m_pDeadBodyBagList;
+		break;
+	case EDDListType::iPartnerTrade:
+		slot_list = m_pTradePartnerList;
+		break;
+	case EDDListType::iPartnerTradeBag:
+		slot_list = m_pTradePartnerBagList;
+		break;
+	case EDDListType::iQuickSlot:
+		slot_list = m_pQuickSlot;
+		break;
+	case EDDListType::iTrashSlot:
+		slot_list = m_pTrashList;
+		break;
+	}
+
+	if (!slot_list)
+		return;
+
+	u32 const cnt = slot_list->ItemsCount();
+	for (u32 i = 0; i < cnt; ++i)
+	{
+		CUICellItem* ci = slot_list->GetItemIdx(i);
+		PIItem item = (PIItem)ci->m_pData;
+		if (!item)
+			continue;
+
+		if (!strcmp(section, item->m_section_id.c_str()) == 0)
+			continue;
+
+		ci->m_select_armament = true;
+	}
+
+	m_highlight_clear = false;
+}
+
 #pragma optimize("s",on)
 void CUIActorMenu::script_register(lua_State *L)
 {
-	/* TODO: St4lker0k765: Port this?
 	module(L)
 	[
 		class_< enum_exporter<EDDListType> >("EDDListType")
@@ -241,7 +480,6 @@ void CUIActorMenu::script_register(lua_State *L)
 				.def_readonly("m_radia_damage", &CUIHudStatesWnd::m_radia_damage)
 				
 	];
-	*/
 	module(L, "ActorMenu")
 	[
 		def("get_pda_menu", &GetPDAMenu),

@@ -287,58 +287,238 @@ void xrServer::SendGameUpdateTo(IClient* client)
 
 void xrServer::MakeUpdatePackets()
 {
-	NET_Packet						tmpPacket;			
-	u32								position;
+	NET_Packet tmpPacket;
+	u32 position;
 
-	m_updator.begin_updates			();
-	
-	xrS_entities::iterator I	= entities.begin();
-	xrS_entities::iterator E	= entities.end();
-	for (; I!=E; ++I)
-	{//all entities
-		CSE_Abstract&	Test			= *(I->second);
+	m_update_packets.clear();
+	m_updator.begin_updates();
 
-		if (0==Test.owner)								continue;
-		if (!Test.net_Ready)							continue;
-		if (Test.s_flags.is(M_SPAWN_OBJECT_PHANTOM))	continue;	// Surely: phantom
-		if (!Test.Net_Relevant() )						continue;
+	xrS_entities::iterator I = entities.begin();
+	xrS_entities::iterator E = entities.end();
+	for (; I != E; ++I)
+	{
+		CSE_Abstract& Test = *(I->second);
 
-		tmpPacket.B.count				= 0;
+		if (0 == Test.owner || !Test.net_Ready)								
+			continue;
+
+		if (Test.s_flags.is(M_SPAWN_OBJECT_PHANTOM) || !Test.Net_Relevant())	
+			continue;
+
+		tmpPacket.B.count = 0;
+
 		// write specific data
 		{
-			tmpPacket.w_u16					(Test.ID);
-			tmpPacket.w_chunk_open8			(position);
-			Test.UPDATE_Write				(tmpPacket);
-			u32 ObjectSize					= u32(tmpPacket.w_tell()-position)-sizeof(u8);
-			tmpPacket.w_chunk_close8		(position);
+			tmpPacket.w_u16(Test.ID);
+			tmpPacket.w_chunk_open8(position);
+			Test.UPDATE_Write(tmpPacket);
+			if (g_pGamePersistent->GameType() == eGameIDFreeMP)
+			{
+				Test.SyncWrite(tmpPacket);
+			}
 
-			if (ObjectSize == 0)			continue;					
+			u32 ObjectSize = u32(tmpPacket.w_tell() - position) - sizeof(u8);
+			tmpPacket.w_chunk_close8(position);
+
+			if (ObjectSize == 0)
+				continue;
 #ifdef DEBUG
 			if (g_Dump_Update_Write) Msg("* %s : %d", Test.name(), ObjectSize);
 #endif
-			m_updator.write_update_for		(Test.ID, tmpPacket);
+			UpdatePacket* NewPacket = &m_update_packets.emplace_back(UpdatePacket());
+			NewPacket->Entity = I->second;
+			std::memcpy(&(NewPacket->Packet), &tmpPacket, sizeof(NET_Packet));
 		}
-	}//all entities
+	}
 
-	m_updator.end_updates			(m_update_begin, m_update_end);
+	m_updator.end_updates(m_update_begin, m_update_end);
 }
 
 void xrServer::SendUpdatePacketsToAll()
 {
-	m_last_updates_size = 0;
-	for (update_iterator_t i = m_update_begin; i != m_update_end; ++i)
+	struct ClientExcluderPredicate
 	{
-		NET_Packet& to_send = **i;
-		if (to_send.B.count > 2)
+		ClientID id_to_exclude;
+		ClientExcluderPredicate(ClientID exclude) :
+			id_to_exclude(exclude)
 		{
-			m_last_updates_size += to_send.B.count;
-			SendBroadcast	(GetServerClient()->ID, to_send, net_flags(FALSE,TRUE));
-			if (Level().IsDemoSave())
+		}
+		bool operator()(IClient* client)
+		{
+			xrClientData* tmp_client = static_cast<xrClientData*>(client);
+			if (client->ID == id_to_exclude)
+				return false;
+			if (!client->flags.bConnected)
+				return false;
+			if (!tmp_client->net_Accepted)
+				return false;
+			return true;
+		}
+	};
+
+	struct SenderFunctor
+	{
+		xrServer* m_owner;
+		u32 m_dwFlags;
+		xr_vector<UpdatePacket>& m_packets;
+
+		server_updates_compressor* m_updator;
+		update_iterator_t			m_update_begin;
+		update_iterator_t			m_update_end;
+
+		SenderFunctor(xrServer* owner, xr_vector<UpdatePacket>& packets, server_updates_compressor* updator, u32 dwFlags) :
+			m_owner(owner), m_packets(packets), m_updator(updator), m_dwFlags(dwFlags)
+		{
+		}
+		void operator()(IClient* client)
+		{
+			auto I = m_packets.begin();
+			auto E = m_packets.end();
+
+			xrClientData* CL = static_cast<xrClientData*>(client);
+
+			bool need_to_update_15 = Device.dwTimeGlobal - CL->m_last_update_time_15 >= u32(1000 / 15); // 15 per sec
+			bool need_to_update_10 = Device.dwTimeGlobal - CL->m_last_update_time_10 >= u32(1000 / 10); // 10 per sec
+			bool need_to_update_5 = Device.dwTimeGlobal - CL->m_last_update_time_5 >= u32(1000 / 5);    // 5 per sec
+			bool need_to_update_1 = Device.dwTimeGlobal - CL->m_last_update_time_1 >= u32(1000);        // 1 per sec
+			bool need_to_update_05 = Device.dwTimeGlobal - CL->m_last_update_time_05 >= u32(2000);       // 1 per 2 sec
+
+			constexpr float distance_30 = 30.f * 30.f;
+			constexpr float distance_50 = 50.f * 50.f;
+			constexpr float distance_60 = 60.f * 60.f;
+			constexpr float distance_100 = 100.f * 100.f;
+			constexpr float distance_200 = 200.f * 200.f;
+			constexpr float distance_300 = 300.f * 300.f;
+
+			// create big net packets & compress (if enabled)
+			m_updator->begin_updates();
+			for (; I != E; ++I)
 			{
-				Level().SavePacket(to_send);
+				CSE_Abstract* owner = CL->owner;
+				if (!owner) continue;
+
+				CSE_Abstract* entity = I->Entity;
+				NET_Packet& packet = I->Packet;
+
+				float distance = 0.f;
+
+				CSE_Abstract* parent = m_owner->ID_to_entity(entity->ID_Parent);
+
+				bool has_parent = !!parent;
+				if (!has_parent)
+				{
+					distance = owner->Position().distance_to_sqr(entity->Position());
+				}
+				else
+				{
+					distance = owner->Position().distance_to_sqr(parent->Position());
+				}
+
+				if (entity->cast_human_abstract() || entity->cast_monster_abstract())
+				{
+					// MONSTERS AND HUMANS
+					// 0 - 50 : 30 per sec
+					// 50 - 100 : 15 per sec
+					// 100 - 200 : 10 per sec
+					// 200 - 300 : 5 per sec
+					// 300 and more : 1 per 2 sec
+
+					bool NeedUpdate = distance <= distance_50;
+					NeedUpdate = NeedUpdate || (need_to_update_15 && distance <= distance_100);
+					NeedUpdate = NeedUpdate || (need_to_update_10 && distance <= distance_200);
+					NeedUpdate = NeedUpdate || (need_to_update_5 && distance <= distance_300);
+					NeedUpdate = NeedUpdate || need_to_update_05;
+
+					if (NeedUpdate)
+					{
+						m_updator->write_update_for(entity->ID, packet);
+					}
+				}
+				else if (smart_cast<CSE_ActorMP*>(entity))
+				{
+					// ACTORS
+					// 0 - 200 : 30 per second
+					// 200 - 300 : 10 per second
+					// 300 and more : 1 per sec
+
+					bool NeedUpdate = distance <= distance_200;
+					NeedUpdate = NeedUpdate || (need_to_update_10 && distance <= distance_300);
+					NeedUpdate = NeedUpdate || need_to_update_1;
+
+					if (NeedUpdate)
+					{
+						m_updator->write_update_for(entity->ID, packet);
+					}
+				}
+				else if (smart_cast<CSE_ALifeItemArtefact*>(entity))
+				{
+					// ARTEFACTS
+					// 0 - 30 : 10 per second
+					// 30 - 60 : 5 per second
+					// 60 and more : 1 per 2 sec
+					bool NeedUpdate = need_to_update_10 && distance <= distance_30;
+					NeedUpdate = NeedUpdate || (need_to_update_5 && distance <= distance_60);
+					NeedUpdate = NeedUpdate || need_to_update_05;
+					
+					if (NeedUpdate)
+					{
+						m_updator->write_update_for(entity->ID, packet);
+					}
+				}
+				else if (entity->cast_inventory_item())
+				{
+					if (has_parent)
+					{
+						// Inventory items with parent
+						// 0 - 200 : 30 per second
+						// 200 - 300 : 10 per second
+						// 300 and more : 1 per sec
+
+						bool NeedUpdate = distance <= distance_200;
+						NeedUpdate = NeedUpdate || (need_to_update_10 && distance <= distance_300);
+						NeedUpdate = NeedUpdate || need_to_update_1;
+
+						if (NeedUpdate)
+						{
+							m_updator->write_update_for(entity->ID, packet);
+						}
+					}
+					else
+					{
+						m_updator->write_update_for(entity->ID, packet);
+					}
+				}
+				else
+				{
+					m_updator->write_update_for(entity->ID, packet);
+				}
+			}
+
+			CL->m_last_update_time_15 = need_to_update_15 ? Device.dwTimeGlobal : CL->m_last_update_time_15;
+			CL->m_last_update_time_10 = need_to_update_10 ? Device.dwTimeGlobal : CL->m_last_update_time_10;
+			CL->m_last_update_time_5 = need_to_update_5 ? Device.dwTimeGlobal : CL->m_last_update_time_5;
+			CL->m_last_update_time_1 = need_to_update_1 ? Device.dwTimeGlobal : CL->m_last_update_time_1;
+			CL->m_last_update_time_05 = need_to_update_05 ? Device.dwTimeGlobal : CL->m_last_update_time_05;
+
+			m_updator->end_updates(m_update_begin, m_update_end);
+
+			// send packets to client
+			for (update_iterator_t i = m_update_begin; i != m_update_end; ++i)
+			{
+				NET_Packet& P = **i;
+				if (P.B.count > 2)
+				{
+					m_owner->SendTo_LL(client->ID, P.B.data, P.B.count, m_dwFlags);
+				}
 			}
 		}
-	}
+	};
+
+	if (GetServerClient() == nullptr)
+		return;
+
+	SenderFunctor temp_functor(this, m_update_packets, &m_updator, net_flags(FALSE, TRUE));
+	net_players.ForFoundClientsDo(ClientExcluderPredicate(GetServerClient()->ID), temp_functor);
 }
 
 void xrServer::SendUpdatesToAll()
@@ -469,19 +649,19 @@ u32 xrServer::OnMessage	(NET_Packet& P, ClientID sender)			// Non-Zero means bro
 	case M_UPDATE:	
 		{
 			Process_update			(P,sender);						// No broadcast
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_SPAWN:	
 		{
-			if (CL->flags.bLocal)
+			if (CL && CL->flags.bLocal)
 				Process_spawn		(P,sender);	
 
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_EVENT:	
 		{
 			Process_event			(P,sender);
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_EVENT_PACK:
 		{
@@ -508,7 +688,7 @@ u32 xrServer::OnMessage	(NET_Packet& P, ClientID sender)			// Non-Zero means bro
 			//-------------------------------------------------------------------
 			if (SV_Client) 
 				SendTo	(SV_Client->ID, P, net_flags(TRUE, TRUE));
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_MOVE_PLAYERS_RESPOND:
 		{
@@ -523,23 +703,23 @@ u32 xrServer::OnMessage	(NET_Packet& P, ClientID sender)			// Non-Zero means bro
 			xrClientData* CL_		= ID_to_client	(sender);
 			if (CL_)	CL_->net_Ready	= TRUE;
 			if (SV_Client) SendTo	(SV_Client->ID, P, net_flags(TRUE, TRUE));
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_GAMEMESSAGE:
 		{
 			SendBroadcast			(BroadcastCID,P,net_flags(TRUE,TRUE));
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_CLIENTREADY:
 		{
 			game->OnPlayerConnectFinished(sender);
 			//game->signal_Syncronize	();
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_SWITCH_DISTANCE:
 		{
 			game->switch_distance	(P,sender);
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_CHANGE_LEVEL:
 		{
@@ -547,28 +727,28 @@ u32 xrServer::OnMessage	(NET_Packet& P, ClientID sender)			// Non-Zero means bro
 			{
 				SendBroadcast		(BroadcastCID,P,net_flags(TRUE,TRUE));
 			}
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_SAVE_GAME:
 		{
 			game->save_game			(P,sender);
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_LOAD_GAME:
 		{
 			game->load_game			(P,sender);
 			SendBroadcast			(BroadcastCID,P,net_flags(TRUE,TRUE));
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_RELOAD_GAME:
 		{
 			SendBroadcast			(BroadcastCID,P,net_flags(TRUE,TRUE));
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_SAVE_PACKET:
 		{
 			Process_save			(P,sender);
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case M_CLIENT_REQUEST_CONNECTION_DATA:
 		{
@@ -693,6 +873,10 @@ u32 xrServer::OnMessage	(NET_Packet& P, ClientID sender)			// Non-Zero means bro
 		{
 			OnSecureMessage(P, CL);
 		}break;
+	case M_SCRIPT_EVENT:
+	{
+		OnScriptEvent(P, sender);
+	}break;
 	}
 
 	VERIFY							(verify_entities());
@@ -968,7 +1152,7 @@ bool xrServer::verify_entities				() const
 	for ( ; I != E; ++I) {
 		VERIFY2							((*I).first != 0xffff,"SERVER : Invalid entity id as a map key - 0xffff");
 		VERIFY2							((*I).second,"SERVER : Null entity object in the map");
-		VERIFY3							((*I).first == (*I).second->ID,"SERVER : ID mismatch - map key doesn't correspond to the real entity ID",(*I).second->name_replace());
+		VERIFY3							((*I).first == (*I).second->ID,"SERVER : ID mismatch - map key doesn't correspond to the real entity ID", (*I).second ? (*I).second->name_replace() : "");
 		verify_entity					((*I).second);
 	}
 	return								(true);
@@ -983,8 +1167,8 @@ void xrServer::verify_entity				(const CSE_Abstract *entity) const
 			make_string<const char*>("SERVER : Cannot find parent in the map [%s][%s]",entity->name_replace(),
 			entity->name()));
 		VERIFY3							((*J).second,"SERVER : Null entity object in the map",entity->name_replace());
-		VERIFY3							((*J).first == (*J).second->ID,"SERVER : ID mismatch - map key doesn't correspond to the real entity ID",(*J).second->name_replace());
-		VERIFY3							(std::find((*J).second->children.begin(),(*J).second->children.end(),entity->ID) != (*J).second->children.end(),"SERVER : Parent/Children relationship mismatch - Object has parent, but corresponding parent doesn't have children",(*J).second->name_replace());
+		VERIFY3							((*J).first == (*J).second->ID,"SERVER : ID mismatch - map key doesn't correspond to the real entity ID", (*J).second ? (*J).second->name_replace() : "");
+		VERIFY3							(std::find((*J).second->children.begin(),(*J).second->children.end(),entity->ID) != (*J).second->children.end(),"SERVER : Parent/Children relationship mismatch - Object has parent, but corresponding parent doesn't have children", (*J).second ? (*J).second->name_replace() : "");
 	}
 
 	xr_vector<u16>::const_iterator		I = entity->children.begin();
@@ -994,8 +1178,8 @@ void xrServer::verify_entity				(const CSE_Abstract *entity) const
 		xrS_entities::const_iterator	J = entities.find(*I);
 		VERIFY3							(J != entities.end(),"SERVER : Cannot find children in the map",entity->name_replace());
 		VERIFY3							((*J).second,"SERVER : Null entity object in the map",entity->name_replace());
-		VERIFY3							((*J).first == (*J).second->ID,"SERVER : ID mismatch - map key doesn't correspond to the real entity ID",(*J).second->name_replace());
-		VERIFY3							((*J).second->ID_Parent == entity->ID,"SERVER : Parent/Children relationship mismatch - Object has children, but children doesn't have parent",(*J).second->name_replace());
+		VERIFY3							((*J).first == (*J).second->ID,"SERVER : ID mismatch - map key doesn't correspond to the real entity ID", (*J).second ? (*J).second->name_replace() : "");
+		VERIFY3							((*J).second->ID_Parent == entity->ID,"SERVER : Parent/Children relationship mismatch - Object has children, but children doesn't have parent", (*J).second ? (*J).second->name_replace() : "");
 	}
 }
 
@@ -1278,4 +1462,29 @@ void xrServer::SendPlayersInfo(ClientID const & to_client)
 	tmp_functor.dest	= &tmp_packet;
 	ForEachClientDo		(tmp_functor);
 	SendTo				(to_client, tmp_packet, net_flags(TRUE, TRUE));
+}
+
+void xrServer::OnScriptEvent(NET_Packet& P, ClientID sender)
+{
+	script_server_events.push_back(ScriptEvent());
+	ScriptEvent* pEvent = &(script_server_events.back());
+
+	pEvent->SenderID = sender.value();
+	CopyMemory(&(pEvent->Packet), &P, sizeof(NET_Packet));
+}
+
+ScriptEvent* xrServer::GetLastServerScriptEvent()
+{
+	R_ASSERT2(script_server_events.size() > 0, "empty script server events");
+	return &(script_server_events.back());
+}
+
+void xrServer::PopLastServerScriptEvent()
+{
+	script_server_events.pop_back();
+}
+
+u32 xrServer::GetSizeServerScriptEvent()
+{
+	return script_server_events.size();
 }

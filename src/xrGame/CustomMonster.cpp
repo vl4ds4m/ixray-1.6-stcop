@@ -323,36 +323,33 @@ void CCustomMonster::shedule_Update	( u32 DT )
 	VERIFY				(_valid(Position()));
 	u32	dwTimeCL		= Level().timeServer()-NET_Latency;
 
-	while ((NET.size()>2) && (NET[1].dwTimeStamp<dwTimeCL)) NET.pop_front();
+	while ((NET.size()>2) && (NET[1].dwTimeStamp<dwTimeCL))
+		NET.pop_front();
 
 	float dt			= float(DT)/1000.f;
+	
 	// *** general stuff
-	if (g_Alive()) {
-		if (g_mt_config.test(mtAiVision) )
-#ifndef DEBUG
-			Device.seqParallel.push_back	(xr_make_delegate(this,&CCustomMonster::Exec_Visibility));
-#else // DEBUG
-		{
-			if (!psAI_Flags.test(aiStalker) || !!smart_cast<CActor*>(Level().CurrentEntity()))
-				Device.seqParallel.push_back(xr_make_delegate(this,&CCustomMonster::Exec_Visibility));
-			else
-				Exec_Visibility				();
-		}
-#endif // DEBUG
-		else
-			Exec_Visibility					();
+	CScriptEntity::process_sound_callbacks();
+	if (g_Alive() && OnServer())
+	{
+		Exec_Visibility();
 		memory().update						(dt);
 	}
+
 	inherited::shedule_Update	(DT);
 
 	// Queue setup
-	if (dt > 3) return;
+	if (dt > 3) 
+		return;
 
 	m_dwCurrentTime	= Device.dwTimeGlobal;
 
 	VERIFY				(_valid(Position()));
-	if (Remote())		{
-	} else {
+	if (Remote())	
+	{
+	} 
+	else
+	{
 		// here is monster AI call
 		m_fTimeUpdateDelta				= dt;
 		Device.Statistic->AI_Think.Begin	();
@@ -369,23 +366,11 @@ void CCustomMonster::shedule_Update	( u32 DT )
 
 		// Look and action streams
 		float							temp = conditions().health();
-		if (temp > 0) {
+		if (temp > 0)
+		{
 			Exec_Action				(dt);
 			VERIFY					(_valid(Position()));
-			//Exec_Visibility		();
 			VERIFY					(_valid(Position()));
-			//////////////////////////////////////
-			//Fvector C; float R;
-			//////////////////////////////////////
-			// С Олеся - ПИВО!!!! (Диме :-))))
-			// m_PhysicMovementControl->GetBoundingSphere	(C,R);
-			//////////////////////////////////////
-			//Center(C);
-			//R = Radius();
-			//////////////////////////////////////
-			/// #pragma todo("Oles to all AI guys: perf/logical problem: Only few objects needs 'feel_touch' why to call update for everybody?")
-			///			feel_touch_update		(C,R);
-
 			net_update				uNext;
 			uNext.dwTimeStamp		= Level().timeServer();
 			uNext.o_model			= movement().m_body.current.yaw;
@@ -442,8 +427,6 @@ void CCustomMonster::UpdateCL	()
 	if( animation_movement() )
 				animation_movement()->DBG_verify_position_not_chaged();
 #endif
-
-	CScriptEntity::process_sound_callbacks();
 
 	/*	//. hack just to skip 'CalculateBones'
 	if (sound().need_bone_data()) {
@@ -571,8 +554,9 @@ void CCustomMonster::UpdatePositionAnimation()
 
 BOOL CCustomMonster::feel_visible_isRelevant (CObject* O)
 {
-	CEntityAlive* E = smart_cast<CEntityAlive*>		(O);
-	if (0==E)								return FALSE;
+	if (!O)									return FALSE;
+	CEntityAlive* E = O->cast_entity_alive();
+	if (!E)									return FALSE;
 	if (E->g_Team() == g_Team())			return FALSE;
 	return TRUE;
 }
@@ -580,7 +564,7 @@ BOOL CCustomMonster::feel_visible_isRelevant (CObject* O)
 void CCustomMonster::eye_pp_s0			( )
 {
 	// Eye matrix
-	IKinematics* V							= smart_cast<IKinematics*>(Visual());
+	IKinematics* V							= PKinematics(Visual());
 	//V->CalculateBones						();
 	Fmatrix&	mEye						= V->LL_GetTransform(u16(eye_bone));
 	Fmatrix		X;							X.mul_43	(XFORM(),mEye);
@@ -749,7 +733,7 @@ BOOL CCustomMonster::net_Spawn	(CSE_Abstract* DC)
 	}
 
 	// Eyes
-	eye_bone					= smart_cast<IKinematics*>(Visual())->LL_BoneID(pSettings->r_string(cNameSect(),"bone_head"));
+	eye_bone					= PKinematics(Visual())->LL_BoneID(pSettings->r_string(cNameSect(),"bone_head"));
 
 	// weapons
 	if (Local()) {
@@ -820,7 +804,10 @@ void CCustomMonster::net_Destroy()
 	);
 	
 #ifdef DEBUG
-	DBG().on_destroy_object(this);
+	if (Level().m_level_debug != nullptr)
+	{
+		DBG().on_destroy_object(this);
+	}
 #endif
 
 	xr_delete				(m_moving_object);
@@ -862,7 +849,12 @@ void CCustomMonster::PitchCorrection()
 
 BOOL CCustomMonster::feel_touch_on_contact	(CObject *O)
 {
-	CCustomZone	*custom_zone = smart_cast<CCustomZone*>(O);
+	if(!O)
+		return		(FALSE);
+	CGameObject* GO = O->cast_game_object();
+	if (!GO)
+		return		(FALSE);
+	CCustomZone	*custom_zone = GO->cast_custom_zone();
 	if (!custom_zone)
 		return	(TRUE);
 
@@ -877,7 +869,12 @@ BOOL CCustomMonster::feel_touch_on_contact	(CObject *O)
 
 BOOL CCustomMonster::feel_touch_contact		(CObject *O)
 {
-	CCustomZone	*custom_zone = smart_cast<CCustomZone*>(O);
+	if (!O)
+		return		(FALSE);
+	CGameObject* GO = O->cast_game_object();
+	if (!GO)
+		return		(FALSE);
+	CCustomZone* custom_zone = GO->cast_custom_zone();
 	if (!custom_zone)
 		return	(TRUE);
 
@@ -1191,7 +1188,7 @@ void CCustomMonster::OnRender()
 			character_physics_support()->movement()->dbg_Draw();
 	
 	if (bDebug)
-		smart_cast<IKinematics*>(Visual())->DebugRender(XFORM());
+		PKinematics(Visual())->DebugRender(XFORM());
 
 
 #if 0

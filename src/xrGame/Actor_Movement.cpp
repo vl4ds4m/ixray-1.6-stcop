@@ -67,6 +67,10 @@ void CActor::g_cl_ValidateMState(float dt, u32 mstate_wf)
 				}
 			}
 		}
+
+		PlayRainStep(!!HUDview());
+		PlayExoStep(!!HUDview());
+
 		m_bJumpKeyPressed	=	TRUE;
 		m_fJumpTime			=	s_fJumpTime;
 		mstate_real			&=~	(mcFall|mcJump);
@@ -201,12 +205,15 @@ void CActor::g_cl_CheckControls(u32 mstate_wf, Fvector &vControlAccel, float &Ju
 		// jump
 		m_fJumpTime				-=	dt;
 
-		if( CanJump() && (mstate_wf&mcJump) )
+		if (CanJump() && (mstate_wf & mcJump))
 		{
 			mstate_real			|=	mcJump;
 			m_bJumpKeyPressed	=	TRUE;
 			Jump				= m_fJumpSpeed;
 			m_fJumpTime			= s_fJumpTime;
+
+			PlayRainStep(!!HUDview());
+			PlayExoStep(!!HUDview());
 
 			//уменьшить силу игрока из-за выполненого прыжка
 			if (!GodMode())
@@ -562,13 +569,19 @@ bool CActor::CanAccelerate()
 
 bool CActor::CanRun()
 {
-	bool can_run		= !IsZoomAimingMode() && !(mstate_real&mcLookout);
+	const static bool isSprintWhileOverweightDisabled = EngineExternal()[EEngineExternalGame::DisableSprintWhileOverweight];
+	bool can_run = !IsZoomAimingMode() && !(mstate_real & mcLookout);
+	if (isSprintWhileOverweightDisabled)
+	{
+		can_run = !IsZoomAimingMode() && !(mstate_real & mcLookout) && (inventory().TotalWeight() < (MaxWalkWeight() - 10.0f));
+	}
 	return can_run;
 }
 
 bool CActor::CanSprint()
 {
-	bool can_Sprint = CanAccelerate() && !conditions().IsCantSprint() && Game().PlayerCanSprint(this) && CanRun() && !(mstate_real & mcLStrafe || mstate_real & mcRStrafe) && InventoryAllowSprint() && !bBlockSprint;
+	bool is_animator = (HudAnimator() && (HudAnimator()->IsActive() && HudAnimator()->CanSprint() || !HudAnimator()->IsActive()) || !HudAnimator());
+	bool can_Sprint = CanAccelerate() && !conditions().IsCantSprint() && Game().PlayerCanSprint(this) && CanRun() && !(mstate_real & mcLStrafe || mstate_real & mcRStrafe) && InventoryAllowSprint() && !bBlockSprint && is_animator;
 
 	return can_Sprint && (m_block_sprint_counter<=0);
 }
@@ -655,7 +668,7 @@ float CActor::get_additional_weight() const
 	{
 		CArtefact*	artefact = smart_cast<CArtefact*>(*it);
 		if(artefact)
-			res			+= artefact->AdditionalInventoryWeight();
+			res			+= artefact->AdditionalInventoryWeight() * artefact->GetCondition();
 	}
 
 	return res;

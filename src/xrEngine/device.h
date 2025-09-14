@@ -9,9 +9,6 @@
 #include "../xrCore/FTimer.h"
 #include "Stats.h"
 
-#define VIEWPORT_NEAR  0.2f
-#define HUD_VIEWPORT_NEAR  0.01f
-
 #define DEVICE_RESET_PRECACHE_FRAME_COUNT 10
 
 #include "../Include/xrRender/FactoryPtr.h"
@@ -77,6 +74,21 @@ public:
 	BOOL									b_is_Ready;
 	BOOL									b_is_Active;
 public:
+	struct {
+		float renderZoomFactor = 1.0f;
+		float renderZoomRotateFactor = 0.0f;
+		bool isRenderActive{};
+		bool isRenderProcess{};
+
+		bool IsElectronicsProblemsDecreasing{};
+		float CurrentElectronicsProblemsCnt = 0.0f;
+		float TargetElectronicsProblemsCnt = 0.0f;
+
+		float ActorHealth = -1.0f;
+		float ActorOutfitCondition = -1.0f;
+		float ActorWeaponCondition = -1.0f;
+		float ActorWeaponLoading = -1.0f;
+	} hudViewportData;
 
 	// Engine flow-control
 	u32										dwFrame;
@@ -117,6 +129,8 @@ public:
 
 	float									fFOV;
 	float									fASPECT;
+	float									fViewportNear = 0.2f;
+	float									fHUDViewportNear = 0.01f;
 protected:
 
 	u32										Timer_MM_Delta;
@@ -168,6 +182,10 @@ public:
 	void* GetRenderTexture() override;
 	void* GetDepthTexture() override;
 	void* GetSwapchainTexture() override;
+
+	u32 GetTimeDeltaSafe(u32 starttime);
+	u32 GetTimeDeltaSafe(u32 starttime, u32 endtime);
+
 	void* GetSwapchain() override;
 	u32	GetSwapchainWidth() override;
 	u32	GetSwapchainHeight() override;
@@ -244,7 +262,6 @@ public:
 	void overdrawEnd						();
 
 	// Mode control
-	void DumpFlags							();
 	IC	 CTimer_paused* GetTimerGlobal		()	{ return &TimerGlobal;								}
 	u32	 TimerAsync							()	{ return TimerGlobal.GetElapsed_ms();				}
 	u32	 TimerAsync_MMT						()	{ return TimerMM.GetElapsed_ms() +	Timer_MM_Delta; }

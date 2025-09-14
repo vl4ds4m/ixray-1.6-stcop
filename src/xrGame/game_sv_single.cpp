@@ -336,6 +336,7 @@ void game_sv_Single::on_death					(CSE_Abstract *e_dest, CSE_Abstract *e_src)
 
 void game_sv_Single::restart_simulator			(LPCSTR saved_game_name)
 {
+	PROF_EVENT("restart_simulator");
 	shared_str				&options = *alife().server_command_line();
 
 	delete_data				(m_alife_simulator);
@@ -347,7 +348,7 @@ void game_sv_Single::restart_simulator			(LPCSTR saved_game_name)
 	pApp->SetLoadingScreen(new UILoadingScreen());
 	pApp->LoadBegin			();
 	m_alife_simulator		= new CALifeSimulator(&server(),&options);
-//	g_pGamePersistent->LoadTitle		("st_client_synchronising");
+	g_pGamePersistent->SetLoadStageTitle("st_client_synchronising");
 	pApp->LoadForceFinish();
 	g_pGamePersistent->LoadTitle		();
 	Device.PreCache			(60, true, true);

@@ -81,14 +81,24 @@ bool  CCustomDetector::CheckCompatibility(CHudItem* itm)
 	return true;
 }
 
-void CCustomDetector::HideDetector(bool bFastMode)
+void CCustomDetector::HideDetector(bool bFastMode, bool force)
 {
+	if (force)
+	{
+		m_bFastAnimMode = bFastMode;
+		SwitchState(eHiding);
+		return;
+	}
+
 	const CHUDState::EHudStates CurrentState = (CHUDState::EHudStates) GetState();
-	switch (CurrentState) {
+	switch (CurrentState)
+	{
 		case CHUDState::EHudStates::eIdle:
-		case CHUDState::EHudStates::eShowing: {
+		case CHUDState::EHudStates::eShowing:
+		{
 			bool bClimb = Actor()->GetMovementState(eReal) & ACTOR_DEFS::EMoveCommand::mcClimb;
-			if (bClimb && CurrentState==CHUDState::EHudStates::eShowing) {
+			if (bClimb && CurrentState == CHUDState::EHudStates::eShowing)
+			{
 				StopCurrentAnimWithoutCallback();
 				SetState(eIdle);
 				ToggleDetector(bFastMode);
@@ -104,45 +114,67 @@ void CCustomDetector::HideDetector(bool bFastMode)
 
 void CCustomDetector::ShowDetector(bool bFastMode)
 {
-	if(GetState()==eHidden||GetState()==eHiding)
+	if (GetState() == eHidden)
 		ToggleDetector(bFastMode);
 }
 
 void CCustomDetector::ToggleDetector(bool bFastMode, bool switching)
 {
-	m_bNeedActivation		= false;
-	m_bFastAnimMode			= bFastMode;
+	m_bNeedActivation = false;
+	m_bFastAnimMode = bFastMode;
 
-	if(GetState()==eHidden||GetState()==eHiding)
+	if (GetState() == eHidden)
 	{
-		if(switching)
+		if (switching)
+		{
 			m_bDetectorActive = true;
+		}
+
 		PIItem iitem = m_pInventory->ActiveItem();
-		CHudItem* itm = (iitem)?iitem->cast_hud_item():nullptr;
+		CHudItem* itm = (iitem) ? iitem->cast_hud_item() : nullptr;
 		u16 slot_to_activate = NO_ACTIVE_SLOT;
 
-		if(CheckCompatibilityInt(itm, &slot_to_activate))
+		if (CheckCompatibilityInt(itm, &slot_to_activate))
 		{
-			if(slot_to_activate!=NO_ACTIVE_SLOT)
+			if (slot_to_activate != NO_ACTIVE_SLOT)
 			{
 				m_pInventory->Activate(slot_to_activate);
-				m_bNeedActivation		= true;
-			}else
+				m_bNeedActivation = true;
+			}
+			else
 			{
-				SwitchState				(eShowing);
-				TurnDetectorInternal	(true);
+				if (itm != nullptr && !itm->bDisablePrepareAnimation && itm->m_eAnimationsFlags.test(EAnimationsFlags::af_prepare_detector))
+				{
+					if (itm->GetState() == CHUDState::eIdle)
+					{
+						itm->SwitchState(CHUDState::ePrepareDetector);
+					}
+				}
+				else
+				{
+					SwitchState(eShowing);
+					TurnDetectorInternal(true);
+
+					if (itm != nullptr && itm->bDisablePrepareAnimation)
+					{
+						itm->bDisablePrepareAnimation = false;
+					}
+				}
 			}
 		}
-	}else
-	if(GetState()==eIdle||GetState()==eShowing)
+	}
+	else if (GetState() == eIdle)
 	{
-		SwitchState					(eHiding);
+		SwitchState(eHiding);
 
-		if(switching)
+		if (switching)
+		{
 			m_bDetectorActive = false;
+		}
 	}
 
 }
+
 void  CCustomDetector::ShowingCallback(CBlend*B)
 {
 	ToggleDetector(g_player_hud->attached_item(0)!=nullptr, true);
@@ -150,9 +182,20 @@ void  CCustomDetector::ShowingCallback(CBlend*B)
 	g_player_hud->OnMovementChanged(mcAnyMove);
 	g_player_hud->RestoreHandBlends("right_hand");
 }
+
 void CCustomDetector::switch_detector()
 {
-	if (!m_bDetectorActive&&GetState()==eHidden && g_player_hud->attached_item(0)&&m_pInventory->ActiveItem()&&m_pInventory->ActiveItem()->BaseSlot()==INV_SLOT_2)
+	CActor* actor = Level().CurrentControlEntity()->cast_actor();
+	if (actor && actor->HudAnimator() && actor->HudAnimator()->IsActive())
+	{
+		return;
+	}
+
+	PIItem active_item = m_pInventory->ActiveItem();
+
+	bool need_fx = active_item == nullptr || active_item->cast_hud_item() == nullptr || !active_item->cast_hud_item()->m_eAnimationsFlags.test(af_prepare_detector);
+
+	if (!m_bDetectorActive && GetState() == eHidden && g_player_hud->attached_item(0) && need_fx && active_item && active_item->BaseSlot() == INV_SLOT_2)
 	{
 		if(g_player_hud->animator_play(g_player_hud->check_anim("anm_hide", 0)?"anm_hide":"anm_hide_0", 0, 1, TRUE, 1.5f, 0, false, true, [](CBlend*B){static_cast<CCustomDetector*>(B->CallbackParam)->ShowingCallback(B);}, this, 0))
 			g_player_hud->animator_fx_play(g_player_hud->check_anim("anm_hide", 0)?"anm_hide":"anm_hide_0", 0, 2, 0, 3.f, 1.f, 1.f, 0.5f);
@@ -176,22 +219,53 @@ void CCustomDetector::OnStateSwitch(u32 S)
 		{
 			g_player_hud->attach_item	(this);
 			m_sounds.PlaySound			("sndShow", Fvector().set(0,0,0), this, true, false);
-			PlayHUDMotion				(m_bFastAnimMode?"anm_show_fast":"anm_show", m_old_state==eHidden?FALSE:TRUE/*TRUE*/, this, S);
+			PlayHUDMotion				(m_bFastAnimMode?"anm_show_fast":"anm_show", m_old_state==eHidden?FALSE:TRUE, S);
 			SetPending					(TRUE);
 		}break;
 	case eHiding:
 		{
 			m_sounds.PlaySound			("sndHide", Fvector().set(0,0,0), this, true, false);
-			PlayHUDMotion				(m_bFastAnimMode?"anm_hide_fast":"anm_hide", TRUE, this, S);
+			PlayHUDMotion				(m_bFastAnimMode?"anm_hide_fast":"anm_hide", TRUE, S);
 			SetPending					(TRUE);
+			PlayWpnFinishDetector();
 		}break;
 	case eIdle:
 		{
 			PlayAnimIdle				();
 			SetPending					(FALSE);
 		}break;
+	case eHandDraw:
+	{
+		PlayHUDMotion("anm_hand_draw", true, eHandDraw);
+		break;
+	}
+	case eHandHide:
+	{
+		PlayHUDMotion("anm_hand_hide", true, eHandHide);
+		break;
+	}
 	}
 	m_old_state=S;
+}
+
+void CCustomDetector::PlayWpnFinishDetector()
+{
+	if (!m_pInventory)
+	{
+		return;
+	}
+
+	if (m_pInventory->GetNextActiveSlot() == NO_ACTIVE_SLOT)
+	{
+		return;
+	}
+
+	PIItem iitem = m_pInventory->ActiveItem();
+	CHudItem* itm = (iitem) ? iitem->cast_hud_item() : nullptr;
+	if (itm != nullptr && itm->GetState() == CHUDState::eIdle && itm->m_eAnimationsFlags.test(af_finish_detector))
+	{
+		itm->SwitchState(CHUDState::eFinishDetector);
+	}
 }
 
 void CCustomDetector::OnAnimationEnd(u32 state)
@@ -200,6 +274,8 @@ void CCustomDetector::OnAnimationEnd(u32 state)
 	switch(state)
 	{
 	case eShowing:
+	case eHandDraw:
+	case eHandHide:
 		{
 			SwitchState					(eIdle);
 		} break;
@@ -210,6 +286,21 @@ void CCustomDetector::OnAnimationEnd(u32 state)
 			g_player_hud->detach_item	(this);
 		} break;
 	}
+}
+
+bool CCustomDetector::NeedBlockSprint() const
+{
+	return GetState() == eSprintEnd;
+}
+
+bool CCustomDetector::CanDrawHand() const
+{
+	return m_eAnimationsFlags.test(EAnimationsFlags::af_det_hand_draw) && (GetState() == eIdle || GetState() == eHiding || GetState() == eHandHide);
+}
+
+bool CCustomDetector::CanHideHand() const
+{
+	return m_eAnimationsFlags.test(EAnimationsFlags::af_det_hand_hide) && (GetState() == eIdle || GetState() == eHandDraw);
 }
 
 void CCustomDetector::UpdateXForm()
@@ -309,6 +400,16 @@ void CCustomDetector::UpdateVisibility()
 
 	if (!m_pInventory)
 		return;
+
+	if (m_bNeedActivation)
+	{
+		CActor* actor = Level().CurrentControlEntity()->cast_actor();
+		if (actor && actor->HudAnimator() && actor->HudAnimator()->IsActive())
+		{
+			m_bNeedActivation = false;
+			return;
+		}
+	}
 
 	PIItem pItem = m_pInventory->ActiveItem();
 

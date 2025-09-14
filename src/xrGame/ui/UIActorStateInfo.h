@@ -29,12 +29,12 @@ private:
 
 	enum EStateType
 	{
-//		stt_stamina = 0,
-		stt_health = 0,
+		stt_stamina = 0,
+		stt_health,
 		stt_bleeding,
 		stt_radiation,
-//		stt_armor,
-//		stt_main,
+		stt_armor,
+		stt_main,
 		stt_fire,
 		stt_radia,
 		stt_acid,
@@ -43,6 +43,9 @@ private:
 		stt_fire_wound,
 		stt_shock,
 		stt_power,
+		stt_satiety,
+		stt_thirst,
+		stt_sleep,
 		stt_count
 	};
 	ui_actor_state_item*	m_state[stt_count];
@@ -59,7 +62,7 @@ public:
 	virtual void			Show					( bool status );
 
 private:
-			void			update_round_states		( CActor* actor, ALife::EHitType hit_type, EStateType stt_type );
+			void			update_round_states		(EStateType stt_type, float initial, float max_power);
 
 };
 
@@ -71,22 +74,22 @@ protected:
 	CUIStatic*				m_static;
 	CUIStatic*				m_static2;
 	CUIStatic*				m_static3;
-	CUIProgressBar*			m_progress;
 	CUIProgressShape*		m_sensor;
 	UI_Arrow*				m_arrow;
 	UI_Arrow*				m_arrow_shadow;
 	float					m_magnitude;
 
 public:
+	CUIProgressBar*			m_progress;
 					ui_actor_state_item		();
 	virtual			~ui_actor_state_item	();
 			void	init_from_xml			( CUIXml& xml, LPCSTR path );
 	
-			void	set_text				( float value ); // 0..1
-			void	set_progress			( float value ); // 0..1
-			void	set_progress_shape		( float value ); // 0..1
-			void	set_arrow				( float value ); // 0..1
-			void	show_static				( bool status, u8 number=1 );
+			bool	set_text				( float value ); // 0..1
+			bool	set_progress			( float value ); // 0..1
+			bool	set_progress_shape		( float value ); // 0..1
+			int		set_arrow				( float value ); // 0..1
+			bool	show_static				( bool status, u8 number=1 );
 
 }; // class ui_actor_state_item
 

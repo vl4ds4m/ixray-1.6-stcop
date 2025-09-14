@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 #pragma once
 
-#include "../../../xrCDB/Frustum.h"
+#include "../../../xrCore/Collision/Frustum.h"
 #include "../../../xrEngine/vis_common.h"
 #include "../../../xrEngine/Render.h"
 
@@ -152,7 +152,6 @@ public:
 	CLight_Compute_XFORM_and_VIS LR;
 
 	xr_list<light*> v_all_lights_dque;
-	xr_list<light*> v_all_lights;
 
 public:
 	// Occlusion culling
@@ -287,7 +286,6 @@ public:
 	virtual void					glow_destroy(IRender_Glow* p_);
 
 	// Models
-	virtual void					model_Logging(BOOL bEnable);
 	virtual void					models_Prefetch();
 	virtual void					models_Clear(BOOL b_complete);
 

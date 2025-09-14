@@ -25,7 +25,8 @@ void CUIActorMenu::InitUpgradeMode()
 	m_PartnerCharacterInfo->Show( true );
 	m_PartnerMoney->Show( false );
 	m_pUpgradeWnd->Show( true );
-	m_pQuickSlot->Show(true);
+	if (m_pQuickSlot)
+		m_pQuickSlot->Show(true);
 	
 	InitInventoryContents( m_pInventoryBagList );
 	VERIFY( m_pPartnerInvOwner );
@@ -35,10 +36,9 @@ void CUIActorMenu::InitUpgradeMode()
 
 void CUIActorMenu::DeInitUpgradeMode()
 {
-	m_PartnerCharacterInfo->Show( false );
-	m_pUpgradeWnd->Show( false );
-	m_pUpgradeWnd->set_info_cur_upgrade( nullptr );
-	m_pUpgradeWnd->m_btn_repair->Enable( false );
+	m_PartnerCharacterInfo->Show(false);
+	m_pUpgradeWnd->Show(false);
+	m_pUpgradeWnd->DeInitInventory();
 
 	if ( m_upgrade_selected )
 	{
@@ -52,13 +52,10 @@ void CUIActorMenu::DeInitUpgradeMode()
 
 	if(!CurrentGameUI())
 		return;
-	//только если находимся в режиме single
-	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
-	if(!pGameSP) return;
-
-	if(pGameSP->TalkMenu->IsShown())
+  
+	if(CurrentGameUI()->TalkMenu->IsShown())
 	{
-		pGameSP->TalkMenu->NeedUpdateQuestions();
+		CurrentGameUI()->TalkMenu->NeedUpdateQuestions();
 	}
 }
 
@@ -78,7 +75,7 @@ void CUIActorMenu::SetupUpgradeItem()
 		can_upgrade = CanUpgradeItem( item );
 	}
 
-	m_pUpgradeWnd->InitInventory( item, can_upgrade );
+	m_pUpgradeWnd->InitInventory(CurrentItem(), can_upgrade);
 	if ( m_upgrade_info )
 	{
 		m_upgrade_info->Show( false );

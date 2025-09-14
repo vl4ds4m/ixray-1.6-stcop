@@ -17,41 +17,29 @@ const Shader_xrLC&	base_Face::Shader		()const
 	VERIFY( inlc_global_data() );
 	return shader( dwMaterial, inlc_global_data()->shaders(), inlc_global_data()->materials() );
 }
-void			base_Face::CacheOpacity	()
+
+void base_Face::CacheOpacity	()
 {
 	flags.bOpaque				= true;
 	VERIFY ( inlc_global_data() );
 
 	b_material& M		= inlc_global_data()->materials()		[dwMaterial];
 	b_BuildTexture&	T	= inlc_global_data()->textures()		[M.surfidx];
-	if (T.bHasAlpha)	flags.bOpaque = false;
-	else				flags.bOpaque = true;
-	if ( !flags.bOpaque && !(T.THM.HasSurface()) )	//(0==T.pSurface)//	pSurface was possible deleted
+	if (T.bHasAlpha)	
+		flags.bOpaque = false;
+	else			
+		flags.bOpaque = true;
+
+	if ( !flags.bOpaque && (!T.THM.HasSurface()) )	////	pSurface was possible deleted
 	{
 		flags.bOpaque	= true;
-		clMsg			("Strange face detected... Has alpha without texture...");
+		clMsg			("Strange face detected... Has alpha without texture... [%s]", T.name);
 	}
 }
 static bool do_not_add_to_vector_in_global_data = false;
- 
-
-
-//
-//const int	edge2idx	[3][2]	= { {0,1},		{1,2},		{2,0}	};
-//const int	edge2idx3	[3][3]	= { {0,1,2},	{1,2,0},	{2,0,1}	};
-//const int	idx2edge	[3][3]  = {
-//	{-1,  0,  2},
-//	{ 0, -1,  1},
-//	{ 2,  1, -1}
-//};
-
-
-
-//extern CBuild*	pBuild;
 
 bool			g_bUnregister = true;
 
-//template<>
 void destroy_vertex( Vertex* &v, bool unregister )
 {
 	bool tmp_unregister = g_bUnregister;
@@ -59,6 +47,7 @@ void destroy_vertex( Vertex* &v, bool unregister )
 	inlc_global_data()->destroy_vertex( v );
 	g_bUnregister = tmp_unregister;
 }
+
 void destroy_face( Face* &v, bool unregister )
 {
 	bool tmp_unregister = g_bUnregister;
@@ -70,19 +59,19 @@ void destroy_face( Face* &v, bool unregister )
 
 Tvertex<DataVertex>::Tvertex()
 {
-	
-	VERIFY( inlc_global_data() );
+ 	R_ASSERT( inlc_global_data() );
 	if( inlc_global_data()->vert_construct_register() )
 	{	
  		inlc_global_data()->g_vertices().push_back(this);
 	}
-	m_adjacents.reserve	(4);
+	
+	// m_adjacents.reserve	(4);
 }
 
-template <>
+template<>
 Tvertex<DataVertex>::~Tvertex()
 {
-	if (g_bUnregister) 
+ 	if (g_bUnregister) 
 	{
 		vecVertexIt F = std::find(inlc_global_data()->g_vertices().begin(), inlc_global_data()->g_vertices().end(), this);
 		if (F!=inlc_global_data()->g_vertices().end())
@@ -97,7 +86,8 @@ Tvertex<DataVertex>::~Tvertex()
 
 Vertex*	Vertex::CreateCopy_NOADJ( vecVertex& vertises_storage ) const
 {
-	VERIFY( &vertises_storage == &inlc_global_data()->g_vertices() );
+	R_ASSERT( &vertises_storage == &inlc_global_data()->g_vertices() );
+
 	Vertex* V	= inlc_global_data()->create_vertex();
 	V->P.set	(P);
 	V->N.set	(N);
@@ -114,14 +104,11 @@ Vertex*	Vertex::CreateCopy_NOADJ( vecVertex& vertises_storage ) const
 template<>
 Tface<DataVertex>::Tface()
 {
-	
-	pDeflector				= 0;
+ 	pDeflector				= 0;
 	flags.bSplitted			= false;
-	VERIFY( inlc_global_data() );
-	if( !do_not_add_to_vector_in_global_data )
+ 	if( !do_not_add_to_vector_in_global_data )
 	{
-		//set_index( inlc_global_data()->g_faces().size() );
-		inlc_global_data()->g_faces().push_back		(this);
+ 		inlc_global_data()->g_faces().push_back		(this);
 	}
 	sm_group				= u32(-1);
 	lmap_layer				= NULL;
@@ -154,17 +141,17 @@ void Face::	Failure		()
 {
 	dwInvalidFaces			++;
 
-	clMsg		("* ERROR: Invalid face. (A=%f,e0=%f,e1=%f,e2=%f)",
-		CalcArea(),
-		v[0]->P.distance_to(v[1]->P),
-		v[0]->P.distance_to(v[2]->P),
-		v[1]->P.distance_to(v[2]->P)
-		);
-	clMsg		("*        v0[%f,%f,%f], v1[%f,%f,%f], v2[%f,%f,%f]",
-		VPUSH(v[0]->P),
-		VPUSH(v[1]->P),
-		VPUSH(v[2]->P)
-		);
+	// clMsg		("* ERROR: Invalid face. (A=%f,e0=%f,e1=%f,e2=%f)",
+	// 	CalcArea(),
+	// 	v[0]->P.distance_to(v[1]->P),
+	// 	v[0]->P.distance_to(v[2]->P),
+	// 	v[1]->P.distance_to(v[2]->P)
+	// 	);
+	// clMsg		("*        v0[%f,%f,%f], v1[%f,%f,%f], v2[%f,%f,%f]",
+	// 	VPUSH(v[0]->P),
+	// 	VPUSH(v[1]->P),
+	// 	VPUSH(v[2]->P)
+	// 	);
 	inlc_global_data()->err_invalid().w_fvector3	(v[0]->P);
 	inlc_global_data()->err_invalid().w_fvector3	(v[1]->P);
 	inlc_global_data()->err_invalid().w_fvector3	(v[2]->P);
@@ -196,7 +183,7 @@ void start_unwarp_recursion()
 	affected				= 1;
 }
 
-void Face::OA_Unwarp( CDeflector *D )
+void Face::OA_Unwarp( CDeflector *D, xr_vector<type_face*>& faces)
 { 
 	// range: no recursive method realisation
 	xr_stack<Face*> st;
@@ -216,6 +203,7 @@ void Face::OA_Unwarp( CDeflector *D )
 
 				affected++;
 				st.push(it);
+				faces.push_back(it);
 			}
 		}
 
@@ -231,9 +219,9 @@ void Face::OA_Unwarp( CDeflector *D )
 
 BOOL	DataFace::RenderEqualTo	(Face *F)
 {
-	if (F->dwMaterial	!= dwMaterial		)	return FALSE;
-	//if (F->tc.size()	!= F->tc.size()		)	return FALSE;	// redundant???
-	return TRUE;
+	if (F->dwMaterial	!= dwMaterial		)	
+		return FALSE;
+ 	return TRUE;
 }
 
 
@@ -255,4 +243,3 @@ BOOL	DataFace::hasImplicitLighting()
 	return (T.THM.flags.test(STextureParams::flImplicitLighted));
 }
 
-///////////////////////////////////////////////////////////////

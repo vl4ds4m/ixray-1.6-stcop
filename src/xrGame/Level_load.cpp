@@ -13,11 +13,14 @@
 #include "GamePersistent.h"
 #include "../xrEngine/Rain.h"
 
+#include "inventory_upgrade_manager.h"
+
 ENGINE_API	bool g_dedicated_server;
 
 BOOL CLevel::Load_GameSpecific_Before()
 {
 	// AI space
+	g_pGamePersistent->SetLoadStageTitle("st_loading_ai_objects");
 	g_pGamePersistent->LoadTitle();
 	string_path fn_game;
 
@@ -50,6 +53,12 @@ BOOL CLevel::Load_GameSpecific_Before()
 			ai().patrol_path_storage_raw(*stream);
 			FS.r_close(stream);
 		}
+	}
+
+	if (!IsGameTypeSingle() && OnClient())
+	{
+		R_ASSERT(m_upgrade_manager == nullptr);
+		m_upgrade_manager = new inventory::upgrade::Manager();
 	}
 
 	return (TRUE);

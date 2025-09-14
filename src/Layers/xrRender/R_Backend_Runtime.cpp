@@ -3,7 +3,7 @@
 
 using namespace DirectX;
 
-#include "../../xrCDB/Frustum.h"
+#include "../../xrCore/Collision/Frustum.h"
 
 #ifdef USE_DX11
 #include "../xrRenderDX10/StateManager/dx10StateManager.h"
@@ -193,6 +193,7 @@ void	CBackend::set_ClipPlanes	(u32 _enable, Fmatrix*	_xform  /*=nullptr */, u32 
 
 void CBackend::set_Textures			(STextureList* _T)
 {
+	PROF_EVENT("set_Textures");
 	if (T == _T)	return;
 	T				= _T;
 	//	If resources weren't set at all we should clear from resource #0.

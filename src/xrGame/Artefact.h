@@ -38,6 +38,22 @@ public:
 	virtual void					create_physic_shell				();
 
 	virtual CArtefact*				cast_artefact					()		{return this;}
+
+	float	GetHealthPower() { return m_fHealthRestoreSpeed; }
+	float	GetRadiationPower() { return m_fRadiationRestoreSpeed; }
+	float	GetSatietyPower() { return m_fSatietyRestoreSpeed; }
+	float	GetPowerPower() { return m_fPowerRestoreSpeed; }
+	float	GetBleedingPower() { return m_fBleedingRestoreSpeed; }
+
+	void	SetHealthPower(float value) { m_fHealthRestoreSpeed = value; }
+	void	SetRadiationPower(float value) { m_fRadiationRestoreSpeed = value; }
+	void	SetSatietyPower(float value) { m_fSatietyRestoreSpeed = value; }
+	void	SetPowerPower(float value) { m_fPowerRestoreSpeed = value; }
+	void	SetBleedingPower(float value) { m_fBleedingRestoreSpeed = value; }
+
+	float m_fJumpSpeed;
+	float m_fWalkAccel;
+
 	LPCSTR PS_bone													()		{return m_sParticlesBone.c_str(); };
 	bool has_detector_visibling;
 protected:
@@ -56,6 +72,7 @@ protected:
 	u8								m_af_rank;
 	bool							m_bLightsEnabled;
 	float							m_additional_weight;
+	float							m_fDegradationRate;
 
 	virtual void					UpdateLights					();
 public:
@@ -100,6 +117,8 @@ public:
 	virtual void					OnStateSwitch		(u32 S);
 	virtual void					OnAnimationEnd		(u32 state);
 	virtual bool					IsHidden			()	const	{return GetState()==eHidden;}
+	virtual u32						Cost				() const;
+	float							DegradationRate		() {return m_fDegradationRate;}
 
 	// optimization FAST/SLOW mode
 	u32						o_render_frame				;

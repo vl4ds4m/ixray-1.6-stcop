@@ -3,13 +3,16 @@
 #include "base_color.h"
 #include "lm_layer.h"
 #include "uv_tri.h"
-#include "../../xrCDB/xrCDB.h"
+#include "../../xrCore/Collision/xrCDB.h"
 #include "xrDeflectorDefs.h"
+#include "embree_raytracing/EmbreeRayTrace.h"
 
 class  base_lighting;
  
 class CDeflector;
- 
+
+extern EmbreeData EmbreeMain;
+  
 class execute_statistics;
 class XRLC_LIGHT_API CDeflector
 {
@@ -65,6 +68,15 @@ static	CDeflector*		read_create					();
 	void	RemapUV				(u32 base_u, u32 base_v, u32 size_u, u32 size_v, u32 lm_u, u32 lm_v, BOOL bRotate);
  	
 	bool	similar				( const CDeflector &D, float eps =EPS ) const;
+
+	// se7kills Подсчитать Размер
+	size_t		size_deflector()
+	{
+		size_t STri = UVpolys.capacity() * sizeof(UVtri);
+		size_t SLMLayer = layer.memory_lmap();
+
+		return sizeof(*this) + STri + SLMLayer;
+	}
 };
 
 
@@ -85,6 +97,11 @@ extern XRLC_LIGHT_API void		DumpDeflctor	( u32 id );
 
 
 extern XRLC_LIGHT_API u32 c_LMAP_size;			// pixels
+
+
+extern XRLC_LIGHT_API void setLMSIZE(int size);
+
+extern XRLC_LIGHT_API u32 getLMSIZE();
 
 #define rms_zero	((4+g_params().m_lm_rms_zero)/2)
 #define rms_shrink	((8+g_params().m_lm_rms)/2)

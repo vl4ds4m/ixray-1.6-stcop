@@ -10,6 +10,9 @@
 #include "../xrScripts/script_space_forward.h"
 #include "character_info.h"
 #include "inventory_space.h"
+#include "../xrScripts/script_export_space.h"
+
+extern xr_string TranslateName(LPCSTR nameStr);
 
 class CSE_Abstract;
 class CInventory;
@@ -27,6 +30,7 @@ class CTradeParameters;
 class CPurchaseList;
 class CWeapon;
 class CCustomOutfit;
+class CHelmet;
 
 class CInventoryOwner : public CAttachmentOwner {							
 public:
@@ -50,7 +54,8 @@ public:
 	virtual void	save						(NET_Packet &output_packet);
 	virtual void	load						(IReader &input_packet);
 
-	
+			void	RefreshNamesNPC();
+
 	//обновление
 	virtual void	UpdateInventoryOwner		(u32 deltaT);
 	virtual bool	CanPutInSlot				(PIItem item, u32 slot){return true;};
@@ -58,6 +63,10 @@ public:
 
 	CPda* GetPDA		() const;
 
+	void ChangeName(LPCSTR name) {
+		m_game_name_str = name;
+		m_game_name = TranslateName(name);
+	}
 
 	// инвентарь
 	CInventory	*m_inventory;			
@@ -151,6 +160,7 @@ public:
 	virtual float MaxCarryWeight			() const;
 
 	CCustomOutfit* GetOutfit				() const;
+	CHelmet*	   GetHelmet				() const;
 
 	bool CanPlayShHdRldSounds				() const {return m_play_show_hide_reload_sounds;};
 	void SetPlayShHdRldSounds				(bool play) {m_play_show_hide_reload_sounds = play;};
@@ -168,7 +178,7 @@ public:
 	virtual void			SetReputation	(CHARACTER_REPUTATION_VALUE);
 	virtual void			ChangeReputation(CHARACTER_REPUTATION_VALUE);
 
-	virtual void			SetIcon(const shared_str& iconName) { CharacterInfo().m_SpecificCharacter.data()->m_icon_name = iconName; };
+	virtual void			SetIcon(const shared_str& iconName, bool is_outfit_icon = false);
 
 	//для работы с relation system
 	u16								object_id	() const;
@@ -180,7 +190,7 @@ public:
 protected:
 	CCharacterInfo*			m_pCharacterInfo;
 	xr_string				m_game_name;
-
+	xr_string				m_game_name_str;
 public:
 	virtual void			renderable_Render		();
 	virtual void			OnItemTake				(CInventoryItem *inventory_item);
@@ -204,6 +214,7 @@ public:
 
 public:
 	virtual bool				unlimited_ammo			()	= 0;
+	virtual bool				infinite_fire() = 0;
 	virtual	void				on_weapon_shot_start	(CWeapon *weapon);
 	virtual	void				on_weapon_shot_update	();
 	virtual	void				on_weapon_shot_stop		();
@@ -217,6 +228,7 @@ private:
 	CTradeParameters			*m_trade_parameters;
 	CPurchaseList				*m_purchase_list;
 	BOOL						m_need_osoznanie_mode;
+	bool						m_isFocusingOnNpc;
 	bool						m_deadbody_can_take;
 	bool						m_deadbody_closed;
 
@@ -232,12 +244,14 @@ public:
 	virtual	bool				use_default_throw_force	();
 	virtual	float				missile_throw_force		(); 
 	virtual	bool				use_throw_randomness	();
-	virtual bool				NeedOsoznanieMode		() {return m_need_osoznanie_mode!=FALSE;}
+	virtual bool				NeedOsoznanieMode		() {return m_need_osoznanie_mode != FALSE;}
+	virtual bool				GetFocusingOnNpc		() {return m_isFocusingOnNpc;}
 
 			void				deadbody_can_take		(bool status);
 	IC		bool				deadbody_can_take_status() const { return m_deadbody_can_take; }
 			void				deadbody_closed			(bool status);
 	IC		bool				deadbody_closed_status	() const { return m_deadbody_closed; }
+	DECLARE_SCRIPT_REGISTER_FUNCTION
 };
 
 #include "inventory_owner_inline.h"

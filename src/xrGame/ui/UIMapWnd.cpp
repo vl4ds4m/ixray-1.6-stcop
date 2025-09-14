@@ -35,6 +35,8 @@ CUIMapWnd* GetMapWnd()
 
 CUIMapWnd::CUIMapWnd()
 {
+	LoadCallbackGlobals(m_isPropertyBoxClicked, m_onPropertyBoxClicked, "OnPropertyBoxClicked");
+	LoadCallbackGlobals(m_isPropertyBoxAddProperties, m_onPropertyBoxAddProperties, "OnPropertyBoxAddProperties");
 	m_tgtMap				= nullptr;
 	m_GlobalMap				= nullptr;
 	m_view_actor			= false;
@@ -101,18 +103,38 @@ void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 		CUIWindow* rect_parent			= m_UIMainFrame;//m_UILevelFrame;
 		Frect r							= rect_parent->GetWndRect();
 
-		m_UIMainScrollH					= new CUIFixedScrollBar(); m_UIMainScrollH->SetAutoDelete(true);
-		m_UIMainScrollH->InitScrollBar	(Fvector2().set(r.left+dx, r.bottom-sy), true);
+        auto tempScroll = new CUIFixedScrollBar();
+		if (tempScroll->InitScrollBar(Fvector2().set(r.left + dx, r.bottom - sy), true))
+			m_UIMainScrollH = tempScroll;
+        else
+        {
+            Msg("! Failed to init m_UIMainScrollH as FixedScrollBar, trying to initialize it as ScrollBar");
+            xr_delete(tempScroll);
+            m_UIMainScrollH = new CUIScrollBar();
+            m_UIMainScrollH->InitScrollBar(Fvector2().set(r.left + dx, r.bottom - sy), r.right - r.left - dx * 2 - sx, true, "pda");
+        }
+
 		m_UIMainScrollH->SetStepSize	( _max( 1, (int)(m_UILevelFrame->GetWidth()*0.1f) ) );
 		m_UIMainScrollH->SetPageSize	( (int)m_UILevelFrame->GetWidth() ); // iFloor
+		m_UIMainScrollH->SetAutoDelete(true);
 		AttachChild						(m_UIMainScrollH);
 		Register						(m_UIMainScrollH);
 		AddCallback						(m_UIMainScrollH, SCROLLBAR_HSCROLL,CUIWndCallback::void_function(this,&CUIMapWnd::OnScrollH));
 
-		m_UIMainScrollV					= new CUIFixedScrollBar(); m_UIMainScrollV->SetAutoDelete(true);
-		m_UIMainScrollV->InitScrollBar	(Fvector2().set(r.right-sx, r.top+dy), false);
+		tempScroll = new CUIFixedScrollBar();
+		if (tempScroll->InitScrollBar(Fvector2().set(r.right - sx, r.top + dy), false))
+			m_UIMainScrollV = tempScroll;
+		else
+		{
+			Msg("! Failed to init m_UIMainScrollV as FixedScrollBar, trying to initialize it as ScrollBar");
+			xr_delete(tempScroll);
+			m_UIMainScrollV = new CUIScrollBar();
+			m_UIMainScrollV->InitScrollBar(Fvector2().set(r.right - sx, r.top + dy), r.bottom - r.top - dy * 2, false, "pda");
+		}
+
 		m_UIMainScrollV->SetStepSize	( _max( 1, (int)(m_UILevelFrame->GetHeight()*0.1f) ) );
 		m_UIMainScrollV->SetPageSize	( (int)m_UILevelFrame->GetHeight() );
+		m_UIMainScrollV->SetAutoDelete(true);
 		AttachChild						(m_UIMainScrollV);
 		Register						(m_UIMainScrollV);
 		AddCallback						(m_UIMainScrollV,SCROLLBAR_VSCROLL,CUIWndCallback::void_function(this,&CUIMapWnd::OnScrollV));
@@ -502,9 +524,13 @@ void CUIMapWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 
 	if (pWnd == m_UIPropertiesBox && msg == PROPERTY_CLICKED && m_UIPropertiesBox->GetClickedItem())
 	{
-		luabind::functor<void> funct;
-		if (ai().script_engine().functor("pda.property_box_clicked", funct))
+		if (m_isPropertyBoxClicked)
+		{
+			luabind::functor<void> funct;
+			R_ASSERT2(ai().script_engine().functor(m_onPropertyBoxClicked, funct), "failed to get OnPropertyBoxClicked functor");
 			funct(m_UIPropertiesBox);
+		}
+
 		//-----------------------
 		switch (m_UIPropertiesBox->GetClickedItem()->GetTAG())
 		{
@@ -535,9 +561,11 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 
 	m_cur_location = sp->MapLocation();
 
-	luabind::functor<void> funct;
-	if (ai().script_engine().functor("pda.property_box_add_properties", funct))
+	if (m_isPropertyBoxAddProperties)
 	{
+		luabind::functor<void> funct;
+
+		R_ASSERT2(ai().script_engine().functor(m_onPropertyBoxAddProperties, funct), "failed to get OnPropertyBoxAddProperties functor");
 		funct(m_UIPropertiesBox, m_cur_location->ObjectID(), (LPCSTR)m_cur_location->GetLevelName().c_str());
 	}
 
@@ -782,10 +810,10 @@ void CUIMapWnd::SpotSelected( CUIWindow* w )
 		return;
 	}
 	
-	CGameTask* t	= Level().GameTaskManager().HasGameTask( sp->MapLocation(), true );
+	CGameTask* t	= Level().GameTaskManager()->HasGameTask( sp->MapLocation(), true );
 	if ( t )
 	{
-		Level().GameTaskManager().SetActiveTask( t );
+		Level().GameTaskManager()->SetActiveTask( t );
 	}
 }
 

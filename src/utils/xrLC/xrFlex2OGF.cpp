@@ -70,18 +70,27 @@ void CBuild::Flex2OGF()
 
 	g_tree.clear	();
 	g_tree.reserve	(4096);
-	for (splitIt it=g_XSplit.begin(); it!=g_XSplit.end(); it++)
+
+	clMsg("Splits to convert: %u", g_XSplit.size() );
+	 
+	// for (auto SV  = 0 ; SV< g_XSplit.size(); SV++)
+	xrCriticalSection cs;
+
+	int ProgressID = 0;
+
+	xr_parallel_for(size_t(0), size_t(g_XSplit.size()), [&] ( size_t SV )
 	{
-		R_ASSERT			( ! (*it)->empty() );
-		
-		u32 MODEL_ID		= u32(it-g_XSplit.begin());
-		
+		auto& faces = g_XSplit[SV];
+
+		Progress( float (SV) / float(g_XSplit.size()) );
+
 		OGF*		pOGF	= new OGF ();
-		Face*		F		= *((*it)->begin());			// first face
+		Face*		F		= (* faces->begin() );			// first face
 		b_material*	M		= &(materials()[F->dwMaterial]);	// and it's material
 		R_ASSERT	(F && M);
-		
-		try {
+ 
+		try 
+		{
 			// Common data
 			pOGF->Sector		= M->sector;
 			pOGF->material		= F->dwMaterial;
@@ -108,49 +117,135 @@ void CBuild::Flex2OGF()
 				} else {
 					// If lightmaps persist
 					CLightmap*	LM	= F->lmap_layer;
-					if (LM)		{
+					if (LM)	
+					{
 						string_path	fn;
 						xr_sprintf		(fn,"%s_1",LM->lm_texture.name); 
 						T.name		= fn;
 						T.pBuildSurface	= &(LM->lm_texture);
 						R_ASSERT	(T.pBuildSurface);
 						R_ASSERT	(pOGF);
-						pOGF->textures.push_back(T);					//.
+						pOGF->textures.push_back(T);					 
 						xr_sprintf		(fn,"%s_2",LM->lm_texture.name); 
 						T.name		= fn;
 						pOGF->textures.push_back(T);
 					}
 				}
-			} catch (...) {  clMsg("* ERROR: Flex2OGF, model# %d, *textures*",MODEL_ID); }
+			} 
+			catch (...)
+			{ 
+				Msg("* ERROR: Flex2OGF, model# %d, *textures*", SV);
+			}
 			
+		
 			// Collect faces & vertices
 			F->CacheOpacity	();
-			bool	_tc_	= !(F->flags.bOpaque);
-			try {
-				BuildOGFGeom( *pOGF, *(*it), _tc_ );
-			} catch (...) {  clMsg("* ERROR: Flex2OGF, model# %d, *faces*",MODEL_ID); }
-
-		} catch (...)
+ 			bool	_tc_	= !(F->flags.bOpaque);
+		
+			try 
+			{
+				BuildOGFGeom( *pOGF, *faces, _tc_ );
+			} 
+			catch (...)
+			{  
+				Msg("* ERROR: Flex2OGF, model# %d, *faces*",SV);
+			}
+		} 
+		catch (...)
 		{
-			clMsg("* ERROR: Flex2OGF, 1st part, model# %d",MODEL_ID);
+			Msg("* ERROR: Flex2OGF, 1st part, model# %d",SV);
 		}
-		
-		try {
-			clMsg		("%3d: opt : v(%d)-f(%d)",	MODEL_ID,pOGF->data.vertices.size(),pOGF->data.faces.size());
-			pOGF->Optimize						();
-			clMsg		("%3d: cb  : v(%d)-f(%d)",	MODEL_ID,pOGF->data.vertices.size(),pOGF->data.faces.size());
-			pOGF->CalcBounds					();
-			clMsg		("%3d: prog: v(%d)-f(%d)",	MODEL_ID,pOGF->data.vertices.size(),pOGF->data.faces.size());
-			if (!g_build_options.b_noise) pOGF->MakeProgressive	(c_PM_MetricLimit_static);
-			clMsg		("%3d: strp: v(%d)-f(%d)",	MODEL_ID,pOGF->data.vertices.size(),pOGF->data.faces.size());
-			pOGF->Stripify						();
-		} catch (...)	{
-			clMsg("* ERROR: Flex2OGF, 2nd part, model# %d",MODEL_ID);
+ 	
+		try
+		{
+			pOGF->Optimize();
+			pOGF->CalcBounds();
+			
+			static xrCriticalSection nvstripcs;
+			xrCriticalSectionGuard guardStrip(nvstripcs);
+			if (!g_build_options.b_noise)
+				pOGF->MakeProgressive(c_PM_MetricLimit_static);
+			pOGF->Stripify();
 		}
-		
-		g_tree.push_back	(pOGF);
-		xr_delete			(*it);
-		Progress			(p_total+=p_cost);
+		catch (...)
+		{
+			Msg("* ERROR: Flex2OGF, 2nd part, model# %d", SV);
+		}
+ 
+		cs.Enter();
+		g_tree.push_back(pOGF);
+		ProgressID++;
+		Progress(float(ProgressID) / float(g_XSplit.size()));
+
+		if (ProgressID % 256 == 0)
+			clMsg("Progress: %u/%u", ProgressID, g_XSplit.size());
+		cs.Leave();
+	}
+	);
+
+	for (auto it : g_XSplit)
+	{
+		if (it != nullptr)
+			xr_delete(it);
 	}
 	g_XSplit.clear	();
+}
+
+void CBuild::SaveOGF()
+{
+	return; // ме дндекюмн
+
+ 	u32 BaseID = 0;
+
+	u32 start = 0;
+ 	size_t GBs		= 2 * 1024 * 1024 * 1024;
+	 
+	int INDEX_FILE	= 0;
+	while (true)
+	{
+		if (start >= g_tree.size() || INDEX_FILE > 4)
+			break;
+
+		string_path p_ref;
+ 		sprintf_s(p_ref, "%s\\build.geom_%u", path, INDEX_FILE);
+
+
+		IWriter* write_ogf_ref = FS.w_open(p_ref);
+		u32 ID = start;
+
+		write_ogf_ref->open_chunk(9999);
+
+		for (; ID < g_tree.size(); ID++)
+		{
+			OGF_Reference* ORef = smart_cast<OGF_Reference*> (g_tree[ID]);
+			if (ORef)
+			{
+				ORef->SaveForCompile(write_ogf_ref);
+				clMsg("BaseINDEX: %u/%u, SizeMU: %llu", ID, g_tree.size(), write_ogf_ref->tell());
+ 			}
+			
+
+			if (write_ogf_ref->tell() > GBs)
+ 				break;
+ 		}
+
+ 		write_ogf_ref->close_chunk();
+		FS.w_close(write_ogf_ref);
+		 
+		INDEX_FILE++;
+		start = ID;
+	}
+}
+
+size_t CBuild::GetTreeSize()
+{
+	size_t treeOgf = 0;
+	for (auto& tree : g_tree)
+	{
+		auto P = smart_cast<OGF*> ( tree );
+		
+		if (P != nullptr)
+		treeOgf += P->Sizeof();
+	}
+	return treeOgf;
 }

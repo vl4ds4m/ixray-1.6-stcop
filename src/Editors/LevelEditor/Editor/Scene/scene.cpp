@@ -2,7 +2,11 @@
 #include "LEPhysics.h"
 #include "../xrEngine/xr_input.h"
 #include "../xrEngine/xr_object.h"
+#include "../xrEngine/IGame_Actor.h"
+#include "../xrEngine/CameraBase.h"
 #include "../xrServerEntities/clsid_game.h"
+#include "../xrECore/Editor/UILogForm.h"
+#include "Editor/Tools/Terrain/ESceneTerrainTools.h"
 
 EScene* Scene;
 
@@ -115,7 +119,7 @@ void EScene::AppendObject( CCustomObject* object, bool bUndo )
 		break;
 	}
 
-	ESceneCustomOTool* mt	= GetOTool(object->FClassID);
+	ESceneCustomOTool* mt = GetOTool(object->FClassID);
 	VERIFY3(mt,"Can't find Object Tools:",GetTool(object->FClassID)->ClassDesc());
 	mt->_AppendObject	(object);
 	UI->UpdateScene		();
@@ -127,10 +131,10 @@ void EScene::AppendObject( CCustomObject* object, bool bUndo )
 	object->SetLoadedState();
 }
 
-bool EScene::RemoveObject( CCustomObject* object, bool bUndo, bool bDeleting )
+bool EScene::RemoveObject(CCustomObject* object, bool bUndo, bool bDeleting)
 {
-	VERIFY				(object);
-	VERIFY				(m_Valid);
+	VERIFY(object);
+	VERIFY(m_Valid);
 
 	switch (object->FClassID)
 	{
@@ -149,27 +153,31 @@ bool EScene::RemoveObject( CCustomObject* object, bool bUndo, bool bDeleting )
 		break;
 	}
 
-	ESceneCustomOTool* mt 	= GetOTool(object->FClassID);
-	if (mt&&mt->IsEditable())
+	ESceneCustomOTool* mt = GetOTool(object->FClassID);
+	if (mt && mt->IsEditable())
 	{
+		xrCriticalSectionGuard lock(PickUpLock);
 		mt->_RemoveObject(object);
 		// signal everyone "I'm deleting"
 //        if (object->ClassID==OBJCLASS_SCENEOBJECT)
 		{
-			m_ESO_SnapObjects.remove			(object);
+			m_ESO_SnapObjects.remove(object);
 
 			SceneToolsMapPairIt _I = m_SceneTools.begin();
 			SceneToolsMapPairIt _E = m_SceneTools.end();
-			for (; _I!=_E; _I++){
+			for (; _I != _E; _I++) {
 				ESceneToolBase* mt = _I->second;
 				if (mt)
 					mt->OnObjectRemove(object, bDeleting);
 			}
-			UpdateSnapList						();
+			UpdateSnapList();
 		}
-		UI->UpdateScene	();
+		UI->UpdateScene();
 	}
-	if (bUndo)		   	UndoSave();
+
+	if (bUndo)
+		UndoSave();
+
 	return true;
 }
 
@@ -266,13 +274,16 @@ void EScene::OnFrame( float dT )
 void EScene::Reset()
 {
 	// unload scene
-	Unload				(FALSE);
+	Unload(FALSE);
+	full_name.clear();
+
 	// reset tools
-	SceneToolsMapPairIt t_it 	= m_SceneTools.begin();
-	SceneToolsMapPairIt t_end 	= m_SceneTools.end();
-	for (; t_it!=t_end; t_it++)
-		if (t_it->second&&t_it->first!=OBJCLASS_DUMMY)
-			t_it->second->Reset	();
+	SceneToolsMapPairIt t_it = m_SceneTools.begin();
+	SceneToolsMapPairIt t_end = m_SceneTools.end();
+	for (; t_it != t_end; t_it++)
+		if (t_it->second && t_it->first != OBJCLASS_DUMMY)
+			t_it->second->Reset();
+
 	g_scene_physics.UpdateLevelCollision();
 }
 
@@ -291,11 +302,15 @@ void EScene::Clear(BOOL bEditableToolsOnly)
 	SceneToolsMapPairIt t_it = m_SceneTools.begin();
 	SceneToolsMapPairIt t_end = m_SceneTools.end();
 	for (; t_it != t_end; t_it++)
-		if (t_it->second && t_it->first != OBJCLASS_DUMMY) {
-			if (!bEditableToolsOnly || (bEditableToolsOnly && t_it->second->IsEditable())) {
+	{
+		if (t_it->second && t_it->first != OBJCLASS_DUMMY)
+		{
+			if (!bEditableToolsOnly || (bEditableToolsOnly && t_it->second->IsEditable()))
+			{
 				t_it->second->Clear();
 			}
 		}
+	}
 
 	Tools->ClearDebugDraw();
 
@@ -336,7 +351,7 @@ bool EScene::GetBox(Fbox& box, ObjectList& lst)
 	box.invalidate();
 	bool bRes=false;
 
-	for(auto Obj : lst)
+	for(CCustomObject* Obj : lst)
 	{
 		Fbox bb;
 
@@ -509,8 +524,9 @@ bool EScene::Validate(bool bNeedOkMsg, bool bTestPortal, bool bTestHOM, bool bTe
 		ELog.Msg(mtError,"*ERROR: Can't find any Light Object.");
 		bRes = false;
 	}*/
-	if (ObjCount(OBJCLASS_SCENEOBJECT)==0){
-		ELog.Msg(mtError,"*ERROR: Can't find any Scene Object.");
+	if (ObjCount(OBJCLASS_SCENEOBJECT) == 0 && ObjCount(OBJCLASS_TERRAIN) == 0)
+	{
+		ELog.Msg(mtError,"*ERROR: Can't find any Scene Object or Terrain.");
 		bRes = false;
 	}
 /*	if (bTestGlow)
@@ -525,30 +541,50 @@ bool EScene::Validate(bool bNeedOkMsg, bool bTestPortal, bool bTestHOM, bool bTe
 		bRes = false;
 	}
 	
-	if (bTestShaderCompatible){
+	if (bTestShaderCompatible)
+	{
 		bool res = true;
 		ObjectList& lst = ListObj(OBJCLASS_SCENEOBJECT);
 		using EOSet = xr_set<CEditableObject*>;
 		EOSet objects;
-		int static_obj = 0; 
-		for(ObjectIt it=lst.begin();it!=lst.end();it++)
+		int static_obj = 0;
+		for (ObjectIt it = lst.begin(); it != lst.end(); it++)
 		{
 			CSceneObject* S = (CSceneObject*)(*it);
-			if (S->IsStatic()||S->IsMUStatic()){
+			if (S->IsStatic() || S->IsMUStatic())
+			{
 				static_obj++;
 				CEditableObject* O = ((CSceneObject*)(*it))->GetReference(); R_ASSERT(O);
-				if (objects.find(O)==objects.end()){
+				if (objects.find(O) == objects.end())
+				{
 					if (!O->CheckShaderCompatible()) res = false;
 					objects.insert(O);
 				}
 			}
 		}
-		if (!res){ 
-			ELog.Msg	(mtError,"*ERROR: Scene has non compatible shaders. See log.");
+
+		ObjectList& lstHm = ListObj(OBJCLASS_TERRAIN);
+		for (ObjectIt it = lstHm.begin(); it != lstHm.end(); it++)
+		{
+			CTerrain* S = (CTerrain*)(*it);
+			static_obj++;
+			CEditableObject* O = ((CTerrain*)(*it))->GetReference(); R_ASSERT(O);
+			if (objects.find(O) == objects.end())
+			{
+				if (!O->CheckShaderCompatible()) res = false;
+				objects.insert(O);
+			}
+		}
+
+		if (!res)
+		{
+			ELog.Msg(mtError, "*ERROR: Scene has non compatible shaders. See log.");
 			bRes = false;
 		}
-		if (0==static_obj){ 
-			ELog.Msg	(mtError,"*ERROR: Can't find static geometry.");
+
+		if (0 == static_obj)
+		{
+			ELog.Msg(mtError, "*ERROR: Can't find static geometry.");
 			bRes = false;
 		}
 	}
@@ -717,9 +753,15 @@ void EScene::Play()
 	if (IsPlayInEditor())
 		return;
 
+	if (UILogForm::ClearInPIE())
+	{
+		UILogForm::Clear();
+	}
+
 	if (MainForm->GetTopBarForm()->UseCameraPosForActor)
 	{
 		ActorNewPos = UI->CurrentView().m_Camera.GetPosition();
+		ActorNewDir = UI->CurrentView().m_Camera.GetHPB();
 	}
 
 	if (!BuildSpawn())
@@ -910,7 +952,7 @@ void EScene::OnFrame()
 		if (MainForm->GetTopBarForm()->UseCameraPosForActor)
 		{
 			CLASS_ID CLS = TEXT2CLSID("S_ACTOR");
-			CObject* GameActor = g_pGameLevel->Objects.FindObjectByCLS_ID(CLS);
+			IGame_Actor* GameActor = (IGame_Actor*)g_pGameLevel->Objects.FindObjectByCLS_ID(CLS);
 
 			if (GameActor == nullptr)
 				return;
@@ -918,6 +960,7 @@ void EScene::OnFrame()
 			string128 Command = {};
 			xr_sprintf(Command, "set_actor_position %.3f, %.3f, %.3f", ActorNewPos.x, ActorNewPos.y, ActorNewPos.z);
 			Console->Execute(Command);
+			g_pIGameActor->cam_Active()->Set(-ActorNewDir.x, 0, 0);
 
 			IsAppliedPos = true;
 		}

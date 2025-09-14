@@ -2,7 +2,6 @@
 #include "ActorHelmet.h"
 #include "Actor.h"
 #include "Inventory.h"
-#include "Torch.h"
 #include "BoneProtections.h"
 #include "../Include/xrRender/Kinematics.h"
 //#include "CustomOutfit.h"
@@ -101,16 +100,6 @@ void CHelmet::OnH_A_Chield()
 void CHelmet::OnMoveToSlot(const SInvItemPlace& previous_place)
 {
 	inherited::OnMoveToSlot		(previous_place);
-	if (m_pInventory && (previous_place.type==eItemPlaceSlot))
-	{
-		CActor* pActor = smart_cast<CActor*> (H_Parent());
-		if (pActor)
-		{
-			CTorch* pTorch = smart_cast<CTorch*>(pActor->inventory().ItemFromSlot(TORCH_SLOT));
-			if(pTorch && pTorch->GetNightVisionStatus())
-				pTorch->SwitchNightVision(true, false);
-		}
-	}
 }
 
 void CHelmet::OnMoveToRuck(const SInvItemPlace& previous_place)
@@ -118,12 +107,10 @@ void CHelmet::OnMoveToRuck(const SInvItemPlace& previous_place)
 	inherited::OnMoveToRuck		(previous_place);
 	if (m_pInventory && (previous_place.type==eItemPlaceSlot))
 	{
-		CActor* pActor = smart_cast<CActor*> (H_Parent());
-		if (pActor)
+		CActor* pActor = smart_cast<CActor*>(H_Parent());
+		if (pActor && pActor->GetNightVisionEffector())
 		{
-			CTorch* pTorch = smart_cast<CTorch*>(pActor->inventory().ItemFromSlot(TORCH_SLOT));
-			if(pTorch)
-				pTorch->SwitchNightVision(false);
+			pActor->GetNightVisionEffector()->SwitchNightVision(false);
 		}
 	}
 }
@@ -131,7 +118,12 @@ void CHelmet::OnMoveToRuck(const SInvItemPlace& previous_place)
 void CHelmet::Hit(float hit_power, ALife::EHitType hit_type)
 {
 	hit_power *= GetHitImmunity(hit_type);
-	ChangeCondition(-hit_power);
+
+	if (!psActorFlags.test(AF_INFINITEDURABILITY))
+	{
+		ChangeCondition(-hit_power);
+	}
+
 }
 
 float CHelmet::GetDefHitTypeProtection(ALife::EHitType hit_type)

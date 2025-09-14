@@ -10,6 +10,7 @@ class CMotionDef;
 #include "inventory_space.h"
 #include "HudSound.h"
 #include "InertionData.h"
+#include "../xrScripts/script_export_space.h"
 
 struct attachable_hud_item;
 class motion_marks;
@@ -17,13 +18,20 @@ class motion_marks;
 class CHUDState
 {
 public:
-enum EHudStates {
-		eIdle		= 0,
+enum EHudStates
+{
+		eIdle = 0,
 		eShowing,
 		eHiding,
 		eHidden,
 		eBore,
-		eLastBaseState = eBore,
+		eSprintStart,
+		eSprintEnd,
+		eDeviceSwitch,
+		ePrepareDetector,
+		ePrepareDetectorEnd,
+		eFinishDetector,
+		eLastBaseState = eFinishDetector,
 };
 
 private:
@@ -47,10 +55,11 @@ public:
 
 class CHudItem :public CHUDState
 {
-protected:
+public:
 							CHudItem			();
 	virtual					~CHudItem			();
 	virtual DLL_Pure*		_construct			();
+protected:
 	
 	Flags16					m_huditem_flags;
 	enum{
@@ -105,15 +114,19 @@ public:
 	virtual void				OnStateSwitch		(u32 S);
 
 	virtual void				OnAnimationEnd		(u32 state);
-	virtual void				OnMotionMark		(u32 state, const motion_marks&){};
+	virtual void				OnMotionMark		(u32 state, const motion_marks&);
 
 	virtual void				PlayAnimIdle		();
 	virtual void				PlayAnimBore		();
+	virtual void				PlayAnimDeviceSwitch();
 	bool						TryPlayAnimIdle		();
 	virtual bool				MovingAnimAllowedNow ()				{return true;}
 
-	virtual void				PlayAnimIdleMoving	();
-	virtual void				PlayAnimIdleSprint	();
+	virtual void				PlayAnimIdleMoving();
+	virtual void				PlayAnimIdleMovingSlow();
+	virtual void				PlayAnimIdleMovingCrouch();
+	virtual void				PlayAnimIdleMovingCrouchSlow();
+	virtual void				PlayAnimIdleSprint();
 
 	virtual void				UpdateCL			();
 	virtual void				renderable_Render	();
@@ -124,15 +137,18 @@ public:
 
 	virtual	void				UpdateXForm			()						= 0;
 
-	u32							PlayHUDMotion		(const shared_str& M, BOOL bMixIn, CHudItem*  W, u32 state);
+	u32							PlayHUDMotion		(const shared_str& M, BOOL bMixIn, u32 state);
 	u32							PlayHUDMotion_noCB	(const shared_str& M, BOOL bMixIn);
 	void						StopCurrentAnimWithoutCallback();
+	bool						AddSuffixName		(shared_str& anim, LPCSTR suffix, LPCSTR test_suffix = "");
+	shared_str					SetCurrentIdleAnimation();
+	virtual shared_str			SetCurrentStateAnimation(const shared_str& first_name) { return first_name; }
 
 	IC void						RenderHud				(BOOL B)	{ m_huditem_flags.set(fl_renderhud, B);}
 	IC BOOL						RenderHud				()			{ return m_huditem_flags.test(fl_renderhud);}
 	attachable_hud_item*		HudItemData				();
 	virtual void				on_a_hud_attach			();
-			bool				HudAnimationExist		(LPCSTR anim_name);
+	virtual bool				HudAnimationExist		(const shared_str& anim_name);
 	virtual void				on_b_hud_detach			();
 	virtual void				render_hud_mode			()					{};
 	virtual bool				need_renderable			()					{return true;};
@@ -144,10 +160,49 @@ public:
 	virtual float GetHudFov();
 	virtual bool AllowBore() { return !m_bDisableBore; }
 
+	void PlaySoundIfExist(LPCSTR alias, const Fvector& position, bool allowOverlap = false);
+
+	enum EDevicesFlags
+	{
+		df_torch = (1 << 0),
+		df_nvg = (1 << 1),
+		df_clear_mask = (1 << 2),
+	};
+
+	enum EAnimationsFlags
+	{
+		af_torch = (1 << 0),
+		af_nvg = (1 << 1),
+		af_clear_mask = (1 << 2),
+		af_prepare_detector = (1 << 3),
+		af_prepare_detector_end = (1 << 4),
+		af_finish_detector = (1 << 5),
+		af_det_hand_draw = (1 << 6),
+		af_det_hand_hide = (1 << 7),
+		af_firemode = (1 << 14),
+	};
+
+	Flags32 m_eDevicesFlags;
+	Flags32 m_eAnimationsFlags;
+
+	bool bDisablePrepareAnimation = false;
+
+	virtual bool WpnCanShoot() const { return false; }
+
+	struct jitter_params
+	{
+		float pos_amplitude = 0.0f;
+		float rot_amplitude = 0.0f;
+		float stop_time = 0.0f;
+	} m_jitter_params;
+
+	jitter_params& GetCurJitterParams() { return m_jitter_params; }
+
 protected:
 
 	IC		void				SetPending			(BOOL H)			{ m_huditem_flags.set(fl_pending, H);}
 	shared_str					hud_sect;
+	shared_str					hud_sect_cache;
 
 	//кадры момента пересчета XFORM и FirePos
 	u32							dwFP_Frame;
@@ -164,12 +219,11 @@ protected:
 	float						m_nearwall_speed_mod;
 	float						m_fHudFov;
 
-	float m_fLR_CameraFactor; // Фактор бокового наклона худа при ходьбе [-1; +1]
-	float m_fLR_MovingFactor; // Фактор бокового наклона худа при движении камеры [-1; +1]
-	float m_fLR_InertiaFactor; // Фактор горизонтальной инерции худа при движении камеры [-1; +1]
-	float m_fUD_InertiaFactor; // Фактор вертикальной инерции худа при движении камеры [-1; +1]
-
 	bool						m_bDisableBore;
+	bool						m_bSwitchSprint = false;
+
+	virtual void				SetModelBoneStatus(const char* bone, BOOL show);
+	virtual void				SetMultipleBonesStatus(const char* section, const char* line, BOOL show);
 
 private:
 	CPhysicItem					*m_object;
@@ -186,5 +240,7 @@ public:
 	virtual void				debug_draw_firedeps		() {};
 
 	virtual CHudItem*			cast_hud_item			()				{ return this; }
+protected:
+	DECLARE_SCRIPT_REGISTER_FUNCTION
 };
 

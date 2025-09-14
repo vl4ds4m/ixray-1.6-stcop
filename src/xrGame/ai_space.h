@@ -64,11 +64,12 @@ public:
 	IC		const CPatrolPathStorage	&patrol_paths			() const;
 	IC		CEF_Storage					&ef_storage				() const;
 	IC		const CALifeSimulator		&alife					() const;
-	IC		const CALifeSimulator		*get_alife				() const;
+	IC		CALifeSimulator				*get_alife				() const;
 	IC		const CCoverManager			&cover_manager			() const;
 	IC		CScriptEngine				&script_engine			() const;
 	IC		moving_objects				&moving_objects			() const;
 	IC		doors::manager&				doors					() const;
+	IC		CPatrolPathStorage&			patrol_paths_raw		();
 
 #ifdef DEBUG
 			void						validate				(const u32			level_id) const;

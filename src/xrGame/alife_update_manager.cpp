@@ -24,6 +24,7 @@
 #include "../xrEngine/string_table.h"
 
 using namespace ALife;
+using namespace luabind; //Alundaio
 
 extern string_path g_last_saved_game;
 
@@ -68,6 +69,8 @@ CALifeUpdateManager::CALifeUpdateManager	(xrServer *server, LPCSTR section) :
 	m_objects_per_update	= pSettings->r_u32	(section,"objects_per_update");
 	m_changing_level		= false;
 	m_first_time			= true;
+
+	LoadCallbackGlobals(m_isOnBeforeChangeLevel, m_onBeforeChangeLevelName, "OnBeforeChangeLevel");
 }
 
 CALifeUpdateManager::~CALifeUpdateManager	()
@@ -179,7 +182,14 @@ bool CALifeUpdateManager::change_level	(NET_Packet &net_packet)
 	if (m_changing_level)
 		return						(false);
 
-//	prepare_objects_for_save		();
+	if (m_isOnBeforeChangeLevel)
+	{
+	luabind::functor<void>	funct;
+		R_ASSERT2(ai().script_engine().functor(m_onBeforeChangeLevelName, funct), "failed to get OnBeforeChangeLevel callback");
+		funct(&net_packet);
+	}
+
+	//	prepare_objects_for_save		();
 	// we couldn't use prepare_objects_for_save since we need 
 	// get updates from client 
 	// then change actor server entity 
@@ -255,7 +265,7 @@ bool CALifeUpdateManager::change_level	(NET_Packet &net_packet)
 #include "../xrEngine/IGame_Persistent.h"
 void CALifeUpdateManager::new_game			(LPCSTR save_name)
 {
-//	g_pGamePersistent->LoadTitle		("st_creating_new_game");
+	g_pGamePersistent->SetLoadStageTitle("st_creating_new_game");
 	g_pGamePersistent->LoadTitle		();
 	Msg									("* Creating new game...");
 
@@ -285,7 +295,8 @@ void CALifeUpdateManager::new_game			(LPCSTR save_name)
 
 void CALifeUpdateManager::load			(LPCSTR game_name, bool no_assert, bool new_only)
 {
-//	g_pGamePersistent->LoadTitle		("st_loading_alife_simulator");
+	PROF_EVENT("Load Alife Simulator");
+	g_pGamePersistent->SetLoadStageTitle("st_loading_alife_simulator");
 	g_pGamePersistent->LoadTitle		();
 
 #ifdef DEBUG
@@ -306,7 +317,7 @@ void CALifeUpdateManager::load			(LPCSTR game_name, bool no_assert, bool new_onl
 #ifdef DEBUG
 	// Msg									("* Loading alife simulator is successfully completed (%7.3f Mb)",float(Memory.mem_usage() - memory_usage)/1048576.0);
 #endif
-//	g_pGamePersistent->LoadTitle		("st_server_connecting");
+	g_pGamePersistent->SetLoadStageTitle("st_server_connecting");
 	g_pGamePersistent->LoadTitle		(true, g_pGameLevel->name());
 }
 
@@ -321,10 +332,11 @@ bool CALifeUpdateManager::load_game		(LPCSTR game_name, bool no_assert)
 {
 	{
 		string_path				temp,file_name;
-		xr_strconcat(temp,game_name,SAVE_EXTENSION);
+		xr_strconcat(temp,game_name, IXRAY_DEF_SAVE_EXTENSION);
 		FS.update_path			(file_name,"$game_saves$",temp);
-		if (!FS.exist(file_name)) {
-			R_ASSERT3			(no_assert,"There is no saved game ",file_name);
+		if (!FS.exist(file_name)) 
+		{
+			R_ASSERT3(no_assert, "There is no saved game ", file_name);
 			return				(false);
 		}
 	}
@@ -348,23 +360,26 @@ void CALifeUpdateManager::load_from_editor()
 
 void CALifeUpdateManager::set_switch_online		(ALife::_OBJECT_ID id, bool value)
 {
-	CSE_ALifeDynamicObject			*object = objects().object(id);
-	VERIFY							(object);
-	object->can_switch_online		(value);
+	if (CSE_ALifeDynamicObject* object = objects().object(id))
+	{
+		object->can_switch_online(value);
+	}
 }
 
 void CALifeUpdateManager::set_switch_offline	(ALife::_OBJECT_ID id, bool value)
 {
-	CSE_ALifeDynamicObject			*object = objects().object(id);
-	VERIFY							(object);
-	object->can_switch_offline		(value);
+	if (CSE_ALifeDynamicObject* object = objects().object(id))
+	{
+		object->can_switch_offline(value);
+	}
 }
 
 void CALifeUpdateManager::set_interactive		(ALife::_OBJECT_ID id, bool value)
 {
-	CSE_ALifeDynamicObject			*object = objects().object(id);
-	VERIFY							(object);
-	object->interactive				(value);
+	if (CSE_ALifeDynamicObject* object = objects().object(id))
+	{
+		object->interactive(value);
+	}
 }
 
 void CALifeUpdateManager::jump_to_level			(LPCSTR level_name) const

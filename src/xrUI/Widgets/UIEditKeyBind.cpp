@@ -4,6 +4,7 @@
 #include "../../xrServerEntities/object_broker.h"
 #include "../../xrEngine/XR_IOConsole.h"
 #include "../UIFontDefines.h"
+#include "../UITextureMaster.h"
 
 CUIEditKeyBind::CUIEditKeyBind(bool bPrim)
 {
@@ -59,7 +60,14 @@ void CUIEditKeyBind::InitKeyBind(Fvector2 pos, Fvector2 size)
 {
 	CUIStatic::SetWndPos	(pos);
 	CUIStatic::SetWndSize	(size);
-	InitTexture				("ui_listline2");
+
+	if (CUITextureMaster::ItemExist("ui_listline2")) // cop
+		InitTexture("ui_listline2");
+	else if (CUITextureMaster::ItemExist("ui_options_string")) // soc
+		InitTexture("ui_options_string");
+	else if (CUITextureMaster::ItemExist("ui_options_string_back")) // cs (exists in soc also, that's why it's last)
+		InitTexture("ui_options_string_back");
+
 	TextItemControl()->SetFont	(UI().Font().GetFont(LETTERICA16_FONT_NAME));
 	SetStretchTexture		(true);
 	SetEditMode				(false);
@@ -86,14 +94,21 @@ bool CUIEditKeyBind::OnMouseDown(int mouse_btn)
 
 		xr_strcpy				(message, m_action->action_name);
 		xr_strcat					(message, "=");
-		xr_strcat					(message, m_keyboard->key_name);		
+		xr_strcat					(message, m_keyboard->key_name);
 		SendMessage2Group		("key_binding",message);
 
 		return					true;
 	}
 
-	if (mouse_btn==MOUSE_1)
+	if (mouse_btn == MOUSE_1)
+	{
 		SetEditMode(m_bCursorOverWindow);
+	}
+	else if (mouse_btn == MOUSE_2 && m_bCursorOverWindow)
+	{
+		SetText(nullptr);
+		m_keyboard = nullptr;
+	}
 
 	return CUIStatic::OnMouseDown(mouse_btn);
 }
@@ -117,7 +132,7 @@ bool CUIEditKeyBind::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 
 		xr_strcpy			(message, m_action->action_name);
 		xr_strcat				(message, "=");
-		xr_strcat				(message, m_keyboard->key_name);		
+		xr_strcat				(message, m_keyboard->key_name);
 		OnFocusLost			();
 		SendMessage2Group	("key_binding",message);
 		return				true;

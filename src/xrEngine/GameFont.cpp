@@ -403,8 +403,11 @@ void CGameFont::MasterOut(
 	rs.x = (bUseCoords ? (bScaleCoords ? (DI2PX(_x)) : _x) : fCurrentX);
 	rs.y = (bUseCoords ? (bScaleCoords ? (DI2PY(_y)) : _y) : fCurrentY);
 	rs.c = dwCurrentColor;
+	rs.gradientColor = dwGradientColor;
 	rs.height = fCurrentHeight;
 	rs.align = eCurrentAlignment;
+	rs.gradient = fGradientEnabled;
+	rs.gradientMode = fGradientMode;
 	int vs_sz = vsprintf(rs.string, fmt, p);
 
 	if (!IsUTF8(rs.string))

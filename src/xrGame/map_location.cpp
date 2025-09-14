@@ -409,11 +409,12 @@ void CMapLocation::UpdateSpot(CUICustomMap* map, CMapSpot* sp )
 			}
 		}
 
-		CGameTask* ml_task = Level().GameTaskManager().HasGameTask( this, true );
+		CGameTask* ml_task = Level().GameTaskManager()->HasGameTask( this, true );
 		if (ml_task)
 		{
-			CGameTask* active_task = Level().GameTaskManager().ActiveTask();
-			bool border_show = (ml_task == active_task);
+			CGameTask* storyTask = Level().GameTaskManager()->ActiveTask(eTaskTypeStoryline);
+			CGameTask* additionalTask = Level().GameTaskManager()->ActiveTask(eTaskTypeAdditional);
+			const bool border_show = ml_task == storyTask || ml_task == additionalTask;
 			if (m_minimap_spot)
 			{
 				m_minimap_spot->show_static_border(border_show);
@@ -581,7 +582,7 @@ void CMapLocation::UpdateSpotPointer(CUICustomMap* map, CMapSpotPointer* sp )
 		ttt.set(tt.x, 0.0f, tt.y);
 
 		float dist_to_target = Level().CurrentEntity()->Position().distance_to(ttt);
-		CGameTask* task = Level().GameTaskManager().HasGameTask(this, true);
+		CGameTask* task = Level().GameTaskManager()->HasGameTask(this, true);
 		if (task)
 		{
 			map->SetPointerDistance(dist_to_target);

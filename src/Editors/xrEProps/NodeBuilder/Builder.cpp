@@ -26,7 +26,19 @@ int CNodeViewport::GetHoveredMode() const
 		if (ImNodes::IsNodeSelected(Node->NodeID))
 		{
 			HoveredNodeID = Node->NodeID;
+			if (LastSelectedNodeID != HoveredNodeID && NodeSelectCallback)
+			{
+				NodeSelectCallback(Node);
+			}
+			LastSelectedNodeID = HoveredNodeID;
+			break;
 		}
+	}
+
+	if (HoveredNodeID == -1 && NodeSelectCallback)
+	{
+		NodeSelectCallback(nullptr);
+		LastSelectedNodeID = -1;
 	}
 
 	return HoveredNodeID;
@@ -78,6 +90,7 @@ void CNodeViewport::Draw()
 		ImNodes::Link(LinkDrawCounter, p.first, p.second);
 	}
 
+	ImGui::SetWindowFontScale(0.9f); // ����������� ����������
 	ImNodes::MiniMap();
 	ImNodes::EndNodeEditor();
 
@@ -107,13 +120,13 @@ void CNodeViewport::Draw()
 
 			if (Left != nullptr && Right != nullptr)
 			{
-				Right->OutNodes.push_back(Left);
+				Right->MakeOutNode(Left);
+				Left->MakeInNode(Right);
 			}
 
 			Links.emplace_back(start_attr, end_attr);
 		}
 	}
-
 }
 
 void CNodeViewport::DrawEnd()

@@ -87,7 +87,6 @@ public:
 	bool														m_bFirstFrameAfterReset;	// Determines weather the frame is the first after resetting device.
 
 	xr_list<light*>												v_all_lights_dque;
-	xr_list<light*>												v_all_lights;
 private:
 	// Loading / Unloading
 	void								LoadBuffers				(CStreamReader	*fs);
@@ -164,9 +163,9 @@ public:
 	virtual void					add_Geometry			(IRenderVisual*	V	);			// add visual(s)	(all culling performed)
 
 	// wallmarks
-	virtual void					add_StaticWallmark		(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
-	virtual void					add_StaticWallmark			(IWallMarkArray *pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
-	virtual void					add_StaticWallmark			(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
+	virtual void					add_StaticWallmark		(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V, bool UseCameraDirection = false);
+	virtual void					add_StaticWallmark		(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, bool UseCameraDirection = false) override;
+	virtual void					add_StaticWallmark		(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
 	virtual void					clear_static_wallmarks	();
 	virtual void					add_SkeletonWallmark	(intrusive_ptr<CSkeletonWallmark> wm);
 	virtual void					add_SkeletonWallmark	(const Fmatrix* xf, CKinematics* obj, ref_shader& sh, const Fvector& start, const Fvector& dir, float size);
@@ -196,7 +195,6 @@ public:
 	virtual void					model_Delete			(IRenderVisual* &	V, BOOL bDiscard);
 	virtual void					model_Delete_Deffered	(IRenderVisual* &	V);
 	virtual void 					model_Delete			(IRender_DetailModel* & F);
-	virtual void					model_Logging			(BOOL bEnable)				{ Models->Logging(bEnable);	}
 	virtual void					models_Prefetch			();
 	virtual void					models_Clear			(BOOL b_complete);
 	

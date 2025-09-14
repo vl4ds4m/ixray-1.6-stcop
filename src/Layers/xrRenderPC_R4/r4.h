@@ -31,6 +31,7 @@ public:
 	{
 		PHASE_NORMAL	= 0,	// E[0]
 		PHASE_SMAP		= 1,	// E[1]
+		PHASE_REFLECT	= 2,
 	};
 	
 	enum
@@ -66,6 +67,8 @@ public:
 		u32		Tshadows			: 1;						// transluent shadows
 		u32		disasm				: 1;
 		u32		volumetricfog		: 1;
+		u32		offscreen_reflecitons	: 1;
+		u32		deffered_reflecitons	: 1;
 		
 	  u32		dx11_enable_tessellation : 1;
 	} o;
@@ -126,7 +129,6 @@ public:
 	xr_vector<sun::cascade>										m_sun_cascades;
 
 	xr_list<light*>												v_all_lights_dque;
-	xr_list<light*>												v_all_lights;
 
 private:
 	// Loading / Unloading
@@ -265,8 +267,8 @@ public:
 	virtual void					add_Geometry				(IRenderVisual*	V	);			// add visual(s)	(all culling performed)
 
 	// wallmarks
-	virtual void					add_StaticWallmark			(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
-	virtual void					add_StaticWallmark			(IWallMarkArray *pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
+	virtual void					add_StaticWallmark			(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V, bool UseCameraDirection = false);
+	virtual void					add_StaticWallmark			(IWallMarkArray *pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, bool UseCameraDirection = false) override;
 	virtual void					add_StaticWallmark			(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
 	virtual void					clear_static_wallmarks		();
 	virtual void					add_SkeletonWallmark		(intrusive_ptr<CSkeletonWallmark> wm);
@@ -294,7 +296,6 @@ public:
 	virtual void					model_Delete				(IRenderVisual* &	V, BOOL bDiscard);
 	virtual void					model_Delete_Deffered		(IRenderVisual* &	V);
 	virtual void 					model_Delete				(IRender_DetailModel* & F);
-	virtual void					model_Logging				(BOOL bEnable)				{ Models->Logging(bEnable);	}
 	virtual void					models_Prefetch				();
 	virtual void					models_Clear				(BOOL b_complete);
 

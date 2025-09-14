@@ -34,10 +34,11 @@ void CRender::render_rain() {
 	float	fRainFactor = g_pGamePersistent->Environment().CurrentEnv->rain_density;
 	if(fRainFactor < EPS_L)			return;
 
-	PIX_EVENT(render_rain);
+	GPU_EVENT(render_rain);
 
 	//	Use light as placeholder for rain data.
-	light			RainLight;
+	// нет необходимости создавать каждый кадр структуру размером почти в киллобайт на стеке.
+	light& RainLight = *RImplementation.Lights.rain_light;
 
 	//static const float	source_offset		= 40.f;
 
@@ -53,7 +54,7 @@ void CRender::render_rain() {
 	{
 		//	
 		const float fRainFar = ps_r3_dyn_wet_surf_far;
-		ex_project.build_projection(deg2rad(Device.fFOV/* *Device.fASPECT*/), Device.fASPECT, VIEWPORT_NEAR, fRainFar);
+		ex_project.build_projection(deg2rad(Device.fFOV/* *Device.fASPECT*/), Device.fASPECT, Device.fViewportNear, fRainFar);
 		ex_full.mul(ex_project, Device.mView);
 		ex_full_inverse.invert44(ex_full);
 

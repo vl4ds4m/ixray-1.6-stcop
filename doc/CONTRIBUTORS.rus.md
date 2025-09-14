@@ -1,6 +1,6 @@
 # Контрибьюторы
 
-[English](../CONTRIBUTORS.md) | Русский
+[English](../.github/CONTRIBUTORS.md) | Русский
 
 Подробный список всех контрибьюторов проекта __IX-Ray__
 
@@ -79,6 +79,8 @@
 - Sin!
 - pavelspitsin
 - Baryshev194
+- SkyLoader
+- wasertech
 
 ## Бывшие участники
 

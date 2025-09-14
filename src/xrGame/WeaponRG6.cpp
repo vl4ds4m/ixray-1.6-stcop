@@ -51,53 +51,6 @@ void CWeaponRG6::Load(LPCSTR section)
 	inheritedSG::Load(section);
 }
 
-void CWeaponRG6::FireStart()
-{
-	if (!IsMisfire())
-	{
-		if (GetState() != eIdle)
-		{
-			return;
-		}
-
-		if (IsValid())
-		{
-			if (!IsWorking() || AllowFireWhileWorking())
-			{
-				CWeapon::FireStart();
-
-				if (iAmmoElapsed == 0)
-				{
-					switch2_Empty();
-				}
-				else
-				{
-					R_ASSERT(H_Parent());
-					SwitchState(eFire);
-				}
-			}
-		}
-		else
-		{
-			if (GetState() == eIdle)
-				switch2_Empty();
-		}
-	}
-	else
-	{
-		//misfire
-
-		CGameObject* object = smart_cast<CGameObject*>(H_Parent());
-		if (object)
-			object->callback(GameObject::eOnWeaponJammed)(object->lua_game_object(), this->lua_game_object());
-
-		if (smart_cast<CActor*>(this->H_Parent()) && (Level().CurrentViewEntity() == H_Parent()))
-			CurrentGameUI()->AddCustomStatic("gun_jammed", true);
-
-		OnEmptyClick();
-	}
-}
-
 void CWeaponRG6::FireTrace(const Fvector& P, const Fvector& D)
 {
 	inheritedSG::FireTrace(P, D);
@@ -106,18 +59,15 @@ void CWeaponRG6::FireTrace(const Fvector& P, const Fvector& D)
 	p1.set(P); 
 	d.set(D);
 
-	CEntity* E = smart_cast<CEntity*>(H_Parent());
-	if (E){
-		CInventoryOwner* io		= smart_cast<CInventoryOwner*>(H_Parent());
-		if(nullptr == io->inventory().ActiveItem())
-		{
-			Msg("current_state %d", GetState());
-			Msg("next_state %d", GetNextState());
-			Msg("item_sect %s", cNameSect().c_str());
-			Msg("H_Parent %s", H_Parent()->cNameSect().c_str());
-		}
-		E->g_fireParams (this, p1,d);
-	}
+	if (!H_Parent()) return;
+	CGameObject* GO = H_Parent()->cast_game_object();
+	if (!GO || GO->getDestroy()) return;
+	CEntity* entity = GO->cast_entity();
+	if (!entity) return;
+	CInventoryOwner* inventory_owner = entity->cast_inventory_owner();
+	if (!inventory_owner || !inventory_owner->m_inventory) return;
+
+	entity->g_fireParams (this, p1,d);
 
 	Fmatrix launch_matrix;
 	launch_matrix.identity();
@@ -126,7 +76,7 @@ void CWeaponRG6::FireTrace(const Fvector& P, const Fvector& D)
 										launch_matrix.j, launch_matrix.i);
 	launch_matrix.c.set(p1);
 
-	if (IsGameTypeSingle() && IsZoomed() && smart_cast<CActor*>(H_Parent()))
+	if (IsGameTypeSingle() && IsZoomed() && GO->cast_actor())
 	{
 		H_Parent()->setEnabled(FALSE);
 		setEnabled(FALSE);
@@ -155,9 +105,11 @@ void CWeaponRG6::FireTrace(const Fvector& P, const Fvector& D)
 	VERIFY2(_valid(launch_matrix),"CWeaponRG6::FireStart. Invalid launch_matrix");
 	CRocketLauncher::LaunchRocket(launch_matrix, d, zero_vel);
 
-	CExplosiveRocket* pGrenade = smart_cast<CExplosiveRocket*>(getCurrentRocket());
-	VERIFY(pGrenade);
-	pGrenade->SetInitiator(H_Parent()->ID());
+	if (CExplosiveRocket* pGrenade = smart_cast<CExplosiveRocket*>(getCurrentRocket()))
+	{
+		VERIFY(pGrenade);
+		pGrenade->SetInitiator(H_Parent()->ID());
+	}
 
 	if (OnServer())
 	{
@@ -172,8 +124,11 @@ void CWeaponRG6::FireTrace(const Fvector& P, const Fvector& D)
 	//	dropCurrentRocket();
 	//}
 
-	shared_str fake_grenade_name = pSettings->r_string(m_ammoTypes[m_ammoType].c_str(), "fake_grenade_name");
-	inheritedRL::SpawnRocket(*fake_grenade_name, this);
+	if (infinite_fire())
+	{
+		shared_str fake_grenade_name = pSettings->r_string(m_ammoTypes[m_ammoType].c_str(), "fake_grenade_name");
+		inheritedRL::SpawnRocket(*fake_grenade_name, this);
+	}
 }
 
 void CWeaponRG6::ReloadMagazine()

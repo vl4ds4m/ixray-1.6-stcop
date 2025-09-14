@@ -2,8 +2,31 @@
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------
-#define TSTRING_COUNT 	10
+#define TSTRING_COUNT 10
+
 const LPCSTR TEXTUREString[TSTRING_COUNT] = { "Custom...","$null","$base0", "$base1" ,"$base2" ,"$base3" ,"$base4","$base5" ,"$base6" ,"$base7" };
+
+xr_string FloatTimeToStrTime(float time)
+{
+	int hours = static_cast<int>(time / 3600);
+	int minutes = static_cast<int>((time - hours * 3600) / 60);
+	int seconds = static_cast<int>(time - hours * 3600 - minutes * 60);
+
+	char buffer[32];
+	sprintf(buffer, "%02d:%02d:%02d", hours, minutes, seconds);
+	return xr_string(buffer);
+}
+
+float StrTimeToFloatTime(const char* time_str)
+{
+	int hours = 0, minutes = 0, seconds = 0;
+	if (sscanf(time_str, "%d:%d:%d", &hours, &minutes, &seconds) == 3)
+	{
+		return hours * 3600 + minutes * 60 + seconds;
+	}
+	return 0.f;
+}
+
 template<typename T>
 inline bool DrawNumeric(PropItem* item, bool& change, bool read_only)
 {
@@ -139,14 +162,22 @@ void UIPropertiesItem::DrawProp()
 	case PROP_NUMERIC:
 	{
 		bool change = false;
-		if (!DrawNumeric<u32>(PItem, change, PropertiesFrom->IsReadOnly()))
-			if (!DrawNumeric<float>(PItem, change, PropertiesFrom->IsReadOnly()))
-				if (!DrawNumeric<u8>(PItem, change, PropertiesFrom->IsReadOnly()))
-					if (!DrawNumeric<s8>(PItem, change, PropertiesFrom->IsReadOnly()))
-						if (!DrawNumeric<s16>(PItem, change, PropertiesFrom->IsReadOnly()))
-							if (!DrawNumeric<u16>(PItem, change, PropertiesFrom->IsReadOnly()))
-								if (!DrawNumeric<s32>(PItem, change, PropertiesFrom->IsReadOnly()))
-									R_ASSERT(false);
+		auto drawn = [&]<typename... T>(std::type_identity<T>...)
+		{
+			return (DrawNumeric<T>(PItem, change, PropertiesFrom->IsReadOnly()) || ...);
+		}
+		(
+			std::type_identity<u32>{},
+			std::type_identity<float>{},
+			std::type_identity<u8>{},
+			std::type_identity<s8>{},
+			std::type_identity<s16>{},
+			std::type_identity<u16>{},
+			std::type_identity<s32>{}
+		);
+
+		R_ASSERT(drawn);
+
 		if (change)
 		{
 			PropertiesFrom->Modified();
@@ -172,20 +203,34 @@ void UIPropertiesItem::DrawProp()
 	break;
 	case PROP_BOOLEAN:
 	{
-		BOOLValue* V = dynamic_cast<BOOLValue*>(PItem->GetFrontValue()); VERIFY(V);
-		BOOL new_val_as_BOOL = V->GetValue();
-		PItem->BeforeEdit<BOOLValue, BOOL>(new_val_as_BOOL);
-		bool new_val = new_val_as_BOOL;
-		if (ImGui::Checkbox("##value", &new_val))
+		auto TryDrawBool = [&]<typename RangeCast, typename TypeID>()->bool
 		{
-			new_val_as_BOOL = new_val;
-			if (PItem->AfterEdit<BOOLValue, BOOL>(new_val_as_BOOL))
-				if (PItem->ApplyValue<BOOLValue, BOOL>(new_val_as_BOOL))
+			if (RangeCast* V = dynamic_cast<RangeCast*>(PItem->GetFrontValue()))
+			{
+				TypeID new_val_as_BOOL = V->GetValue();
+				PItem->BeforeEdit<RangeCast, TypeID>(new_val_as_BOOL);
+				bool new_val = new_val_as_BOOL;
+				if (ImGui::Checkbox("##value", &new_val))
 				{
-					PropertiesFrom->Modified();
+					new_val_as_BOOL = new_val;
+					if (PItem->AfterEdit<RangeCast, TypeID>(new_val_as_BOOL))
+					{
+						if (PItem->ApplyValue<RangeCast, TypeID>(new_val_as_BOOL))
+						{
+							PropertiesFrom->Modified();
+						}
+					}
 				}
-		}
+				return true;
+			}
 
+			return false;
+		};
+		
+		if (!TryDrawBool.operator()<BOOLValue, BOOL>())
+		{
+			TryDrawBool.operator()<BoolValue, bool>();
+		}
 	}
 	break;
 	case PROP_FLAG:
@@ -519,12 +564,37 @@ void UIPropertiesItem::DrawProp()
 				PropertiesFrom->m_EditTextValue = PItem;
 			}
 			PropertiesFrom->DrawEditText();
-		}
 			break;
-			/*case PROP_TIME:
-			break;*/
-		
-		
+		}
+		case PROP_TIME:
+		{
+			FloatValue* V = dynamic_cast<FloatValue*>(PItem->GetFrontValue()); R_ASSERT(V);
+			float EditValue = V->GetValue();
+			PItem->BeforeEdit<FloatValue, float>(EditValue);
+
+			xr_string TimeStr = FloatTimeToStrTime(EditValue);
+
+			string32 Buffer;
+			strncpy(Buffer, TimeStr.c_str(), sizeof(Buffer));
+			Buffer[sizeof(Buffer) - 1] = 0;
+
+			string128 PropName = {};
+			sprintf(PropName, "##time_value_%p", (void*)V);
+
+			if (ImGui::InputText(PropName, Buffer, sizeof(Buffer), ImGuiInputTextFlags_CharsNoBlank))
+			{
+				// Convert back to float when edited
+				float NewValue = StrTimeToFloatTime(Buffer);
+				if (PItem->AfterEdit<FloatValue, float>(NewValue))
+				{
+					if (PItem->ApplyValue<FloatValue, float>(NewValue))
+					{
+						PropertiesFrom->Modified();
+					}
+				}
+			}
+		}
+		break;
 		case PROP_GAMETYPE:
 		{
 			GameTypeValue* V = dynamic_cast<GameTypeValue*>(PItem->GetFrontValue()); R_ASSERT(V);

@@ -4,9 +4,9 @@
 #include "../Include/xrRender/DrawUtils.h"
 //#include "xr_effgamma.h"
 #include "Render.h"
-#include "../xrCDB/xrXRC.h"
+#include "../xrCore/Collision/xrXRC.h"
 
-extern XRCDB_API BOOL *cdb_bDebug;
+extern XRCORE_API BOOL *cdb_bDebug;
 
 void	SetupGPU(IRenderDeviceRender *pRender)
 {
@@ -62,6 +62,7 @@ void CRenderDevice::ConnectToRender()
 
 void CRenderDevice::Create	() 
 {
+	PROF_EVENT("CRenderDevice::Create");
 	if (b_is_Ready)		return;		// prevent double call
 	Statistic			= new CStats();
 
@@ -77,10 +78,8 @@ void CRenderDevice::Create	()
 	SetupGPU(m_pRender);
 	Log					("Starting RENDER device...");
 
-#ifdef _EDITOR
 	psCurrentVidMode[0]	= TargetWidth;
 	psCurrentVidMode[1] = TargetHeight;
-#endif // #ifdef _EDITOR
 
 	fFOV				= 90.f;
 	fASPECT				= 1.f;

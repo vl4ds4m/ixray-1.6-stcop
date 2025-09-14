@@ -55,11 +55,13 @@ bool CUITrackBar::OnMouseAction(float x, float y, EUIMessages mouse_action)
 			{
 				m_f_val -= GetInvert()?-m_f_step:m_f_step;
 				clamp(m_f_val, m_f_min, m_f_max);
+				GetMessageTarget()->SendMessage(this, TRACK_VALUE_CHANGED, &m_f_val);
 			}
 			else
 			{
 				m_i_val -= GetInvert()?-m_i_step:m_i_step;
 				clamp(m_i_val, m_i_min, m_i_max);
+				GetMessageTarget()->SendMessage(this, TRACK_VALUE_CHANGED, &m_i_val);
 			}
 			GetMessageTarget()->SendMessage(this, BUTTON_CLICKED, nullptr);
 			UpdatePos			();
@@ -72,11 +74,13 @@ bool CUITrackBar::OnMouseAction(float x, float y, EUIMessages mouse_action)
 			{
 				m_f_val += GetInvert()?-m_f_step:m_f_step;
 				clamp(m_f_val, m_f_min, m_f_max);
+				GetMessageTarget()->SendMessage(this, TRACK_VALUE_CHANGED, &m_f_val);
 			}
 			else
 			{
 				m_i_val += GetInvert()?-m_i_step:m_i_step;
 				clamp(m_i_val, m_i_min, m_i_max);
+				GetMessageTarget()->SendMessage(this, TRACK_VALUE_CHANGED, &m_i_val);
 			}
 			GetMessageTarget()->SendMessage(this, BUTTON_CLICKED, nullptr);
 			UpdatePos();
@@ -96,6 +100,7 @@ void CUITrackBar::InitTrackBar(Fvector2 pos, Fvector2 size)
 
 	LPCSTR nodevalue_button = xml_doc.Read("button_texture_name", 0, "ui_inGame2_opt_slider_box");
 	LPCSTR nodevalue_track	= xml_doc.Read("track_texture_name", 0, "ui_inGame2_opt_slider_bar");
+	float size_custom		= xml_doc.ReadFlt("size", 0, 1.0f);
 
 	float					item_height;
 	float					item_width;
@@ -117,6 +122,9 @@ void CUITrackBar::InitTrackBar(Fvector2 pos, Fvector2 size)
     item_height				= CUITextureMaster::GetTextureHeight(name_button_e);
 
 	item_width				*= UI().get_current_kx();
+
+	item_width				*= size_custom;
+	item_height				*= size_custom;
 
 	m_pSlider->InitButton	(Fvector2().set(0.0f, 0.0f), Fvector2().set(item_width, item_height) );			//size
 	m_pSlider->InitTexture	(nodevalue_button);
@@ -279,9 +287,12 @@ void CUITrackBar::UpdatePosRelativeToMouse()
 	if(m_b_is_float)
 	{
 		b_ch  = !fsimilar(_bkf, m_f_val); 
-	}else
+		GetMessageTarget()->SendMessage(this, TRACK_VALUE_CHANGED, &m_f_val);
+	}
+	else
 	{
 		b_ch  =  (_bki != m_i_val);
+		GetMessageTarget()->SendMessage(this, TRACK_VALUE_CHANGED, &m_i_val);
 	}
 
 	if(b_ch)
@@ -357,6 +368,7 @@ void CUITrackBar::SetOptIBounds(int imin, int imax)
 	{
 		clamp					(m_i_val, m_i_min, m_i_max);
 		OnChangedOptValue	();
+		GetMessageTarget()->SendMessage(this, TRACK_VALUE_CHANGED, &m_i_val);
 	}
 }
 
@@ -368,5 +380,6 @@ void CUITrackBar::SetOptFBounds(float fmin, float fmax)
 	{
 		clamp				(m_f_val, m_f_min, m_f_max);
 		OnChangedOptValue	();
+		GetMessageTarget()->SendMessage(this, TRACK_VALUE_CHANGED, &m_f_val);
 	}
 }

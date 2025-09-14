@@ -147,7 +147,15 @@ public:
 	float				fog_distance;
 
 	float				rain_density;
+	shared_str			rain_type;
 	Fvector3			rain_color;
+
+	float				rain_angle;
+	float				rain_length;
+	float				rain_width;
+	float				rain_speed_min;
+	float				rain_speed_max;
+	float				rain_angle_rotation;
 
 	float				bolt_period;
 	float				bolt_duration;
@@ -332,14 +340,24 @@ public:
 	void					OnDeviceCreate		();
 	void					OnDeviceDestroy		();
 
-	float GetGameTime() { return fGameTime; }
-
 	// editor-related
 public:
 	float					ed_from_time		;
 	float					ed_to_time			;
 public:
     void					ED_Reload			();
+
+    float GetGameTime()
+    {
+        return fGameTime;
+    }
+    void GetGameTime(u32& hours, u32& minutes, u32& seconds) const
+    {
+        SplitTime(fGameTime, hours, minutes, seconds);
+    }
+
+    void SplitTime(float time, u32& hours, u32& minutes, u32& seconds) const;
+
 	bool					m_paused;
 
 	CInifile*				m_ambients_config;
@@ -373,6 +391,23 @@ public:
 	float						p_sky_color;
 	float						p_sun_color;
 	float						p_fog_color;
+
+	int							max_desired_items;
+
+	float						source_offset;
+	float						max_distance;
+	float						sink_offset;
+	float						drop_angle;
+	float						drop_max_angle;
+	float						drop_max_wind_vel;
+
+	int							max_particles;
+	int							particles_cache;
+	float						particles_time;
+
+	float						source_rain_radius_render;
+	float						add_const_dist_coefficient;
+	float						add_const_dist_coefficient_render;
 };
 
 ENGINE_API extern Flags32	psEnvFlags;

@@ -2,7 +2,7 @@
 #include "IGame_Level.h"
 
 #include "xr_object.h"
-#include "../xrCDB/xr_area.h"
+#include "../xrCore/Collision/xr_area.h"
 #include "Render.h"
 #include "xrLevel.h"
 //#include "fbasicvisual.h"
@@ -397,6 +397,16 @@ CObject::SavedPosition CObject::ps_Element(u32 ID) const
 void CObject::renderable_Render	()
 {
 	MakeMeCrow	();
+}
+
+#include "IGame_Persistent.h"
+extern float SheduleScaleDedicated = 1;
+float CObject::shedule_Scale()
+{
+	if (g_dedicated_server)
+		return SheduleScaleDedicated;
+
+	return Device.vCameraPosition.distance_to(Position()) / 200.f;
 }
 
 CObject* CObject::H_SetParent	(CObject* new_parent, bool just_before_destroy)

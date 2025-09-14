@@ -5,7 +5,7 @@
 #include "../xrLC_Light/xrMU_Model_Reference.h"
 
 #include "../xrLC_Light/xrLC_GlobalData.h"
-#include "../../xrCDB/xrCDB.h"
+#include "../../xrCore/Collision/xrCDB.h"
 #include "../xrLC_Light/xrFace.h"
 
 //.#include "communicate.h"
@@ -40,12 +40,22 @@ void SaveUVM			(LPCSTR fname, xr_vector<b_rc_face>& vm)
 
 void CBuild::BuildRapid		(BOOL bSaveForOtherCompilers)
 {
+	if (lc_global_data()->GetIsIntelUse())
+	{
+		EmbreeMain.IntelEmbereLOAD();
+
+		if (bSaveForOtherCompilers)
+			EmbreeMain.BuildRcast();
+  		return;
+	};
+
+
 	float	p_total			= 0;
 	float	p_cost			= 1.f/(lc_global_data()->g_faces().size());
-
-	
 	lc_global_data()->destroy_rcmodel();
 	Status			("Converting faces...");
+	Status			("Converting vertexs...");
+
 	for				(u32 fit=0; fit<lc_global_data()->g_faces().size(); fit++)	lc_global_data()->g_faces()[fit]->flags.bProcessed = false;
 
 	xr_vector<Face*>			adjacent_vec;
@@ -58,12 +68,11 @@ void CBuild::BuildRapid		(BOOL bSaveForOtherCompilers)
 		Face*	F				= (*it);
 		const Shader_xrLC&	SH		= F->Shader();
 		if (!SH.flags.bLIGHT_CastShadow)					continue;
-
-		Progress	(float(it-lc_global_data()->g_faces().begin())/float(lc_global_data()->g_faces().size()));
-
-		// Collect
-		adjacent_vec.clear	();
-		for (int vit=0; vit<3; ++vit)
+ 
+		b_material& M = lc_global_data()->materials()[F->dwMaterial];
+ 		// Collect
+		adjacent_vec.clear();
+		for (int vit = 0; vit < 3; ++vit)
 		{
 			Vertex* V = F->v[vit];
 			for (u32 adj=0; adj<V->m_adjacents.size(); adj++)
@@ -96,14 +105,11 @@ void CBuild::BuildRapid		(BOOL bSaveForOtherCompilers)
 		}
 	}
 
-	/*
-	clMsg					("Faces: original(%d), model(%d), ratio(%f)",
-		g_faces.size(),CL.getTS(),float(CL.getTS())/float(g_faces.size()));
-	*/
-
 	// Export references
-	if (bSaveForOtherCompilers)		Phase	("Building rcast-CFORM-mu model...");
+	if (bSaveForOtherCompilers)		
+		Phase	("Building rcast-CFORM-mu model...");
 	Status					("Models...");
+
 	for (u32 ref=0; ref<mu_refs().size(); ref++)
 		mu_refs()[ref]->export_cform_rcast	(CL);
 
@@ -117,7 +123,8 @@ void CBuild::BuildRapid		(BOOL bSaveForOtherCompilers)
 	string_path				fn;
 
 	bool					keep_temp_files = !!strstr(Core.Params,"-keep_temp_files");
-	if (g_params().m_quality!=ebqDraft) {
+	if (g_params().m_quality!=ebqDraft) 
+	{
 		if (keep_temp_files)
 			SaveAsSMF		(xr_strconcat(fn,pBuild->path,"build_cform_source.smf"),CL);
 	}

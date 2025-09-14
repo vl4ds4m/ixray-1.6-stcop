@@ -184,6 +184,8 @@ BOOL motions_value::load(LPCSTR N, IReader* data, vecBones* bones)
 	for (u32 i = 0; i < bones->size(); i++)
 		m_motions[bones->at(i)->name].resize(dwCNT);
 
+	m_notifies.resize(dwCNT);
+	
 	// load motions
 	for (u16 m_idx = 0; m_idx < (u16)dwCNT; m_idx++)
 	{
@@ -270,6 +272,32 @@ BOOL motions_value::load(LPCSTR N, IReader* data, vecBones* bones)
 				{
 					MS->r_fvector3(M._initT);
 				}
+			}
+		}
+		
+		IReader* notify_data = MS->open_chunk(dwCNT+2+m_idx);
+		if (notify_data)
+		{
+			auto bones_size = notify_data->r_u32();
+			for (u32 i = 0; i < bones_size; ++i)
+			{
+				u16 Key = notify_data->r_u16(); // bone id
+				m_notifies[m_idx][Key] = {};
+				auto& bones_notifies = m_notifies[m_idx][Key];
+				u32 amount = notify_data->r_u32();
+				for (u32 j = 0; j < amount; j++)
+				{
+					auto time = notify_data->r_float();
+					bones_notifies.data[time] = {};
+					auto notifies_at_time = notify_data->r_u32();
+					for (u32 k = 0; k < notifies_at_time; k++)
+					{
+						bones_notifies.data[time].push_back(new anim_notify());
+						notify_data->r_stringZ(bones_notifies.data[time].back()->ExternalRef);
+					}
+					bones_notifies.order.push_back(time);
+				}
+				std::ranges::sort(bones_notifies.order);
 			}
 		}
 	}

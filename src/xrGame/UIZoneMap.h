@@ -9,6 +9,7 @@ class CUIZoneMap
 {
 public:
 	bool						visible;
+	bool						disabled;
 
 private:
 	CUIMiniMap*					m_activeMap;
@@ -17,6 +18,7 @@ private:
 	CUIStatic*					m_clock_wnd;
 	CUIStatic					m_center;
 	CUIStatic					m_compass;
+	CUITextWnd*					m_pointerDistanceText;
 	CUIWindow					m_clipFrame;
 	CUIStatic					m_Counter;
 	CUITextWnd					m_Counter_text;

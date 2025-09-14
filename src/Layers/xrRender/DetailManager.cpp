@@ -8,8 +8,8 @@
 #include "DetailManager.h"
 #include "cl_intersect.h"
 
-#include "../../xrEngine/igame_persistent.h"
-#include "../../xrEngine/environment.h"
+#include "../../xrEngine/IGame_Persistent.h"
+#include "../../xrEngine/Environment.h"
 
 const float dbgOffset			= 0.f;
 const int	dbgItems			= 128;
@@ -278,6 +278,7 @@ void CDetailManager::Render()
 #ifndef _EDITOR
 	if (0 == dtFS)						return;
 	if (!psDeviceFlags.is(rsDetails))	return;
+	if (!hw_BatchSize)	return;
 #endif
 
 	Device.details_task.wait();

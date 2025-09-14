@@ -4,7 +4,7 @@
 #include "xrLC_GlobalData.h"
 #include "xrMU_Model.h"
 
-#include "../../xrCDB/xrCDB.h"
+#include "../../xrCore/Collision/xrCDB.h"
 #include "../Shader_xrLC.h"
 #include "xrFace.h"
  
@@ -90,3 +90,7 @@ void xrMU_Reference::export_cform_rcast(CDB::CollectorPacked& CL)
 	model->export_cform_rcast(CL,xform);
 }
  
+void xrMU_Reference::export_cform_rcast_new(xr_vector<FaceDataIntel>& faces)
+{
+	model->export_cform_rcast_new(faces, xform);
+}

@@ -52,10 +52,10 @@ void	CBuild::TempSave( u32 stage )
 
 
 //////////////////////////////////////////////////////////////////////
-
+#include "../xrLC_Light/embree_raytracing/EmbreeRayTrace.h"
 CBuild::CBuild()
 {
-	
+	// Se7kills Initialize Device Embree
 
 }
 
@@ -110,18 +110,120 @@ void CBuild::Light_prepare()
 	for (u32 m=0; m<mu_models().size(); m++)	mu_models()[m]->calc_faceopacity();
 }
 
+#include "../xrLC_Light/xrDeflector.h"
+#include "../xrLC_Light/Lightmap.h"
+#include "../xrLC_Light/xrDeflectorDefs.h"
 
-//.#define CFORM_ONLY
-#ifdef LOAD_GL_DATA
-void net_light ();
+
+#include <windows.h>
+#include <psapi.h>
+
+size_t GetHeapMemory()
+{
+	PROCESS_MEMORY_COUNTERS_EX pmc{};
+	if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc)))
+	{
+		return pmc.PrivateUsage;
+	}
+
+	return 0;
+}
+
+size_t GetMemoryUsed()
+{
+	return GetHeapMemory();
+}
+
+void GetMemoryUsedStorage()
+{
+#ifdef DEBUG
+	if (!lc_global_data())
+		return;
+
+	u32 tree = pBuild->GetTreeSize() / 1024 / 1024;
+	size_t defl = 0; size_t lightmaps = 0;
+	for (auto& D : lc_global_data()->g_deflectors())
+	{
+		defl += D->size_deflector();
+	}
+	defl /= (1024 * 1024);
+ 	for (auto&  LM  : lc_global_data()->lightmaps())
+	{
+		lightmaps += LM->lm.memory_lmap();
+ 	}
+	lightmaps /= (1024 * 1024);
+  	 
+	size_t sV = 0;
+	for (auto& V : lc_global_data()->g_vertices())
+	{
+		sizeof(Vertex);
+		sV += V->used_memory(); 
+	}
+	
+	sV /= (1024 * 1024);
+
+	size_t sF = 0;// lc_global_data()->g_faces().size() * sizeof(Face);
+	for (auto& F : lc_global_data()->g_faces())
+	{						
+		sF += sizeof(*F) + sizeof(void*); //void* vector size
+	}
+	
+	sF /= (1024 * 1024);
+	
+	size_t TAlloc = 0;
+	for (auto& T : lc_global_data()->textures())
+	{
+		TAlloc += (T.dwHeight* T.dwHeight * 4);
+	}
+	lc_global_data()->textures();
+	size_t sTex = lc_global_data()->textures().size() * sizeof(b_BuildTexture);
+	sTex += TAlloc;
+	sTex /= (1024 * 1024);
+
+	size_t SplitsMemory = 0;
+	for (auto X : g_XSplit)
+	{
+		SplitsMemory += X->capacity() * sizeof(void*);
+	}
+	SplitsMemory += g_XSplit.capacity() * sizeof(void*);
+
+	u32 MB = 1024 * 1024;
+
+	Msg("!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+	Msg("- xSplits:		%u count, %u capacity, %u mb", g_XSplit.size(), g_XSplit.capacity(), SplitsMemory / 1024 / 1024);
+	
+	Msg("- GeomTree:	%u mb, cap:%u",		tree, g_tree.capacity());
+	Msg("- Deflectors:	%u mb, cap:%u",		defl, lc_global_data()->g_deflectors().capacity());
+	Msg("- Lightmaps:	%u mb, cap:%u",		lightmaps, lc_global_data()->lightmaps().capacity());
+ 	Msg("- vertexes:	%u mb, store: %u, cap:%u",		sV, lc_global_data()->g_vertices().size(),  lc_global_data()->g_vertices().capacity());	// Не учитываю алокацию adjucement при создании и жрет в разы больше
+	Msg("- faces:		%u mb, store: %u, cap:%u",		sF, lc_global_data()->g_faces().size(), lc_global_data()->g_faces().capacity());	// Не учитываю алокацию adjucement при создании и жрет в разы больше
+	Msg("- Textures:	%u mb, cap:%u",		sTex, lc_global_data()->textures().capacity());
+	Msg("- Embree BVH: %umb, Static: %umb, MU: %umb", EmbreeMain.BVH_size / MB, EmbreeMain.Static_size / MB, EmbreeMain.MU_size / MB);
+
+	u32 memdata = tree + defl + lightmaps;
+	
+	u32 EmbreeMem = (EmbreeMain.BVH_size / MB) + (EmbreeMain.Static_size / MB) + (EmbreeMain.MU_size / MB);
+ 
+	if (g_XSplit.capacity() != g_XSplit.size())
+		g_XSplit.shrink_to_fit();
+
+	if (lc_global_data()->g_deflectors().capacity() != lc_global_data()->g_deflectors().size())
+		lc_global_data()->g_deflectors().shrink_to_fit();
+
+	if (lc_global_data()->lightmaps().capacity() != lc_global_data()->lightmaps().size())
+		lc_global_data()->lightmaps().shrink_to_fit();
+
+	Msg("- Total Memory (AFTER SHIRK):	%u / (Check) %u + %u + %u mb", GetHeapMemory() / (1024 * 1024), EmbreeMem, sV + sF + sTex, memdata);
+
+
+	Msg("!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 #endif
+}
+
 void CBuild::Run	(LPCSTR P)
 {
 	lc_global_data()->initialize();
-#ifdef LOAD_GL_DATA
-	net_light ();
-	return;
-#endif
+ 
 	//****************************************** Open Level
 	xr_strconcat(path,P,"\\")	;
 	string_path					lfn				;
@@ -145,56 +247,32 @@ void CBuild::Run	(LPCSTR P)
 		fs->w_chunk			(2,&*L_static().sun.begin(),L_static().sun.size()*sizeof(R_Light));
 		FS.w_close			(fs);
 	}
-
+	 
 	//****************************************** Optimizing + checking for T-junctions
-	FPU::m64r					();
-	Phase						("Optimizing...");
-	mem_Compact					();
-	PreOptimize					();
-	CorrectTJunctions			();
+	mem_Compact();
 
-	//****************************************** HEMI-Tesselate
-	FPU::m64r					();
-	Phase						("Adaptive HT...");
-	mem_Compact					();
-#ifndef CFORM_ONLY
-	xrPhase_AdaptiveHT			();
-#endif
+
+	Phase("Optimizing...");
+ 	PreOptimize();
+	CorrectTJunctions();
+	mem_Compact();
+
+	// AdaptiveHT
+  	BuildAdaptiveHT();
 
 	//****************************************** Building normals
-	FPU::m64r					();
-	Phase						("Building normals...");
-	mem_Compact					();
-	CalcNormals					();
-	//SmoothVertColors			(5);
+	Phase("Building normals...");
+	mem_Compact();
+	CalcNormals();
 
 	//****************************************** Collision DB
 	//should be after normals, so that double-sided faces gets separated
 	FPU::m64r					();
-	Phase						("Building collision database...");
+	Phase						("Building collision database (CFORM)...");
 	mem_Compact					();
 	BuildCForm					();
-
-#ifdef CFORM_ONLY
-	return;
-#endif
-
 	BuildPortals				(*fs);
 
-	//****************************************** T-Basis
-	{
-		FPU::m64r					();
-		Phase						("Building tangent-basis...");
-		xrPhase_TangentBasis		();
-		mem_Compact					();
-	}
-
-	//****************************************** GLOBAL-RayCast model
-	FPU::m64r					();
-	Phase						("Building rcast-CFORM model...");
-	mem_Compact					();
-	Light_prepare				();
-	BuildRapid					(TRUE);
 
 	//****************************************** GLOBAL-ILLUMINATION
 	if (g_build_options.b_radiosity)			
@@ -205,42 +283,6 @@ void CBuild::Run	(LPCSTR P)
 		Light_prepare				();
 		xrPhase_Radiosity			();
 	}
-
-	//****************************************** Starting MU
-	FPU::m64r					();
-	Phase						("LIGHT: Starting MU...");
-	mem_Compact					();
-	Light_prepare				();
-	StartMu						();
-
-
-	//****************************************** Resolve materials
-	FPU::m64r					();
-	Phase						("Resolving materials...");
-	mem_Compact					();
-	xrPhase_ResolveMaterials	();
-	IsolateVertices				(TRUE);
-
-	//****************************************** UV mapping
-	{
-		FPU::m64r					();
-		Phase						("Build UV mapping...");
-		mem_Compact					();
-		xrPhase_UVmap				();
-		IsolateVertices				(TRUE);
-	}
-	
-	//****************************************** Subdivide geometry
-	if (!lc_global_data()->GetSkipSubdivide())
-	{
-		FPU::m64r();
-		Phase("Subdividing geometry...");
-		mem_Compact();
-		xrPhase_Subdivide();
-		//IsolateVertices(TRUE);
-		lc_global_data()->vertices_isolate_and_pool_reload();
-	}
-
 	//****************************************** All lighting + lmaps building and saving
 	 
 
@@ -252,15 +294,22 @@ void	CBuild::StartMu	()
   //mu_base.start				(new CMUThread (0));
   run_mu_light(  );
 }
+
+#include <../xrForms/CompilersUI.h>
+extern CompilersMode gCompilerMode;
+
 void CBuild::	RunAfterLight			( IWriter* fs	)
 {
- 	//****************************************** Merge geometry
-	FPU::m64r					();
-	Phase						("Merging geometry...");
-	mem_Compact					();
-	xrPhase_MergeGeometry		();
+	//****************************************** T-Basis
+	{
+		FPU::m64r();
+		Phase("Building tangent-basis...");
+		xrPhase_TangentBasis();
+		mem_Compact();
+	}
 
-	//****************************************** Convert to OGF
+
+  	//****************************************** Convert to OGF
 	FPU::m64r					();
 	Phase						("Converting to OGFs...");
 	mem_Compact					();
@@ -281,16 +330,21 @@ void CBuild::	RunAfterLight			( IWriter* fs	)
 		Status			("MU : References...");
 		for (m=0; m<mu_refs().size(); m++)
 			export_ogf(*mu_refs()[m]);
+  	}
 
-//		lc_global_data()->clear_mu_models();
+	Status			("MU : References...");
+	xr_atomic_u32 index = 0; 
+
+	for (auto mRID = 0; mRID < (mu_refs().size()); mRID++)
+ 	{
+		Progress(mRID / mu_refs().size());
+		export_ogf(*mu_refs()[mRID]);
+ 		if (index.load() % 1024 == 0)
+			clMsg("[MT] Export MUOgf: %u/%u", mRID, mu_refs().size());
+		index.fetch_add(1);
 	}
 
-	//****************************************** Destroy RCast-model
-	FPU::m64r		();
-	Phase			("Destroying ray-trace model...");
-	mem_Compact		();
-	lc_global_data()->destroy_rcmodel();
-
+ 
 	//****************************************** Build sectors
 	FPU::m64r		();
 	Phase			("Building sectors...");
@@ -321,8 +375,19 @@ void CBuild::	RunAfterLight			( IWriter* fs	)
 
 	SaveTREE		(*fs);
 	SaveSectors		(*fs);
+	// Закрываем запись (а то бывает косяк что процесс закончился но файл не закрыло) 
+	FS.w_close(fs);
 
 	err_save		();
+
+
+
+	clMsg("File is Saved");
+
+	clMsg("Compilation is Ended");
+
+	
+
 }
 
 void CBuild::err_save	()
@@ -357,8 +422,8 @@ void CBuild::err_save	()
 
 void CBuild::MU_ModelsCalculateNormals()
 {
-		for		(u32 m=0; m<mu_models().size(); m++)
-			calc_normals( *mu_models()[m] );
+	for		(u32 m=0; m<mu_models().size(); m++)
+		calc_normals( *mu_models()[m] );
 }
 
 xr_vector<xrMU_Model*>&CBuild::mu_models()

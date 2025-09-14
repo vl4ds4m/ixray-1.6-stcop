@@ -47,6 +47,12 @@ void CGrenade::Load(LPCSTR section)
 		}
 	}
 
+	m_contact_grenade_params.SafeTime = READ_IF_EXISTS(pSettings, r_u32, section, "safe_time", 0);
+	m_contact_grenade_params.DelayTime = READ_IF_EXISTS(pSettings, r_u32, section, "delay_time", 0);
+	m_contact_grenade_params.ExplosionOnKick = READ_IF_EXISTS(pSettings, r_bool, section, "explosion_on_kick", false);
+	m_contact_grenade_params.MinExplosionSpeed = READ_IF_EXISTS(pSettings, r_float, section, "min_explosion_speed", 0.0f);
+	m_contact_grenade_params.DeactivateOnLowSpeedContact = READ_IF_EXISTS(pSettings, r_bool, section, "deactivate_on_minimal_speed_contact", false);
+
 	//////////////////////////////////////
 	//время убирания оружия с уровня
 	if(pSettings->line_exist(section,"grenade_remove_time"))
@@ -142,11 +148,19 @@ void CGrenade::State(u32 state)
 	switch (state)
 	{
 	case eThrowStart:
+	{
+		if (H_Parent())
 		{
-			Fvector						C;
-			Center						(C);
-			PlaySound					("sndCheckout", C);
-		}break;
+			Fvector SndPos;
+
+			if (H_Parent()->Local())
+				Center(SndPos);
+			else
+				SndPos.set(H_Parent()->Position());
+
+			PlaySound("sndCheckout", SndPos);
+		}
+	}break;
 	case eThrowEnd:
 		{
 			if(m_thrown)
@@ -158,9 +172,6 @@ void CGrenade::State(u32 state)
 				PutNextToSlot			();
 				if (Local())
 				{
-#ifndef MASTER_GOLD
-					Msg( "Destroying local grenade[%d][%d]", ID(), Device.dwFrame );
-#endif // #ifndef MASTER_GOLD
 					DestroyObject();
 				}
 				
@@ -337,12 +348,10 @@ bool CGrenade::Action(u16 cmd, u32 flags)
 					for(;it!=it_e;++it) 
 					{
 						CGrenade *pGrenade = smart_cast<CGrenade*>(*it);
-						if(pGrenade && xr_strcmp(pGrenade->cNameSect(), cNameSect())) 
+						if (pGrenade && xr_strcmp(pGrenade->cNameSect(), cNameSect())) 
 						{
-							m_pInventory->Ruck			(this);
-							m_pInventory->SetActiveSlot	(NO_ACTIVE_SLOT);
-							m_pInventory->Slot			(pGrenade->BaseSlot(),pGrenade);
-							return						true;
+							m_pInventory->PutGrenade(pGrenade);
+							return true;
 						}
 					}
 					return true;

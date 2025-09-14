@@ -1,10 +1,11 @@
 #include "stdafx.h"
 
-#include "DLSSWrapper.h"
+#include "OverlayAPI\DLSSWrapper.h"
 
 extern Fvector3 ps_r_taa_jitter_full;
 
-void CRenderTarget::init_dlss() {
+void CRenderTarget::init_dlss()
+{
 	g_DLSSWrapper.Destroy();
 
 	DLSSWrapper::ContextParameters initParams;
@@ -14,8 +15,9 @@ void CRenderTarget::init_dlss() {
 	g_DLSSWrapper.Create(initParams);
 }
 
-bool CRenderTarget::phase_dlss() {
-	PIX_EVENT(DLSS);
+bool CRenderTarget::phase_dlss()
+{
+	GPU_EVENT(DLSS);
 
 	DLSSWrapper::DrawParameters dlssParams = {};
 	dlssParams.deviceContext = RContext;
@@ -42,7 +44,7 @@ bool CRenderTarget::phase_dlss() {
 
 	dlssParams.frameTimeDelta = std::max(1.0f + EPS_L, float(Device.dwTimeDelta));
 
-	dlssParams.nearPlane = VIEWPORT_NEAR;
+	dlssParams.nearPlane = Device.fViewportNear;
 	dlssParams.farPlane = g_pGamePersistent->Environment().CurrentEnv->far_plane;
 	dlssParams.fovH = deg2rad(Device.fFOV);
 

@@ -7,6 +7,7 @@
 #include <utime.h>
 #include <pthread.h>
 #include <dlfcn.h>
+#include <stddef.h>
 
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -69,6 +70,7 @@ using HMODULE = void*;
 #define E_FAIL 0x80004005
 
 #define xr_strerror(errno, buffer, bufferSize) strerror_r(errno, buffer, sizeof(buffer))
+#define xr_interface class
 
 inline unsigned long GetLastError()
 {

@@ -1,6 +1,6 @@
 #pragma once
 #include "../xrEngine/xr_level_controller.h"
-#include "../xrCore/XmlParser/Expression.h"
+#include "../xrCore/FormatParsers/XML/Expression.h"
 class CUIWindow;
 
 #define	 ui_list xr_vector
@@ -107,6 +107,13 @@ public:
 			void			ResetAll			();
 
 
+	virtual void			SetFont				(CGameFont* pFont)			{ m_pFont = pFont;}
+	CGameFont*				GetFont				()							{if(m_pFont) return m_pFont;
+																				if(m_pParentWnd== NULL)	
+																					return  m_pFont;
+																				else
+																					return  m_pParentWnd->GetFont();}
+
 	using WINDOW_LIST = xr_vector<CUIWindow*>;
 	using WINDOW_LIST_it = WINDOW_LIST::iterator;
 
@@ -154,6 +161,8 @@ protected:
 
 	//кому шлем сообщения
 	CUIWindow*				m_pMessageTarget;
+
+	CGameFont*				m_pFont;
 
 	// Последняя позиция мышки
 	Fvector2 cursor_pos;

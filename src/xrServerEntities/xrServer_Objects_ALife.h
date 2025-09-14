@@ -41,7 +41,7 @@ struct  SFillPropData
 	RStringVec						character_profiles;
 	RStringVec						smart_covers;
 	xr_map<shared_str, u32>			location_colors;
-	u32								counter;
+	xr_atomic_u32					counter;
 	SFillPropData					();
 	~SFillPropData					();
 	void							load					();
@@ -498,6 +498,13 @@ SERVER_ENTITY_DECLARE_BEGIN3(CSE_ALifeHelicopter,CSE_ALifeDynamicObjectVisual,CS
 	virtual bool					used_ai_locations			() const;
 	virtual CSE_Motion*		motion						();
 	virtual CSE_Abstract			*cast_abstract			() {return this;}
+	virtual BOOL					Net_Relevant() override;
+
+	// For new sync system
+	Fvector PointPos;
+
+	virtual void SyncRead(NET_Packet& Packet);
+	virtual void SyncWrite(NET_Packet& Packet);
 
 SERVER_ENTITY_DECLARE_END
 

@@ -5,7 +5,7 @@
 #define EOBJ_OMOTION   			0x1100
 #define EOBJ_SMOTION   			0x1200
 #define EOBJ_OMOTION_VERSION   	0x0005
-#define EOBJ_SMOTION_VERSION   	0x0007
+#define EOBJ_SMOTION_VERSION   	0x0010
 
 CSMotion::CSMotion() :CCustomMotion()
 {
@@ -148,6 +148,22 @@ void CSMotion::Save(IWriter& F)
     for (u32 i = 0; i < sz; ++i)
         marks[i].Save(&F);
 
+    F.w_u32(notify.NotifyTracks.size());
+    for (auto& bone : notify.NotifyTracks)
+    {
+        F.w_stringZ(bone.first);
+        F.w_u32(bone.second.size());
+        for (auto& track : bone.second)
+        {
+            F.w_u32(track.Notifies.size());
+            for (auto& notif : track.Notifies)
+            {
+                F.w_float(notif.first);
+                F.w_stringZ(notif.second.ExternalRef);
+            }
+        }
+    }
+    
 }
 
 bool CSMotion::Load(IReader& F)
@@ -224,6 +240,48 @@ bool CSMotion::Load(IReader& F)
             marks.resize(sz);
             for (u32 i = 0; i < sz; ++i)
                 marks[i].Load(&F);
+        }
+    }
+    if (vers >= 0x0008)
+    {
+        if (vers <= 0x0009)
+        {
+            u32 sz = F.r_u32();
+            for (u32 i = 0; i < sz; ++i)
+            {
+                F.r_float();
+                bool btemp = false;
+                if (vers == 0x0009)
+                {
+                    btemp = F.r_u8();
+                }
+                shared_str temp;
+                F.r_stringZ(temp);
+                if (!btemp)
+                {
+                    F.r_stringZ(temp);
+                    F.r_stringZ(temp);
+                }
+            }
+        } else
+        {
+            for (u32 i = F.r_u32(); i > 0; --i)
+            {
+                shared_str temp;
+                F.r_stringZ(temp);
+                auto& BoneTrack = notify.NotifyTracks[temp];
+                for (u32 j = F.r_u32(); j > 0; --j)
+                {
+                    BoneTrack.push_back({});
+                    auto& Track = BoneTrack.back();
+                    for (u32 k = F.r_u32(); k > 0; --k)
+                    {
+                        auto time = F.r_float();
+                        F.r_stringZ(temp);
+                        Track.Notifies[time] = {temp};
+                    }
+                }
+            }
         }
     }
     for (BoneMotionIt bm_it = bone_mots.begin(); bm_it != bone_mots.end(); bm_it++)

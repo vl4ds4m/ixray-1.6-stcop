@@ -30,6 +30,9 @@ using errno_t = int;
 #define SH_DENYWR 0
 #define _SH_DENYNO 0
 
+#define xr_fseek fseeko
+#define xr_ftell ftello
+
 using __int64 = int64_t;
 using __time64_t = __int64;
 using __time32_t = long;
@@ -266,6 +269,8 @@ namespace Platform
         int result = unlink(conv_fn);
         return result;
     }
+
+    size_t Stat(const char* path, time_t& Time);
 }
 
 inline int _rmdir(const char *path)

@@ -27,6 +27,7 @@
 #include "CustomOutfit.h"
 #include "Bolt.h"
 #include "actor_mp_server.h"
+#include "ActorHelmet.h"
 
 CInventoryOwner::CInventoryOwner			()
 {
@@ -43,6 +44,7 @@ CInventoryOwner::CInventoryOwner			()
 
 	m_known_info_registry		= new CInfoPortionWrapper();
 	m_tmp_active_slot_num		= NO_ACTIVE_SLOT;
+	m_isFocusingOnNpc			= true;
 	m_need_osoznanie_mode		= FALSE;
 
 	m_deadbody_can_take				= true;
@@ -70,17 +72,13 @@ CInventoryOwner::~CInventoryOwner			()
 
 void CInventoryOwner::Load					(LPCSTR section)
 {
-	if(pSettings->line_exist(section, "inv_max_weight"))
-		m_inventory->SetMaxWeight( pSettings->r_float(section,"inv_max_weight") );
+	if (pSettings->line_exist(section, "inv_max_weight"))
+	{
+		m_inventory->SetMaxWeight(pSettings->r_float(section, "inv_max_weight"));
+	}
 
-	if(pSettings->line_exist(section, "need_osoznanie_mode"))
-	{
-		m_need_osoznanie_mode=pSettings->r_bool(section,"need_osoznanie_mode");
-	}
-	else
-	{
-		m_need_osoznanie_mode=FALSE;
-	}
+	m_isFocusingOnNpc = READ_IF_EXISTS(pSettings, r_bool, section, "focus_on_npc", true);
+	m_need_osoznanie_mode = READ_IF_EXISTS(pSettings, r_bool, section, "need_osoznanie_mode", FALSE);
 }
 
 void CInventoryOwner::reload				(LPCSTR section)
@@ -143,6 +141,7 @@ BOOL CInventoryOwner::net_Spawn		(CSE_Abstract* DC)
 			dialog_manager->SetStartDialog(CharacterInfo().StartDialog());
 			dialog_manager->SetDefaultStartDialog(CharacterInfo().StartDialog());
 		}
+		m_game_name_str		= pTrader->m_character_name_raw;
 		m_game_name			= pTrader->m_character_name;
 		
 		m_deadbody_can_take = pTrader->m_deadbody_can_take;
@@ -182,7 +181,7 @@ void	CInventoryOwner::save	(NET_Packet &output_packet)
 		output_packet.w_u8((u8)inventory().GetActiveSlot());
 
 	CharacterInfo().save(output_packet);
-	save_data	(m_game_name, output_packet);
+	save_data	(m_game_name_str, output_packet);
 	save_data	(m_money,	output_packet);
 }
 void	CInventoryOwner::load	(IReader &input_packet)
@@ -196,8 +195,10 @@ void	CInventoryOwner::load	(IReader &input_packet)
 	m_tmp_active_slot_num		 = active_slot;
 
 	CharacterInfo().load(input_packet);
-	load_data		(m_game_name, input_packet);
+	load_data		(m_game_name_str, input_packet);
 	load_data		(m_money,	input_packet);
+	if (g_actor != nullptr && this->object_id() != Actor()->object_id())
+		m_game_name = TranslateName(m_game_name_str.c_str());
 }
 
 
@@ -235,8 +236,12 @@ void CInventoryOwner::UpdateInventoryOwner(u32 deltaT)
 	}
 }
 
+void CInventoryOwner::RefreshNamesNPC()
+{
+	m_game_name = TranslateName(m_game_name_str.c_str());
+}
 
-//достать PDA из специального слота инвентар€
+//достать PDA из специального слота инвентаря
 CPda* CInventoryOwner::GetPDA() const
 {
 	return (CPda*)(m_inventory->ItemFromSlot(PDA_SLOT));
@@ -249,10 +254,10 @@ CTrade* CInventoryOwner::GetTrade()
 }
 
 
-//состо€ние диалога
+//состояние диалога
 
 //нам предлагают поговорить,
-//провер€ем наше отношение 
+//проверяем наше отношение 
 //и если не враг начинаем разговор
 bool CInventoryOwner::OfferTalk(CInventoryOwner* talk_partner)
 {
@@ -287,9 +292,11 @@ void CInventoryOwner::StopTalk()
 	m_pTalkPartner			= nullptr;
 	m_bTalking				= false;
 
-	CUIGameSP* ui_sp = smart_cast<CUIGameSP*>(CurrentGameUI());
-	if(ui_sp && ui_sp->TalkMenu->IsShown())
-		ui_sp->TalkMenu->Stop();
+	if (CurrentGameUI() == nullptr)
+		return;
+
+	if(CurrentGameUI()->TalkMenu->IsShown())
+		CurrentGameUI()->TalkMenu->Stop();
 }
 
 bool CInventoryOwner::IsTalking()
@@ -306,11 +313,10 @@ void CInventoryOwner::StopTrading()
 {
 	m_bTrading = false;
 
-	CUIGameSP* ui_sp = smart_cast<CUIGameSP*>( CurrentGameUI() );
-	if ( ui_sp )
-	{
-		ui_sp->HideActorMenu();
-	}
+	if (CurrentGameUI())
+		return;
+	 
+	CurrentGameUI()->HideActorMenu(); 
 }
 
 bool CInventoryOwner::IsTrading()
@@ -359,7 +365,7 @@ void CInventoryOwner::OnItemTake			(CInventoryItem *inventory_item)
 	}
 }
 
-//возвращает текуший разброс стрельбы с учетом движени€ (в радианах)
+//возвращает текуший разброс стрельбы с учетом движения (в радианах)
 float CInventoryOwner::GetWeaponAccuracy	() const
 {
 	return 0.f;
@@ -402,7 +408,7 @@ void CInventoryOwner::spawn_supplies()
 	}
 }
 
-//игровое им€ 
+//игровое имя 
 LPCSTR	CInventoryOwner::Name () const
 {
 //	return CharacterInfo().Name();
@@ -428,10 +434,11 @@ void CInventoryOwner::LostPdaContact	(CInventoryOwner* pInvOwner)
 }
 
 //////////////////////////////////////////////////////////////////////////
-//дл€ работы с relation system
+//для работы с relation system
 u16 CInventoryOwner::object_id	()  const
 {
-	return smart_cast<const CGameObject*>(this)->ID();
+	CInventoryOwner* This = const_cast<CInventoryOwner*>(this);
+	return This->cast_game_object()->ID();
 }
 
 
@@ -497,6 +504,27 @@ void CInventoryOwner::ChangeReputation	(CHARACTER_REPUTATION_VALUE delta)
 	SetReputation(Reputation() + delta);
 }
 
+void CInventoryOwner::SetIcon(const shared_str& iconName, bool is_outfit_icon)
+{
+	if (!is_outfit_icon)
+	{
+		CharacterInfo().m_SpecificCharacter.data()->m_prev_icon_name = iconName;
+	}
+
+	const shared_str& prev = CharacterInfo().m_SpecificCharacter.data()->m_prev_icon_name;
+	const shared_str& saved = CharacterInfo().m_SpecificCharacter.data()->m_saved_icon_name;
+	const shared_str& cur = CharacterInfo().m_SpecificCharacter.data()->m_icon_name;
+
+	if (CCustomOutfit* outfit = GetOutfit())
+	{
+		if (cur == outfit->GetPortrait())
+		{
+			return;
+		}
+	}
+	
+	CharacterInfo().m_SpecificCharacter.data()->m_icon_name = iconName.size() > 0 ? iconName : prev.size() > 0 ? prev : saved;
+}
 
 void CInventoryOwner::OnItemDrop(CInventoryItem *inventory_item, bool just_before_destroy)
 {
@@ -539,6 +567,11 @@ void CInventoryOwner::OnItemSlot(CInventoryItem* inventory_item, const SInvItemP
 CCustomOutfit* CInventoryOwner::GetOutfit() const
 {
     return smart_cast<CCustomOutfit*>(inventory().ItemFromSlot(OUTFIT_SLOT));
+}
+
+CHelmet* CInventoryOwner::GetHelmet() const
+{
+	return smart_cast<CHelmet*>(inventory().ItemFromSlot(HELMET_SLOT));
 }
 
 void CInventoryOwner::on_weapon_shot_start		(CWeapon *weapon)
@@ -694,3 +727,4 @@ void CInventoryOwner::deadbody_closed( bool status )
 	P.w_u8( (m_deadbody_closed)? 1 : 0 );
 	CGameObject::u_EventSend( P );
 }
+

@@ -10,13 +10,14 @@
 
 #include "dxRenderDeviceRender.h"
 #include "../../xrEngine/IGame_Level.h"
-
+#include "../../xrEngine/date_time.h"
 // matrices
 #define	BIND_DECLARE(xf)	\
 class cl_xform_##xf	: public R_constant_setup {	virtual void setup (R_constant* C) { RCache.xforms.set_c_##xf (C); } }; \
 	static cl_xform_##xf	binder_##xf
 
 BIND_DECLARE(invw);
+BIND_DECLARE(invv);
 
 BIND_DECLARE(w);
 BIND_DECLARE(v);
@@ -111,17 +112,6 @@ class cl_texgen : public R_constant_setup
 };
 static cl_texgen		binder_texgen;
 
-class cl_invV : public R_constant_setup
-{
-	virtual void setup(R_constant* C)
-	{
-		Fmatrix mInvV = Fmatrix().invert(RCache.xforms.m_v);
-
-		RCache.set_c(C, mInvV);
-	}
-};
-static cl_invV binder_invv;
-
 class cl_VPtexgen : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
@@ -165,7 +155,7 @@ class cl_fog_plane	: public R_constant_setup {
 	virtual void setup(R_constant* C)
 	{
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -199,7 +189,7 @@ class cl_fog_params	: public R_constant_setup {
 	virtual void setup(R_constant* C)
 	{
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -210,7 +200,7 @@ class cl_fog_params	: public R_constant_setup {
 			float	n		= g_pGamePersistent->Environment().CurrentEnv->fog_near;
 			float	f		= g_pGamePersistent->Environment().CurrentEnv->fog_far;
 			float	r		= 1/(f-n);
-			result.set		(-n*r, r, r, r);
+			result.set		(-n*r, n, f, r);
 		}
 		RCache.set_c	(C,result);
 	}
@@ -222,7 +212,7 @@ class cl_fog_color	: public R_constant_setup {
 	Fvector4	result;
 	virtual void setup	(R_constant* C)	{
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -307,7 +297,7 @@ class cl_sun0_color : public R_constant_setup {
 	Fvector4 result;
 	virtual void setup(R_constant* C) {
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -329,7 +319,7 @@ class cl_sun0_dir_w : public R_constant_setup {
 	Fvector4	result;
 	virtual void setup(R_constant* C) {
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -347,7 +337,7 @@ class cl_sun0_dir_e : public R_constant_setup {
 	Fvector4	result;
 	virtual void setup(R_constant* C) {
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -368,7 +358,7 @@ class cl_amb_color : public R_constant_setup {
 	Fvector4	result;
 	virtual void setup(R_constant* C) {
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -392,7 +382,7 @@ class cl_hemi_color : public R_constant_setup {
 	Fvector4	result;
 	virtual void setup(R_constant* C) {
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -416,7 +406,7 @@ class cl_sky_color : public R_constant_setup {
 	Fvector4 result;
 	virtual void setup(R_constant* C) {
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -484,7 +474,7 @@ static class cl_rain_params : public R_constant_setup {
 	virtual void setup(R_constant* C)
 	{
 #ifdef _EDITOR
-		if(!g_pGamePersistent || !g_pGameLevel) {
+		if (!g_pGamePersistent || !g_pGamePersistent->Environment().CurrentEnv) {
 			RCache.set_c(C, 0, 0, 0.0f, 0.0f);
 			return;
 		}
@@ -508,6 +498,87 @@ static class cl_inv_v : public R_constant_setup
 	}
 } binder_inv_v;
 
+static class cl_m_hud_params : public R_constant_setup
+{
+	virtual void setup(R_constant* C) {
+		RCache.set_c(C, RDEVICE.hudViewportData.isRenderProcess, RDEVICE.hudViewportData.isRenderActive, 0.0f, RDEVICE.hudViewportData.renderZoomRotateFactor);
+	}
+}    binder_m_hud_params;
+
+static class cl_affects : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		float decr = 0.0f;
+
+		if (RDEVICE.hudViewportData.IsElectronicsProblemsDecreasing)
+			decr = 1.0f;
+
+		RCache.set_c(C, RDEVICE.hudViewportData.CurrentElectronicsProblemsCnt/10.0f, ::Random.randF(0.0f, 1.0f), RDEVICE.hudViewportData.TargetElectronicsProblemsCnt/10.0f, decr);
+	}
+} binder_affects;
+
+static class cl_actor_params : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, RDEVICE.hudViewportData.ActorHealth, RDEVICE.hudViewportData.ActorOutfitCondition, RDEVICE.hudViewportData.ActorWeaponCondition, RDEVICE.hudViewportData.ActorWeaponLoading);
+	}
+} binder_actor_states;
+
+static class cl_m_timearrow : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		u32 year = 0, month = 0, day = 0, hours = 0, mins = 0, secs = 0, milisecs = 0;
+		split_time(g_pGameLevel->GetGameTime(), year, month, day, hours, mins, secs, milisecs);
+
+		float s_f = secs / 60.f;
+		float s_angle = PI_MUL_2 * s_f;
+
+		float m_f = (s_f + float(mins)) / 60.f;
+		float m_angle = PI_MUL_2 * m_f;
+
+		float h_f = (m_f + float(hours)) / 12.f;
+		float h_angle = PI_MUL_2 * h_f;
+
+		RCache.set_c(C, sin(h_angle), cos(h_angle), sin(m_angle), cos(m_angle));
+	}
+} binder_m_timearrow;
+
+static class cl_m_timearrow2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		u32 year = 0, month = 0, day = 0, hours = 0, mins = 0, secs = 0, milisecs = 0;
+		split_time(g_pGameLevel->GetGameTime(), year, month, day, hours, mins, secs, milisecs);
+
+		float s_f = secs / 60.f;
+		float s_angle = PI_MUL_2 * s_f;
+
+		float h, p;
+		RDEVICE.vCameraDirection.getHP(h, p);
+
+		RCache.set_c(C, sin(s_angle), cos(s_angle), sin(h), cos(h));
+	}
+} binder_m_timearrow2;
+
+static class cl_digiclock : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		u32 year = 0, month = 0, day = 0, hours = 0, mins = 0, secs = 0, milisecs = 0;
+		split_time(g_pGameLevel->GetGameTime(), year, month, day, hours, mins, secs, milisecs);
+
+		float hh = (hours / 10) / 10.0f;
+		float hl = (hours % 10) / 10.0f;
+		float mh = (month / 10) / 10.0f;
+		float ml = (month % 10) / 10.0f;
+
+		RCache.set_c(C, hh, hl, mh, ml);
+	}
+} binder_digiclock;
+
 // Standart constant-binding
 void	CBlender_Compile::SetMapping()
 {
@@ -519,7 +590,7 @@ void	CBlender_Compile::SetMapping()
 	r_Constant("m_WV", &binder_wv);
 	r_Constant("m_VP", &binder_vp);
 	r_Constant("m_WVP", &binder_wvp);
-	r_Constant("m_inv_V", &binder_inv_v);
+	r_Constant("m_invV", &binder_invv);
 
 	r_Constant("m_P_hud", &binder_hud_project);
 
@@ -555,7 +626,6 @@ void	CBlender_Compile::SetMapping()
 	r_Constant("hemi_cube_neg_faces", &binder_hemi_cube_neg_faces);
 
 	//	Igor	temp solution for the texgen functionality in the shader
-	r_Constant("m_invV", &binder_invv);
 	r_Constant("m_texgen", &binder_texgen);
 	r_Constant("mVPTexgen", &binder_VPtexgen);
 
@@ -592,6 +662,14 @@ void	CBlender_Compile::SetMapping()
 	
 	// Rain
 	r_Constant				("rain_params",		&binder_rain_params);
+
+	//LVutner: Gunslinger...
+	r_Constant("m_hud_params", &binder_m_hud_params);
+	r_Constant("m_affects", &binder_affects);
+	r_Constant("m_actor_params", &binder_actor_states);
+	r_Constant("m_timearrow", &binder_m_timearrow);
+	r_Constant("m_timearrow2", &binder_m_timearrow2);
+	r_Constant("m_digiclock", &binder_digiclock);
 
 	// detail
 	//if (bDetail	&& detail_scaler)

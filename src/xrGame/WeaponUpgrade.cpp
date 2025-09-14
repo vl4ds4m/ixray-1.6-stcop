@@ -29,6 +29,14 @@ bool CWeapon::install_upgrade_impl( LPCSTR section, bool test )
 	result |= install_upgrade_disp      ( section, test );
 	result |= install_upgrade_hit       ( section, test );
 	result |= install_upgrade_addon     ( section, test );
+	result |= install_upgrade_hud_sect(section, test);
+	result |= install_upgrade_hud_sect_silencer(section, test);
+	result |= install_upgrade_hud_sect_scope(section, test);
+	result |= install_upgrade_hud_sect_gl(section, test);
+	result |= install_upgrade_bones		( section, test );
+	result |= install_upgrade_ammo_bones( section, test );
+	result |= process_if_exists_set(section, "collimator_problems_level", &CInifile::r_float, m_fCollimatorLevelsProblem, test) && !test;
+
 	return result;
 }
 
@@ -111,14 +119,14 @@ bool CWeapon::install_upgrade_disp( LPCSTR section, bool test )
 	result |= process_if_exists( section, "PDM_disp_crouch",        &CInifile::r_float, m_pdm.m_fPDM_disp_crouch,        test );
 	result |= process_if_exists( section, "PDM_disp_crouch_no_acc", &CInifile::r_float, m_pdm.m_fPDM_disp_crouch_no_acc, test );
 
-//	result |= process_if_exists( section, "misfire_probability", &CInifile::r_float, misfireProbability,       test );
-//	result |= process_if_exists( section, "misfire_condition_k", &CInifile::r_float, misfireConditionK,        test );
-	result |= process_if_exists( section, "condition_shot_dec",			&CInifile::r_float, conditionDecreasePerShot,		test );
-	result |= process_if_exists( section, "condition_queue_shot_dec",	&CInifile::r_float, conditionDecreasePerQueueShot,	test );
-	result |= process_if_exists( section, "misfire_start_condition",	&CInifile::r_float, misfireStartCondition,			test );
-	result |= process_if_exists( section, "misfire_end_condition",		&CInifile::r_float, misfireEndCondition,			test );
-	result |= process_if_exists( section, "misfire_start_prob",			&CInifile::r_float, misfireStartProbability,		test );
-	result |= process_if_exists( section, "misfire_end_prob",			&CInifile::r_float, misfireEndProbability,			test );
+	result |= process_if_exists(section, "misfire_probability", &CInifile::r_float, misfireProbability, test);
+	result |= process_if_exists(section, "misfire_condition_k", &CInifile::r_float, misfireConditionK, test);
+	result |= process_if_exists(section, "condition_shot_dec", &CInifile::r_float, conditionDecreasePerShot, test);
+	result |= process_if_exists(section, "condition_queue_shot_dec", &CInifile::r_float, conditionDecreasePerQueueShot, test);
+	result |= process_if_exists(section, "misfire_start_condition", &CInifile::r_float, misfireStartCondition, test);
+	result |= process_if_exists(section, "misfire_end_condition", &CInifile::r_float, misfireEndCondition, test);
+	result |= process_if_exists(section, "misfire_start_prob", &CInifile::r_float, misfireStartProbability, test);
+	result |= process_if_exists(section, "misfire_end_prob", &CInifile::r_float, misfireEndProbability, test);
 
 	BOOL value = m_zoom_params.m_bZoomEnabled;
 	bool result2 = process_if_exists_set( section, "zoom_enabled", &CInifile::r_bool, value, test );
@@ -210,29 +218,51 @@ bool CWeapon::install_upgrade_addon( LPCSTR section, bool test )
 		{
 			result |= process_if_exists( section, "holder_range_modifier", &CInifile::r_float, m_addon_holder_range_modifier, test );
 			result |= process_if_exists( section, "holder_fov_modifier",   &CInifile::r_float, m_addon_holder_fov_modifier,   test );
+			bUseAltScope = pSettings->line_exist(section, "scopes");
 
-			if ( m_eScopeStatus == ALife::eAddonAttachable )
+			if (bUseAltScope)
 			{
-				if(pSettings->line_exist(section, "scopes_sect"))		
+				LPCSTR str = pSettings->r_string(section, "scopes");
+				for (int i = 0, count = _GetItemCount(str); i < count; ++i)
 				{
-					LPCSTR str = pSettings->r_string(section, "scopes_sect");
-					for(int i = 0, count = _GetItemCount(str); i < count; ++i )	
+					string128 scope_section;
+					_GetItem(str, i, scope_section);
+
+					if (!xr_strcmp(scope_section, "none"))
 					{
-						string128						scope_section;
-						_GetItem						(str, i, scope_section);
-						m_scopes.push_back				(scope_section);
+						bUseAltScope = 0;
+					}
+					else
+					{
+						m_scopes.push_back(scope_section);
+					}
+				}
+			} 
+			else
+			{
+				if (m_eScopeStatus == ALife::eAddonAttachable)
+				{
+					if (pSettings->line_exist(section, "scopes_sect"))
+					{
+						LPCSTR str = pSettings->r_string(section, "scopes_sect");
+						for (int i = 0, count = _GetItemCount(str); i < count; ++i)
+						{
+							string128						scope_section;
+							_GetItem(str, i, scope_section);
+							m_scopes.push_back(scope_section);
+						}
+					}
+					else
+					{
+						m_scopes.push_back(section);
 					}
 				}
 				else
 				{
 					m_scopes.push_back(section);
+					if (m_eScopeStatus == ALife::eAddonPermanent)
+						InitAddons();
 				}
-			}
-			else
-			{
-				m_scopes.push_back(section);
-				if(m_eScopeStatus==ALife::eAddonPermanent)
-					InitAddons();
 			}
 		}
 	}
@@ -277,5 +307,359 @@ bool CWeapon::install_upgrade_addon( LPCSTR section, bool test )
 		}
 	}
 	result |= result2;
+	return result;
+}
+
+bool CWeapon::install_upgrade_hud_sect(LPCSTR section, bool test)
+{
+	LPCSTR str;
+
+	bool result = process_if_exists_set(section, "hud", &CInifile::r_string, str, test);
+
+	if (result && !test)
+	{
+		shared_str new_hud_sect = pSettings->r_string(section, "hud");
+		shared_str old_hud = hud_sect_cache;
+
+		if (new_hud_sect == "skip_reassign")
+			hud_sect = old_hud;
+		else
+			hud_sect = new_hud_sect;
+
+		hud_sect_cache = hud_sect;
+	}
+
+	InitAddons();
+
+	return result;
+}
+
+bool CWeapon::install_upgrade_hud_sect_silencer(LPCSTR section, bool test)
+{
+	LPCSTR str;
+
+	bool result = process_if_exists_set(section, "hud_silencer", &CInifile::r_string, str, test);
+
+	if (result && !test)
+	{
+		hud_silencer = pSettings->r_string(section, "hud_silencer");
+		m_bUseSilHud = pSettings->r_bool(section, "hud_when_silencer_is_attached");
+	}
+
+	InitAddons();
+
+	return result;
+}
+
+bool CWeapon::install_upgrade_hud_sect_scope(LPCSTR section, bool test)
+{
+	LPCSTR str;
+
+	bool result = process_if_exists_set(section, "hud_scope", &CInifile::r_string, str, test);
+
+	if (result && !test)
+	{
+		hud_scope = pSettings->r_string(section, "hud_scope");
+		m_bUseScopeHud = pSettings->r_bool(section, "hud_when_scope_is_attached");
+	}
+
+	InitAddons();
+
+	return result;
+}
+
+bool CWeapon::install_upgrade_hud_sect_gl(LPCSTR section, bool test)
+{
+	LPCSTR str;
+
+	bool result = process_if_exists_set(section, "hud_gl", &CInifile::r_string, str, test);
+
+	if (result && !test)
+	{
+		hud_scope = pSettings->r_string(section, "hud_gl");
+		m_bUseGLHud = pSettings->r_bool(section, "hud_when_gl_is_attached");
+	}
+
+	InitAddons();
+
+	return result;
+}
+
+bool CWeapon::install_upgrade_bones(LPCSTR section, bool test)
+{
+	LPCSTR str;
+
+	bool result = false;
+
+	bool result2 = process_if_exists_set(section, "hide_bones_override", &CInifile::r_string, str, test);
+
+	if (result2 && !test)
+	{
+		LPCSTR S = pSettings->r_string(section, "hide_bones_override");
+		if (S && S[0])
+		{
+			string128 Item = "";
+			int count = _GetItemCount(S);
+			for (int it = 0; it < count; ++it)
+			{
+				_GetItem(S, it, Item);
+				m_bHideBonesOverride.push_back(Item);
+			}
+		}
+	}
+
+	result |= result2;
+
+	result2 = process_if_exists_set(section, "hide_bones_override_when_silencer_attached", &CInifile::r_string, str, test);
+
+	if (result2 && !test)
+	{
+		LPCSTR S = pSettings->r_string(section, "hide_bones_override_when_silencer_attached");
+		if (S && S[0])
+		{
+			string128 Item = "";
+			int count = _GetItemCount(S);
+			for (int it = 0; it < count; ++it)
+			{
+				_GetItem(S, it, Item);
+				m_bHideBonesSilAttached.push_back(Item);
+			}
+		}
+	}
+
+	result |= result2;
+
+	result2 = process_if_exists_set(section, "hide_bones_override_when_gl_attached", &CInifile::r_string, str, test);
+
+	if (result2 && !test)
+	{
+		LPCSTR S = pSettings->r_string(section, "hide_bones_override_when_gl_attached");
+		if (S && S[0])
+		{
+			string128 Item = "";
+			int count = _GetItemCount(S);
+			for (int it = 0; it < count; ++it)
+			{
+				_GetItem(S, it, Item);
+				m_bHideBonesGLAttached.push_back(Item);
+			}
+		}
+	}
+
+	result |= result2;
+
+	result2 = process_if_exists_set(section, "hide_bones_override_when_scope_attached", &CInifile::r_string, str, test);
+
+	if (result2 && !test)
+	{
+		LPCSTR S = pSettings->r_string(section, "hide_bones_override_when_scope_attached");
+		if (S && S[0])
+		{
+			string128 Item = "";
+			int count = _GetItemCount(S);
+			for (int it = 0; it < count; ++it)
+			{
+				_GetItem(S, it, Item);
+				m_bHideBonesScopeAttached.push_back(Item);
+			}
+		}
+	}
+
+	result |= result2;
+
+	result2 = process_if_exists_set(section, "hide_bones", &CInifile::r_string, str, test);
+
+	if (result2 && !test)
+	{
+		LPCSTR S = pSettings->r_string(section, "hide_bones");
+		if (S && S[0])
+		{
+			string128 Item = "";
+			int count = _GetItemCount(S);
+			for (int it = 0; it < count; ++it)
+			{
+				_GetItem(S, it, Item);
+				m_bHideBonesUpgrade.push_back(Item);
+			}
+		}
+	}
+
+	result |= result2;
+
+	result2 = process_if_exists_set(section, "show_bones", &CInifile::r_string, str, test);
+
+	if (result2 && !test)
+	{
+		LPCSTR S = pSettings->r_string(section, "show_bones");
+		if (S && S[0])
+		{
+			string128 Item = "";
+			int count = _GetItemCount(S);
+			for (int it = 0; it < count; ++it)
+			{
+				_GetItem(S, it, Item);
+				m_bShowBonesUpgToShow.push_back(Item);
+			}
+		}
+	}
+
+	result |= result2;
+
+	UpdateAddonsVisibility();
+	UpdateHUDAddonsVisibility();
+	ProcessScope();
+
+	return result;
+}
+
+bool CWeapon::install_upgrade_ammo_bones(LPCSTR section, bool test)
+{
+	bool result = false;
+
+	bool need_add[2] = { false };
+
+	if (m_ammo_bones_mag.size() == 1)
+	{
+		if (m_ammo_bones_mag[0]->AmmoType != undefined_ammo_type)
+		{
+			need_add[0] = true;
+		}
+	}
+
+	if (m_shell_bones.size() == 1)
+	{
+		if (m_shell_bones[0]->AmmoType != undefined_ammo_type)
+		{
+			need_add[1] = true;
+		}
+	}
+
+	if (need_add[1])
+	{
+		for (SAmmoBonesParams* param : m_shell_bones)
+		{
+			xr_delete(param);
+		}
+		m_shell_bones.clear();
+	}
+
+	if (need_add[0])
+	{
+		for (SAmmoBonesParams* param : m_ammo_bones_mag)
+		{
+			xr_delete(param);
+		}
+		m_ammo_bones_mag.clear();
+	}
+
+	if (need_add[1])
+	{
+		if (pSettings->line_exist(hud_sect, "shell_params_section"))
+		{
+			SAmmoBonesParams* bone_params = new SAmmoBonesParams(undefined_ammo_type);
+			bone_params->Load(pSettings->r_string(hud_sect, "shell_params_section"), iMagazineSize + 1);
+			m_shell_bones.push_back(bone_params);
+			result = true;
+		}
+		else for (int i = 0; i < m_ammoTypes.size(); i++)
+		{
+			static shared_str params_section;
+			params_section.printf("shell_params_section_%d", i);
+			if (pSettings->line_exist(hud_sect, *params_section))
+			{
+				SAmmoBonesParams* bone_params = new SAmmoBonesParams(i);
+				bone_params->Load(pSettings->r_string(hud_sect, *params_section), iMagazineSize + 1);
+				m_shell_bones.push_back(bone_params);
+				result = true;
+			}
+		}
+	}
+	else
+	{
+		if (pSettings->line_exist(hud_sect, "shell_params_section"))
+		{
+			for (auto& bone_param : m_shell_bones)
+			{
+				if (bone_param->AmmoType == undefined_ammo_type)
+				{
+					bone_param->Load(pSettings->r_string(hud_sect, "shell_params_section"), iMagazineSize + 1);
+					result = true;
+				}
+			}
+		}
+		else for (int i = 0; i < m_ammoTypes.size(); i++)
+		{
+			static shared_str params_section;
+			params_section.printf("shell_params_section_%d", i);
+			if (pSettings->line_exist(hud_sect, *params_section))
+			{
+				for (auto& bone_param : m_shell_bones)
+				{
+					if (bone_param->AmmoType == i)
+					{
+						bone_param->Load(pSettings->r_string(hud_sect, *params_section), iMagazineSize + 1);
+						result = true;
+					}
+				}
+			}
+		}
+	}
+
+	if (need_add[0])
+	{
+		if (pSettings->line_exist(hud_sect, "ammo_params_section") && pSettings->section_exist(pSettings->r_string(hud_sect, "ammo_params_section")))
+		{
+			SAmmoBonesParams* bone_params = new SAmmoBonesParams(undefined_ammo_type);
+			bone_params->Load(pSettings->r_string(hud_sect, "ammo_params_section"), iMagazineSize + 1);
+			m_ammo_bones_mag.push_back(bone_params);
+			result = true;
+		}
+		else for (int i = 0; i < m_ammoTypes.size(); i++)
+		{
+			static shared_str params_section;
+			params_section.printf("ammo_params_section_%d", i);
+			if (pSettings->line_exist(hud_sect, *params_section))
+			{
+				if (need_add)
+				{
+					SAmmoBonesParams* bone_params = new SAmmoBonesParams(i);
+					bone_params->Load(pSettings->r_string(hud_sect, *params_section), iMagazineSize + 1);
+					m_ammo_bones_mag.push_back(bone_params);
+					result = true;
+				}
+			}
+		}
+	}
+	else
+	{
+		if (pSettings->line_exist(hud_sect, "ammo_params_section") && pSettings->section_exist(pSettings->r_string(hud_sect, "ammo_params_section")))
+		{
+			for (auto& bone_param : m_ammo_bones_mag)
+			{
+				if (bone_param->AmmoType == undefined_ammo_type)
+				{
+					bone_param->Load(pSettings->r_string(hud_sect, "ammo_params_section"), iMagazineSize + 1);
+					result = true;
+				}
+			}
+		}
+		else for (int i = 0; i < m_ammoTypes.size(); i++)
+		{
+			static shared_str params_section;
+			params_section.printf("ammo_params_section_%d", i);
+			if (pSettings->line_exist(hud_sect, *params_section))
+			{
+				for (auto& bone_param : m_ammo_bones_mag)
+				{
+					if (bone_param->AmmoType == i)
+					{
+						bone_param->Load(pSettings->r_string(hud_sect, *params_section), iMagazineSize + 1);
+						result = true;
+					}
+				}
+			}
+		}
+	}
+
 	return result;
 }

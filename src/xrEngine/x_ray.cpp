@@ -14,7 +14,7 @@
 #include "x_ray.h"
 #include "GameFont.h"
 #include "LightAnimLibrary.h"
-#include "../xrCDB/ISpatial.h"
+#include "../xrCore/Collision/ISpatial.h"
 #include <luabind/luabind.hpp>
 #include <luabind/luabind_memory.h>
 #include "string_table.h"
@@ -56,6 +56,7 @@ static int start_year	= 1999;	// 1999
 
 void compute_build_id()
 {
+	PROF_EVENT("compute_build_id");
 	build_date = __DATE__;
 
 	int days;
@@ -98,6 +99,7 @@ ENGINE_API	string_path		g_sLaunchWorkingFolder;
 // startup point
 void InitEngine		()
 {
+	PROF_EVENT("InitEngine");
 	DevicePtr = new CRenderDevice();
 
 	Engine.Initialize			( );
@@ -123,6 +125,7 @@ struct path_excluder_predicate
 
 void InitSettings	()
 {
+	PROF_EVENT("InitSettings");
 	string_path					fname; 
 	FS.update_path				(fname,"$game_config$","system.ltx");
 #ifdef DEBUG
@@ -146,6 +149,7 @@ void InitSettings	()
 
 void InitInput		()
 {
+	PROF_EVENT("InitInput");
 	pInput						= new CInput		();
 }
 void destroyInput	()
@@ -155,11 +159,13 @@ void destroyInput	()
 
 void InitSound1		()
 {
+	PROF_EVENT("InitSound1");
 	CSound_manager_interface::_create				(0);
 }
 
 void InitSound2		()
 {
+	PROF_EVENT("InitSound2");
 	CSound_manager_interface::_create				(1);
 }
 
@@ -195,12 +201,14 @@ void destroyEngine()
 
 void execUserScript()
 {
+	PROF_EVENT("execUserScript");
 	Console->Execute("default_controls");
 	Console->ExecuteScript(Console->ConfigFile);
 }
 
 ENGINE_API void EngineLoadStage4()
 {
+	PROF_EVENT("EngineLoadStage4");
 	InitSound1();
 	execUserScript();
 	InitSound2();
@@ -227,6 +235,7 @@ ENGINE_API void EngineLoadStage4()
 
 ENGINE_API void EngineLoadStage5()
 {
+	PROF_EVENT("EngineLoadStage5");
 	LALib.OnCreate();
 	pApp = new CApplication();
 	g_pGamePersistent = (IGame_Persistent*)NEW_INSTANCE(CLSID_GAME_PERSISTANT);
@@ -255,8 +264,10 @@ ENGINE_API void EngineLoadStage5()
 	
 	destroyConsole();
 
-	destroySound();
+	//очищение памяти таблицы строк
+	CStringTable::Destroy();
 
+	destroySound();
 	destroyEngine();
 }
 
@@ -381,6 +392,7 @@ ENGINE_API	bool g_dedicated_server	= false;
 
 ENGINE_API void EngineLoadStage1(char* lpCmdLine)
 {
+	PROF_EVENT("EngineLoadStage1");
 	// AVI
 	g_bIntroFinished = TRUE;
 
@@ -411,6 +423,7 @@ ENGINE_API void EngineLoadStage1(char* lpCmdLine)
 
 ENGINE_API void EngineLoadStage2()
 {
+	PROF_EVENT("EngineLoadStage2");
 	damn_keys_filter filter;
 	(void)filter;
 
@@ -424,9 +437,16 @@ ENGINE_API void EngineLoadStage2()
 
 ENGINE_API void EngineLoadStage3()
 {
+	PROF_EVENT("EngineLoadStage3");
 	Console->Initialize();
 
-	xr_strcpy(Console->ConfigFile, "user.ltx");
+	shared_str UserName = "user.ltx";
+	if (g_dedicated_server)
+	{
+		UserName = "user_dedicated.ltx";
+	}
+
+	xr_strcpy(Console->ConfigFile, *UserName);
 
 	if (strstr(Core.Params, "-ltx ")) {
 		string64 c_name;

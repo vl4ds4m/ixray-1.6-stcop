@@ -26,7 +26,7 @@ private:
 	void					SetBoneCallbacks	();
 	void					ResetBoneCallbacks	();
 
-	HUD_SOUND_COLLECTION	m_sounds;
+	HUD_SOUND_COLLECTION_LAYERED m_sounds_layered;
 
 //casts
 public:
@@ -65,6 +65,15 @@ private:
 	float					camRelaxSpeed;
 	float					camMaxAngle;
 
+
+	bool 					m_firing_disabled;
+	bool					m_overheat_enabled;
+	float 					m_overheat_value;
+	float 					m_overheat_time_quant;
+	float 					m_overheat_decr_quant;
+	float 					m_overheat_threshold;
+	shared_str				m_overheat_particles;
+	xr_shared_ptr<CParticlesObject>		p_overheat;
 protected:
 	void					UpdateBarrelDir		();
 	virtual const Fvector&	get_CurrentFirePoint();

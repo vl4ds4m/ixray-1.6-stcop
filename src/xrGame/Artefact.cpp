@@ -112,6 +112,7 @@ void CArtefact::Load(LPCSTR section)
 	m_bCanSpawnZone			= !!pSettings->line_exist("artefact_spawn_zones", section);
 	m_af_rank				= pSettings->r_u8(section, "af_rank");
 	m_additional_weight		= pSettings->r_float(section,"additional_inventory_weight");
+	m_fDegradationRate		= READ_IF_EXISTS(pSettings, r_float, section, "degrade_rate", 0.0f);
 }
 
 BOOL CArtefact::net_Spawn(CSE_Abstract* DC) 
@@ -307,7 +308,7 @@ void CArtefact::StartLights()
 
 	VERIFY						(m_pTrailLight == nullptr);
 	m_pTrailLight				= ::Render->light_create();
-	bool const b_light_shadow	= !!pSettings->r_bool(cNameSect(), "idle_light_shadow");
+	bool const b_light_shadow	= READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "idle_light_shadow", false);
 
 	m_pTrailLight->set_shadow	(b_light_shadow);
 	m_pTrailLight->set_ignore_object(this);
@@ -462,15 +463,15 @@ void CArtefact::OnStateSwitch(u32 S)
 	switch(S){
 	case eShowing:
 		{
-			PlayHUDMotion("anm_show", FALSE, this, S);
+			PlayHUDMotion("anm_show", FALSE, S);
 		}break;
 	case eHiding:
 		{
-			PlayHUDMotion("anm_hide", FALSE, this, S);
+			PlayHUDMotion("anm_hide", FALSE, S);
 		}break;
 	case eActivating:
 		{
-			PlayHUDMotion("anm_activate", FALSE, this, S);
+			PlayHUDMotion("anm_activate", FALSE, S);
 		}break;
 	case eIdle:
 		{
@@ -481,7 +482,7 @@ void CArtefact::OnStateSwitch(u32 S)
 
 void CArtefact::PlayAnimIdle()
 {
-	PlayHUDMotion("anm_idle", FALSE, nullptr, eIdle);
+	PlayHUDMotion("anm_idle", FALSE, eIdle);
 }
 
 void CArtefact::OnAnimationEnd(u32 state)
@@ -702,4 +703,10 @@ void CArtefact::OnHiddenItem ()
 	inherited::OnHiddenItem		();
 	SetState					(eHidden);
 	SetNextState				(eHidden);
+}
+
+u32 CArtefact::Cost() const
+{
+	u32 cost = inherited::Cost() * GetCondition();
+	return cost;
 }

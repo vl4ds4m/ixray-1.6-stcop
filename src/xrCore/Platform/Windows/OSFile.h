@@ -3,6 +3,14 @@
 using FileHandle = HANDLE;
 class FS_Path;
 
+#if defined(_WIN64)
+#define xr_fseek _fseeki64
+#define xr_ftell _ftelli64
+#else
+#define xr_fseek fseek
+#define xr_ftell ftell
+#endif
+
 namespace Platform
 {
     IC const char* ValidPath(const char* In)
@@ -128,7 +136,7 @@ namespace Platform
 
     IC void* MapFile(FileHandle hSrcFile, [[maybe_unused]] size_t Size, bool bRead = false, size_t Offset = 0)
     {
-        return MapViewOfFile(hSrcFile, bRead ? FILE_MAP_READ: FILE_MAP_ALL_ACCESS, 0, (DWORD)Offset, 0);
+        return MapViewOfFile(hSrcFile, bRead ? FILE_MAP_READ: FILE_MAP_ALL_ACCESS, 0, (DWORD)Offset, Size);
     }
 
     IC void UnmapFile(void* Ptr, [[maybe_unused]] size_t Size)
@@ -147,4 +155,6 @@ namespace Platform
     {
         return _wunlink(Platform::ANSI_TO_TCHAR_U8(path));
     }
+
+    size_t Stat(const char* path, time_t& Time);
 }

@@ -37,9 +37,6 @@ static void* __cdecl luabind_allocator(void* context, const void* pointer, size_
 }
 
 CGameSpawnConstructor::CGameSpawnConstructor(LPCSTR name, LPCSTR output, LPCSTR start, bool no_separator_check)
-#ifdef PROFILE_CRITICAL_SECTIONS
-	:m_critical_section(MUTEX_PROFILE_ID(CGameSpawnConstructor))
-#endif // PROFILE_CRITICAL_SECTIONS
 {
 	load_spawns						(name,no_separator_check);
 	process_spawns					();
@@ -276,7 +273,7 @@ void CGameSpawnConstructor::process_actor			(LPCSTR start_level_name)
 
 	R_ASSERT2						(m_actor,"There is no ACTOR spawn point!");
 
-	if (!start_level_name)
+	if (!start_level_name || !xr_strlen(start_level_name))
 		return;
 
 	if (!xr_strcmp(*actor_level_name(),start_level_name))

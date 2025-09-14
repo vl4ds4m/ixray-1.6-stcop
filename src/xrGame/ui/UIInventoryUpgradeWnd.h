@@ -26,13 +26,13 @@ class CInventoryItem;
 class CUIItemInfo;
 class CUIFrameLineWnd;
 class CUI3tButton;
+class CUICellItem;
 
 class CUIInventoryUpgradeWnd : public CUIWindow
 {
 private:
 	typedef CUIWindow	inherited;
 	
-	typedef inventory::upgrade::Manager		Manager_type;
 	typedef inventory::upgrade::Upgrade 	Upgrade_type;
 	typedef inventory::upgrade::Property 	Property_type;
 	typedef xr_vector<UIUpgrade*>			UI_Upgrades_type;
@@ -53,7 +53,7 @@ public:
 	virtual					~CUIInventoryUpgradeWnd();
 
 	virtual void			Init();
-			void			InitInventory( CInventoryItem* item, bool can_upgrade );
+			void			InitInventory(CUICellItem* item, bool can_upgrade );
 
 	IC CInventoryItem const*	get_inventory() const { return m_inv_item; }
 	IC LPCSTR				get_cell_texture( UIUpgrade::ViewState state ) const { return m_cell_textures[state].c_str(); }
@@ -85,18 +85,23 @@ private:
 			void			LoadSchemes( CUIXml& uiXml );
 			void			SetCurScheme( const shared_str& id );
 			bool			install_item( CInventoryItem& inv_item, bool can_upgrade );
-			Manager_type&	get_manager();
+			bool			CheckEnableDisassembleButton(CInventoryItem& inv_item);
 public:
 	CUI3tButton*			m_btn_repair;
+	CUI3tButton*			m_btn_disassemble;
+	void DeInitInventory();
 
 protected:
 	CUIStatic*				m_background;
 	CUIStatic*				m_item;
+	CUIItemInfo*			m_item_info;
 	CUIWindow*				m_back;
 	CInventoryItem*			m_inv_item;
 
 	shared_str				m_cell_textures[UIUpgrade::STATE_COUNT];
 	shared_str				m_point_textures[UIUpgrade::STATE_COUNT];
+	shared_str				m_border_texture;
+	shared_str				m_ink_texture;
 
 	SCHEMES					m_schemes;
 	Scheme*					m_current_scheme;

@@ -107,6 +107,7 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("change_team",					(void (CScriptGameObject::*)(u8,u8,u8))(&CScriptGameObject::ChangeTeam))
 		.def("set_visual_memory_enabled",	&CScriptGameObject::SetVisualMemoryEnabled)
 		.def("kill",						&CScriptGameObject::Kill)
+		.def("kill",						&CScriptGameObject::KillNotBypassActorCheck)
 		.def("hit",							&CScriptGameObject::Hit)
 		.def("play_cycle",					(void (CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::play_cycle))
 		.def("play_cycle",					(void (CScriptGameObject::*)(LPCSTR,bool))(&CScriptGameObject::play_cycle))
@@ -148,6 +149,21 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("get_ammo_in_magazine",		&CScriptGameObject::GetAmmoElapsed)
 		.def("get_ammo_total",				&CScriptGameObject::GetSuitableAmmoTotal)
 		.def("set_ammo_elapsed",			&CScriptGameObject::SetAmmoElapsed)
+		//Alundaio
+		.def("use",							&CScriptGameObject::Use)
+		.def("start_trade",					&CScriptGameObject::StartTrade)
+		.def("start_upgrade",				&CScriptGameObject::StartUpgrade)
+		.def("set_ammo_type",				&CScriptGameObject::SetAmmoType)
+		.def("get_ammo_type",				&CScriptGameObject::GetAmmoType)
+		.def("get_ammo_count_for_type",     &CScriptGameObject::GetAmmoCount)
+		.def("get_main_weapon_type",		&CScriptGameObject::GetMainWeaponType)
+		.def("get_weapon_type",				&CScriptGameObject::GetWeaponType)
+		.def("set_main_weapon_type",		&CScriptGameObject::SetMainWeaponType)
+		.def("set_weapon_type",				&CScriptGameObject::SetWeaponType)
+		.def("has_ammo_type",				&CScriptGameObject::HasAmmoType)
+		.def("get_weapon_substate",			&CScriptGameObject::GetWeaponSubstate)
+		.def("set_weight",					&CScriptGameObject::SetWeight)
+		//-Alundaio			
 		.def("set_queue_size",				&CScriptGameObject::SetQueueSize)
 //		.def("best_hit",					&CScriptGameObject::GetBestHit)
 //		.def("best_sound",					&CScriptGameObject::GetBestSound)
@@ -252,8 +268,12 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("set_desired_direction",		(void (CScriptGameObject::*)(const Fvector *))(&CScriptGameObject::set_desired_direction))
 		.def("set_patrol_path",				&CScriptGameObject::set_patrol_path)
 		.def("inactualize_patrol_path",		&CScriptGameObject::inactualize_patrol_path)
+		.def("inactualize_level_path",		&CScriptGameObject::inactualize_level_path)
+		.def("inactualize_game_path",		&CScriptGameObject::inactualize_game_path)
 		.def("set_dest_level_vertex_id",	&CScriptGameObject::set_dest_level_vertex_id)
+		.def("get_dest_level_vertex_id",	&CScriptGameObject::get_dest_level_vertex_id)
 		.def("set_dest_game_vertex_id",		&CScriptGameObject::set_dest_game_vertex_id)
+		.def("get_dest_game_vertex_id",		&CScriptGameObject::get_dest_game_vertex_id)
 		.def("set_movement_selection_type",	&CScriptGameObject::set_movement_selection_type)
 		.def("level_vertex_id",				&CScriptGameObject::level_vertex_id)
 		.def("game_vertex_id",				&CScriptGameObject::game_vertex_id)
@@ -303,6 +323,7 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 
 		.def("get_smart_cover_description",	&CScriptGameObject::get_smart_cover_description)
 		.def("set_visual_name",				&CScriptGameObject::set_visual_name)
+		.def("set_visual_name",				&CScriptGameObject::set_visual_name_notForce)
 		.def("get_visual_name",				&CScriptGameObject::get_visual_name)
 
 		.def("can_throw_grenades",			(bool (CScriptGameObject::*)	() const)&CScriptGameObject::can_throw_grenades)
@@ -380,6 +401,15 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("is_door_locked_for_npc",			&CScriptGameObject::is_door_locked_for_npc)
 		.def("is_door_blocked_by_npc",			&CScriptGameObject::is_door_blocked_by_npc)
 		.def("is_weapon_going_to_be_strapped",	&CScriptGameObject::is_weapon_going_to_be_strapped)
+
+
+	.def("start_hud_animator", &CScriptGameObject::StartActorAnimator)
+	.def("stop_hud_animator", &CScriptGameObject::StopActorAnimator)
+	.def("is_hud_animator_active", &CScriptGameObject::IsAnimatorActive)
+	.def("get_hud_animator_section", &CScriptGameObject::GetActorAnimatorSection)
+	.def("get_hud_animator_restored_slot", &CScriptGameObject::GetActorAnimatorRestoredSlot)
+	.def("get_hud_animator_force_hide_items", &CScriptGameObject::GetAnimatorForceHideItems)
+	.def("set_hud_animator_force_hide_items", &CScriptGameObject::SetAnimatorForceHideItems)
 
 	;
 }

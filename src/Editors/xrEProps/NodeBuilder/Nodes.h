@@ -23,9 +23,14 @@ struct LinkData
 class XREPROPS_API INodeUnknown
 {
 protected:
-	xr_string NodeName;
-
+	/// <summary>
+	/// Выходные параметры для внутреннего блока ноды
+	/// </summary>
 	xr_vector<LinkData> OutLinks;
+
+	/// <summary>
+	/// Входные параметры для внутреннего блока ноды
+	/// </summary>
 	xr_vector<LinkData> InLinks;
 
 	xr_vector<std::pair<int, int>> LinkStorage;
@@ -36,16 +41,25 @@ protected:
 	bool WeStarted = false;
 	bool IsHovered = false;
 
-	ImVec2 StartPostion = { 0, 0 };
 
 public:
+	xr_string NodeName;
+
 	xr_vector<INodeUnknown*> Childs;
+	/// <summary>
+	/// Ноды - наследники
+	/// </summary>
 	xr_vector<INodeUnknown*> OutNodes;
+	/// <summary>
+	/// Ноды - родители
+	/// </summary>
+	xr_vector<INodeUnknown*> InNodes;
 
 	LinkData ContactLinkIn;
 	LinkData ContactLinkOut;
 
 	size_t NodeID = 0;
+	ImVec2 StartPostion = { 0, 0 };
 
 public:
 	INodeUnknown() = delete;
@@ -65,6 +79,8 @@ public:
 	void CreateContactLink(int Parent, int Child);
 
 	INodeUnknown* GetNextNode();
+	virtual void MakeOutNode(INodeUnknown* Node, bool Silent = false);
+	virtual void MakeInNode(INodeUnknown* Node);
 protected:
 	virtual void DrawHeader();
 	virtual void DrawEnd();

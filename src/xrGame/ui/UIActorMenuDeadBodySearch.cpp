@@ -144,26 +144,51 @@ void CUIActorMenu::DeInitDeadBodySearchMode()
 
 bool CUIActorMenu::ToDeadBodyBag(CUICellItem* itm, bool b_use_cursor_pos)
 {
+	PIItem quest_item = (PIItem)itm->m_pData;
+	if (quest_item->IsQuestItem())
+		return false;
+
 	if ( m_pPartnerInvOwner )
 	{
 		if ( !m_pPartnerInvOwner->deadbody_can_take_status() )
 		{
 			return false;
 		}
+		if (m_isCanMoveToPartner && m_pPartnerInvOwner->is_alive())
+		{
+
+			luabind::functor<bool> funct;
+			R_ASSERT2(ai().script_engine().functor(m_onCanMoveToPartner, funct), "failed to get OnCanMoveToPartner functor");
+			float itmWeight = quest_item->Weight();
+			float partner_inv_weight = m_pPartnerInvOwner->inventory().CalcTotalWeight();
+			float partner_max_weight = m_pPartnerInvOwner->MaxCarryWeight();
+
+			if (funct(m_pPartnerInvOwner->cast_game_object()->lua_game_object(), quest_item->object().lua_game_object(), 0, 0, itmWeight, partner_inv_weight, partner_max_weight) == false)
+				return false;
+			
+		}
 	}
 	else // box
 	{
-		if ( !m_pInvBox->can_take() )
+		if (!m_pInvBox->can_take())
 		{
 			return false;
 		}
-	}
-	PIItem quest_item					= (PIItem)itm->m_pData;
-	if(quest_item->IsQuestItem())
-		return false;
 
-	CUIDragDropListEx*	old_owner		= itm->OwnerList();
-	CUIDragDropListEx*	new_owner		= nullptr;
+		if (m_isCanTake)
+		{
+			luabind::functor<bool> funct;
+			R_ASSERT2(ai().script_engine().functor(m_onCanTake, funct), "failed to get OnCanTake functor");
+
+			if (funct(m_pInvBox->cast_game_object()->lua_game_object(), quest_item->cast_game_object()->lua_game_object()) == false)
+			{
+				return false;
+			}
+		}
+	}
+
+	CUIDragDropListEx* old_owner = itm->OwnerList();
+	CUIDragDropListEx* new_owner = nullptr;
 
 	if(b_use_cursor_pos)
 	{

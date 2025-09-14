@@ -1,7 +1,7 @@
 #ifndef LAYERS_XRRENDER_LIGHT_H_INCLUDED
 #define LAYERS_XRRENDER_LIGHT_H_INCLUDED
 
-#include "../../xrCDB/ISpatial.h"
+#include "../../xrCore/Collision/ISpatial.h"
 //#include "../../xrEngine/xr_object.h"
 #if (RENDER==R_R2) || (RENDER==R_R4)
 #	include "light_package.h"
@@ -41,7 +41,7 @@ public:
 	float			m_volumetric_quality;
 	float			m_volumetric_intensity;
 	float			m_volumetric_distance;
-	bool			b_spatial_move;
+
 #if (RENDER==R_R2) || (RENDER==R_R4) || defined(_EDITOR)
 	float			falloff;			// precalc to make light equal to zero at light range
 	float	        attenuation0;		// Constant attenuation		
@@ -107,6 +107,8 @@ public:
 public:
 #if RENDER!=R_R1
 	void get_sectors();
+	bool has_light_visible_from_sectors();
+	xrCriticalSection sectors_lc;
 #endif	//	RENDER!=R_R1
 	virtual void	set_type				(LT type)						{ flags.type = type;		}
 	virtual void	set_active				(bool b);

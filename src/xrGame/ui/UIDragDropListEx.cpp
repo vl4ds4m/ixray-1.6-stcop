@@ -4,6 +4,7 @@
 #include "object_broker.h"
 #include "UICellItem.h"
 #include "../../xrUI/UICursor.h"
+#include "../Inventory.h"
 
 
 CUIDragItem* CUIDragDropListEx::m_drag_item = nullptr;
@@ -534,7 +535,15 @@ CUICell& CUIDragDropListEx::GetCellAt(const Ivector2& pos)
 CUICellContainer::CUICellContainer(CUIDragDropListEx* parent)
 {
 	m_pParentDragDropList		= parent;
-	hShader->create				( "hud\\fog_of_war", "ui\\ui_grid" );
+	const static bool isGridDisabled = EngineExternal()[EEngineExternalUI::DisableInventoryGrid];
+	if (isGridDisabled)
+	{
+		hShader->create("hud\\fog_of_war", "ui\\ui_grid_alt");
+	}
+	else
+	{
+		hShader->create("hud\\fog_of_war", "ui\\ui_grid");
+	}
 //	hShader_selected->create	( "hud\\fog_of_war", "ui_grid_selected" );
 	m_cellSpacing.set			( 0, 0 );
 }
@@ -545,18 +554,18 @@ CUICellContainer::~CUICellContainer()
 
 bool CUICellContainer::AddSimilar(CUICellItem* itm)
 {
-	if(!m_pParentDragDropList->IsGrouping())	return false;
+	if (!m_pParentDragDropList->IsGrouping())	return false;
 
-	CUICellItem* i		= FindSimilar(itm);
-	R_ASSERT			(i!=itm);
-	R_ASSERT			(0==itm->ChildsCount());
-	if(i)
-	{	
-		i->PushChild			(itm);
-		itm->SetOwnerList		(m_pParentDragDropList);
+	CUICellItem* i = FindSimilar(itm);
+	R_ASSERT(i != itm);
+	R_ASSERT(0 == itm->ChildsCount());
+	if (i)
+	{
+		i->PushChild(itm);
+		itm->SetOwnerList(m_pParentDragDropList);
 	}
-	
-	return (i!=nullptr);
+
+	return (i != nullptr);
 }
 
 CUICellItem* CUICellContainer::FindSimilar(CUICellItem* itm)
@@ -569,8 +578,8 @@ CUICellItem* CUICellContainer::FindSimilar(CUICellItem* itm)
 #else
 		CUICellItem* i = (CUICellItem*)(*it);
 #endif
-		R_ASSERT		(i!=itm);
-		if(i->EqualTo(itm))
+		R_ASSERT(i != itm);
+		if (i->EqualTo(itm))
 			return i;
 	}
 	return nullptr;
@@ -590,21 +599,28 @@ void CUICellContainer::PlaceItemAtPos(CUICellItem* itm, Ivector2& cell_pos)
 			C.SetItem		(itm,(x==0&&y==0));
 		}
 	}
-	itm->SetWndSize			( Fvector2().set( (m_cellSize.x*cs.x),		(m_cellSize.y*cs.y)		 )	);
-
-	// FX: (Отступ + размер) * позиция грида... Логично
-	Fvector2 ValidItemPos = { float((m_cellSpacing.x + m_cellSize.x) * cell_pos.x), float(((m_cellSpacing.y + m_cellSize.y) * cell_pos.y)) };
+	// without this will be double compression on wide screens
+	// solution works only for "quads" cells
+	if (m_pParentDragDropList->GetVerticalPlacement())
+	{
+		itm->SetWndSize            ( Fvector2().set( (m_cellSize.y*cs.x),        (m_cellSize.y*cs.y)         )    );
+	}
+	else
+	{
+		itm->SetWndSize            ( Fvector2().set( (m_cellSize.x*cs.x),        (m_cellSize.y*cs.y)         )    );    
+	}
 
 	if (!m_pParentDragDropList->GetVirtualCells()) {
+		// FX: (Отступ + размер) * позиция грида... Логично
+		Fvector2 ValidItemPos = { float((m_cellSpacing.x + m_cellSize.x) * cell_pos.x), float(((m_cellSpacing.y + m_cellSize.y) * cell_pos.y)) };
 		itm->SetWndPos(ValidItemPos);
 	}
 	else
 	{
-		Fvector2 WndSize = m_pParentDragDropList->GetWndSize();
-		Fvector2 AlignPos = WndSize;
+		Fvector2 AlignPos = m_pParentDragDropList->GetWndSize();;
 
 		// FX: We get the coordinates from the center of the window, taking into account the size of the item
-		AlignPos.sub(itm->GetWndSize());
+		AlignPos.sub(Fvector2().set(m_cellSize.x * cs.x,m_cellSize.y * cs.y));
 		AlignPos.div(2);
 
 		itm->SetWndPos(AlignPos);
@@ -935,6 +951,10 @@ void CUICellContainer::Draw()
 				else if ( ui_cell.m_item->m_select_armament )
 				{
 					select_mode = 3;
+				}
+				else if (ui_cell.m_item->m_select_equipped)
+				{
+					select_mode = 2;
 				}
 			}
 			

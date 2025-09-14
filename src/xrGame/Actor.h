@@ -18,6 +18,9 @@
 
 #include "step_manager.h"
 #include "../xrScripts/script_export_space.h"
+#include "CustomDetector.h"
+#include "EffectorNightVision.h"
+#include "HudAnimatorManager.h"
 
 using namespace ACTOR_DEFS;
 
@@ -61,6 +64,10 @@ class CActorStatisticMgr;
 
 class CLocationManager;
 class CPickUpManager;
+class CCustomDetector;
+
+class CNightVisionEffector;
+class CHudAnimatorManager;
 
 class CActor: 
 	public IGame_Actor, 
@@ -78,6 +85,9 @@ class CActor:
 private:
 	typedef CEntityAlive	inherited;
 	CPickUpManager* pPickup = nullptr;
+
+	const char* m_onBeforeHitCallback = {};
+	bool m_isBeforeHitCallback = false;
 public:
 										CActor				();
 	virtual								~CActor				();
@@ -98,10 +108,11 @@ public:
 	virtual xr_vector<xr_string>		GetKnowedPortions() const ;
 	virtual void						Load				( LPCSTR section );
 
-	virtual void						shedule_Update		( u32 T ); 
+	virtual void						shedule_Update		( u32 T );
+	void PlayRainOnHelmetSound();
 	virtual void						UpdateCL			( );
 			void						UpdatePlayerView	( );
-	
+
 	virtual void						OnEvent				( NET_Packet& P, u16 type		);
 
 	// Render
@@ -138,8 +149,8 @@ struct SDefNewsMsg{
 		bool operator < (const SDefNewsMsg& other) const {return time>other.time;}
 	};
 	xr_vector<SDefNewsMsg> m_defferedMessages;
-	void UpdateDefferedMessages();	
-public:	
+	void UpdateDefferedMessages();
+public:
 	void			AddGameNews_deffered	 (GAME_NEWS_DATA& news_data, u32 delay);
 	virtual void	AddGameNews				 (GAME_NEWS_DATA& news_data);
 protected:
@@ -167,10 +178,10 @@ public:
 	virtual bool use_bolts		() const;
 
 	virtual void OnItemTake		(CInventoryItem *inventory_item);
-	
+
 	virtual void OnItemRuck		(CInventoryItem *inventory_item, const SInvItemPlace& previous_place);
 	virtual void OnItemBelt		(CInventoryItem *inventory_item, const SInvItemPlace& previous_place);
-	
+
 	virtual void OnItemDrop		(CInventoryItem *inventory_item, bool just_before_destroy);
 	virtual void OnItemDropUpdate ();
 
@@ -183,40 +194,62 @@ public:
 	virtual void						HitSignal		(float P, Fvector &vLocalDir,	CObject* who, s16 element);
 			void						HitSector		(CObject* who, CObject* weapon);
 			void						HitMark			(float P, Fvector dir,			CObject* who, s16 element, Fvector position_in_bone_space, float impulse,  ALife::EHitType hit_type);
+	virtual void						FootStepCallback(float power, bool b_play, bool b_on_ground, bool b_hud_view);
 
 			void						Feel_Grenade_Update( float rad );
 
 	virtual float						GetMass				() ;
 	virtual float						Radius				() const;
 	virtual void						g_PerformDrop		();
-	
+
 	virtual	bool						use_default_throw_force	();
-	virtual	float						missile_throw_force		(); 
+	virtual	float						missile_throw_force		();
 
 	virtual bool						unlimited_ammo			();
-
+	virtual bool						infinite_fire();
 	virtual bool						NeedToDestroyObject()  const;
 	virtual ALife::_TIME_ID				TimePassedAfterDeath() const;
 
+	CPickUpManager* GetPickupManager() { return pPickup; }
+
+	float previous_electronics_problems_counter = 0.0f;
+	float current_electronics_problems_counter = 0.0f;
+	float target_electronics_problems_counter = 0.0f;
+	bool last_problems_update_was_decrease = false;
+
+	void ResetElectronicsProblems();
+	void ResetElectronicsProblems_Full();
+	float PreviousElectronicsProblemsCnt() const;
+	bool ElectronicsProblemsImmediateApply();
+	bool ElectronicsProblemsInc();
+	float TargetElectronicsProblemsCnt() const;
+	float CurrentElectronicsProblemsCnt() const;
+	bool ElectronicsProblemsDec();
+	bool IsElectronicsProblemsDecreasing() const;
+	void UpdateElectronicsProblemsCnt(u32 dt);
 
 public:
 
 	//свойства артефактов
 	virtual void		UpdateArtefactsOnBeltAndOutfit();
+	void				UpdateConditionArtefacts();
+	void				HitArtefactsCondition(SHit& hit);
 			float		HitArtefactsOnBelt		(float hit_power, ALife::EHitType hit_type);
 			float		GetProtection_ArtefactsOnBelt(ALife::EHitType hit_type);
 
 protected:
 	//звук тяжелого дыхания
-	ref_sound			m_HeavyBreathSnd;
-	ref_sound			m_BloodSnd;
-	ref_sound			m_DangerSnd;
-
+	ref_sound			m_HeavyBreathSnd = {};
+	ref_sound			m_BloodSnd = {};
+	ref_sound			m_DangerSnd = {};
+	ref_sound			m_rainOnHelmetSnd = {};
 protected:
 	// Death
 	float					m_hit_slowmo;
 	float					m_hit_probability;
 	s8						m_block_sprint_counter;
+
+	bool IsWaunded = false;
 
 	// media
 	SndShockEffector*		m_sndShockEffector;
@@ -243,20 +276,33 @@ protected:
 	u32						m_feel_touch_characters;
 private:
 	void					SwitchOutBorder(bool new_border_state);
+
+	CHudAnimatorManager*	m_hud_animator = nullptr;
+	u32 _jitter_time_remains = 0;
+
 public:
 	bool					m_bAllowDeathRemove;
 	float					m_fLegs_shift;
+	u32 _last_update_time;
+	shared_str				m_sNVGAnimator;
+	shared_str				m_sHeadlampAnimator;
+
+	void SetHandsJitterTime(u32 time) { _jitter_time_remains = time; }
+	bool IsHandJitter() const { return _jitter_time_remains > 0; }
+	float GetHandJitterScale(CHudItem* itm) const;
 
 	void					SetZoomRndSeed			(s32 Seed = 0);
 	s32						GetZoomRndSeed			()	{ return m_ZoomRndSeed;	};
 	void					SetShotRndSeed			(s32 Seed = 0);
 	s32						GetShotRndSeed			()	{ return m_ShotRndSeed;	};
 
+	CHudAnimatorManager*	HudAnimator()			{ return m_hud_animator; }
+
 public:
 	void					detach_Vehicle			();
 	void					steer_Vehicle			(float angle);
 	void					attach_Vehicle			(CHolderCustom* vehicle);
-	bool					use_MountedWeapon		(CHolderCustom* object);
+	bool					use_HolderEx			(CHolderCustom* object, bool bForce);
 
 	virtual bool			can_attach				(const CInventoryItem *inventory_item) const;
 protected:
@@ -319,7 +365,7 @@ public:
 	
 public:
 	CActorCameraManager&	Cameras				() 	{VERIFY(m_pActorEffector); return *m_pActorEffector;}
-	IC CCameraBase*			cam_Active			()	{return cameras[cam_active];}
+	virtual CCameraBase*	cam_Active			() override	{return cameras[cam_active];}
 	IC CCameraBase*			cam_FirstEye		()	{return cameras[eacFirstEye];}
 	IC EActorCameras active_cam() { return cam_active; }
 	virtual void cam_Set(EActorCameras style);
@@ -395,7 +441,7 @@ public:
 	void					g_sv_Orientate			(u32 mstate_rl, float dt);
 	void					g_Orientate				(u32 mstate_rl, float dt);
 	bool					g_LadderOrient			() ;
-//	void					UpdateMotionIcon		(u32 mstate_rl);
+	void					UpdateMotionIcon		(u32 mstate_rl);
 
 	void					SetMovementState		(const ACTOR_DEFS::EMovementStates& state, const ACTOR_DEFS::EMoveCommand& mask, bool status);
 	u32						GetMovementState		(const ACTOR_DEFS::EMovementStates& state) const;
@@ -507,8 +553,13 @@ protected:
 			void						ConvState			(u32 mstate_rl, string128 *buf);
 public:
 	virtual BOOL						net_Spawn			( CSE_Abstract* DC);
+
 	virtual void						net_Export			( NET_Packet& P);				// export to server
 	virtual void						net_Import			( NET_Packet& P);				// import from server
+
+	virtual void						SyncRead(NET_Packet& Packet);
+	virtual void						SyncWrite(NET_Packet& Packet);
+
 	virtual void						net_Destroy			();
 	virtual BOOL						net_Relevant		();//	{ return getSVU() | getLocal(); };		// relevant for export to server
 	virtual	void						net_Relcase			( CObject* O );					//
@@ -663,6 +714,8 @@ public:
 private:
 	CActorCondition				*m_entity_condition;
 
+	CNightVisionEffector*		m_night_vision;
+
 protected:
 	virtual	CEntityConditionSimple	*create_entity_condition	(CEntityConditionSimple* ec);
 
@@ -696,6 +749,10 @@ public:
 	virtual void				OnPrevWeaponSlot				();
 			void				SwitchNightVision				();
 			void				SwitchTorch						();
+	CNightVisionEffector*		GetNightVisionEffector			() { return m_night_vision;}
+
+	CCustomDetector*			GetDetector						(bool in_slot = false);
+
 #ifndef MASTER_GOLD
 			void				NoClipFly						(int cmd);
 #endif //DEBUG
@@ -772,6 +829,9 @@ private:
 public:
 	bool OnLadder = false;
 	IC bool is_ladder() const { return OnLadder; };
+
+	float fSprintFactor = 0;
+	float m_SprintFovFactor = 7.0f;
 };
 
 extern bool		isActorAccelerated			(u32 mstate, bool ZoomMode);

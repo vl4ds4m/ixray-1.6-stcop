@@ -86,6 +86,16 @@ INodeUnknown* INodeUnknown::GetNextNode()
 	return nullptr;
 }
 
+void INodeUnknown::MakeOutNode(INodeUnknown* Node, [[maybe_unused]] bool Silent)
+{
+	OutNodes.push_back(Node);
+}
+
+void INodeUnknown::MakeInNode(INodeUnknown* Node)
+{
+	InNodes.push_back(Node);
+}
+
 void INodeUnknown::AddChild(INodeUnknown* Node, ELinkType Type)
 {
 	Childs.push_back(Node);

@@ -6,6 +6,7 @@
 #include "../xrEUI/ImGuizmo.h"
 
 #include "Editor/Utils/Gizmo/IM_Manipulator.h"
+#include "Editor/Terrain/HeightmapUtils.h"
 
 UIMainForm* MainForm = nullptr;
 
@@ -117,10 +118,10 @@ void UIMainForm::LoadWindowsStates()
 		m_WorldProperties->Close();
 	}
 
-	if (LPrefs->OpenLightAnim)
-	{
-		UIEditLightAnim::Show();
-	}
+	//if (LPrefs->OpenLightAnim)
+	//{
+	//	UIEditLightAnim::Show();
+	//}
 }
 
 UIMainForm::~UIMainForm()
@@ -186,6 +187,7 @@ UIMainForm::~UIMainForm()
 	m_tArcBall.destroy();
 	m_tFreeFly.destroy();
 
+	Console->Execute("cfg_save");
 	ExecCommand(COMMAND_DESTROY, (u32)0, (u32)0);
 }
 
@@ -231,6 +233,7 @@ void UIMainForm::DrawContextMenu()
 		}
 		ImGui::EndMenu();
 	}
+
 	if(ImGui::BeginMenu("Locking"))
 	{
 		ESceneToolBase* SceneTool = Scene->GetTool(LTools->CurrentClassID());
@@ -303,6 +306,18 @@ void UIMainForm::DrawContextMenu()
 	{
 		ExecCommand(COMMAND_SHOW_PROPERTIES);
 	}
+
+	if (ImGui::MenuItem("Make Heightmap"))
+	{
+		ESceneObjectTool* mt = (ESceneObjectTool*)Scene->GetTool(OBJCLASS_SCENEOBJECT);
+		CSceneObject* Obj = (CSceneObject*)mt->LastSelected();
+		auto MeshObjects = Obj->Meshes();
+
+		for (auto Mesh : *MeshObjects)
+		{
+			XRay::Editor::HeightmapUtils::GenerateHeightmapByMesh(Obj->GetReference(), *Mesh->Name());
+		}
+	}
 }
 
 void UIMainForm::DrawRenderToolBar(ImVec2 Pos, ImVec2 Size)
@@ -369,15 +384,26 @@ void UIMainForm::DrawRenderToolBar(ImVec2 Pos, ImVec2 Size)
 						UI->RedrawScene();
 					}
 				}
+                // Погода
 				{
 					if (ImGui::BeginMenu("Environment"))
 					{
+                        {
+                            if (ImGui::Button("Weather properties"))
+                            {
+                                ExecCommand(COMMAND_WEATHER_PROPERTIES);
+                            }
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                        }
 						bool selected = !psDeviceFlags.test(rsEnvironment);
 						if (ImGui::MenuItem("None", "", &selected))
 						{
 							psDeviceFlags.set(rsEnvironment, false);
 							UI->RedrawScene();
 						}
+                        if (ImGui::IsItemHovered())
+                            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 						ImGui::Separator();
 						for (auto& i : g_pGamePersistent->Environment().WeatherCycles)
 						{
@@ -388,6 +414,8 @@ void UIMainForm::DrawRenderToolBar(ImVec2 Pos, ImVec2 Size)
 								g_pGamePersistent->Environment().SetWeather(i.first.c_str(), true);
 								UI->RedrawScene();
 							}
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 						}
 						ImGui::EndMenu();
 					}
@@ -630,6 +658,16 @@ void UIMainForm::DrawRenderToolBar(ImVec2 Pos, ImVec2 Size)
 				ImGui::PopStyleColor();
 			}
 		}
+		ImGui::SameLine();
+
+		ImGui::BeginDisabled(Action == etaScale || Action == etaSelect || Action == etaAdd);
+		bool UseLocal = !!imManipulator.MatrixMode;
+		if (ImGui::Checkbox("Local/World", &UseLocal))
+		{
+			imManipulator.MatrixMode = UseLocal;
+		}
+		ImGui::EndDisabled();
+
 		ImGui::EndGroup();
 	}
 	ImGui::SameLine(0, ImGui::GetFontSize() * 1.5);

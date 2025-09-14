@@ -53,6 +53,14 @@ void xrServer::Process_event	(NET_Packet& P, ClientID sender)
 			P.r_u16(game_event_type);
 			game->AddDelayedEvent(P,game_event_type,timestamp,sender);
 		}break;
+	case GE_REPAIR_ITEM:
+	{
+		CSE_ALifeInventoryItem* iitem = smart_cast<CSE_ALifeInventoryItem*>(receiver);
+		if (!iitem)
+			break;
+		iitem->m_fCondition = 1.0f;
+		SendBroadcast(BroadcastCID, P, net_flags(TRUE, TRUE));
+	}break;
 	case GE_INFO_TRANSFER:
 	case GE_WPN_STATE_CHANGE:
 	case GE_ZONE_STATE_CHANGE:
@@ -96,24 +104,24 @@ void xrServer::Process_event	(NET_Packet& P, ClientID sender)
 	case GE_OWNERSHIP_TAKE:
 		{
 			Process_event_ownership	(P,sender,timestamp,destination);
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case GE_OWNERSHIP_TAKE_MP_FORCED:
 		{
 			Process_event_ownership	(P,sender,timestamp,destination,TRUE);
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case GE_TRADE_SELL:
 	case GE_OWNERSHIP_REJECT:
 	case GE_LAUNCH_ROCKET:
 		{
 			Process_event_reject	(P,sender,timestamp,destination,P.r_u16());
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}break;
 	case GE_DESTROY:
 		{
 			Process_event_destroy	(P,sender,timestamp,destination, nullptr);
-			VERIFY					(verify_entities());
+			//VERIFY					(verify_entities());
 		}
 		break;
 	case GE_TRANSFER_AMMO:
@@ -363,9 +371,19 @@ void xrServer::Process_event	(NET_Packet& P, ClientID sender)
 		{
 			CSE_Abstract				*e_dest = receiver;
 			CSE_ALifeTraderAbstract*	pTa = smart_cast<CSE_ALifeTraderAbstract*>(e_dest);
-			pTa->m_dwMoney				= P.r_u32();
-						
+			if (pTa != nullptr) 
+			{
+				pTa->m_dwMoney				= P.r_u32();
+			}
+		    if (game->Type() != eGameIDSingle)
+	     	{
+		    	SendBroadcast(BroadcastCID, P, MODE);
+		    }
 		}break;
+	case GE_STALKER_ANIMATION:
+	case GE_STALKER_DIALOG:
+		SendBroadcast(BroadcastCID, P, MODE);
+		break;
 	case GE_FREEZE_OBJECT:
 		break;
 	case GE_REQUEST_PLAYERS_INFO:

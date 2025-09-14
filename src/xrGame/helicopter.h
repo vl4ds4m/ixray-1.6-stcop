@@ -157,8 +157,8 @@ public:
 	u32								m_time_between_rocket_attack;
 	bool							m_syncronize_rocket;
 	float							m_barrel_dir_tolerance;
-	HUD_SOUND_ITEM					m_sndShot;
-	HUD_SOUND_ITEM					m_sndShotRocket;
+    HUD_SOUND_COLLECTION_LAYERED	m_sounds_layered;
+
 
 	Fvector							m_fire_dir,m_fire_pos;
 
@@ -270,8 +270,13 @@ public:
 
 	virtual BOOL					net_Spawn			(CSE_Abstract*		DC);
 	virtual void					net_Destroy			();
-	virtual void					net_Export			(NET_Packet &P){};
-	virtual void					net_Import			(NET_Packet &P){};
+	virtual void					net_Export			(NET_Packet &P) override;
+	virtual void					net_Import			(NET_Packet &P) override;
+
+	virtual void SyncRead(NET_Packet& Packet) override;
+	virtual void SyncWrite(NET_Packet& Packet)override;
+
+	virtual BOOL					net_Relevant		() override;
 	virtual void					net_Relcase			(CObject* O );
 	virtual void					save				(NET_Packet &output_packet);
 	virtual void					load				(IReader &input_packet);

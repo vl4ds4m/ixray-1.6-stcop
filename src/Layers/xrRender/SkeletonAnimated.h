@@ -130,6 +130,7 @@ public:
 	IC CMotionDef*				LL_GetMotionDef	(MotionID id){return m_Motions[id.slot].motions.motion_def(id.idx);}
 	IC CMotion*					LL_GetRootMotion(MotionID id){return &m_Motions[id.slot].bone_motions[iRoot]->at(id.idx);}
 	IC CMotion*					LL_GetMotion	(MotionID id, u16 bone_id){return &m_Motions[id.slot].bone_motions[bone_id]->at(id.idx);}
+	IC 
 
 	virtual IBlendDestroyCallback	*GetBlendDestroyCallback	( );
 	virtual void					SetBlendDestroyCallback		( IBlendDestroyCallback	*cb );
@@ -164,7 +165,9 @@ public:
 	MotionID					ID_FX_Safe		(LPCSTR  N);
 	CBlend*						PlayFX			(LPCSTR  N, float power_scale);
 	CBlend*						PlayFX			(MotionID M, float power_scale);
-	
+
+	CBlend*						PlayFX_Safe		(LPCSTR	 N, float power_scale) override;
+
 	const CPartition&			partitions		() const {return *m_Partition;};
 
 	// General "Visual" stuff

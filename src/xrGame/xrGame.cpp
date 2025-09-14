@@ -16,6 +16,16 @@ void RegisterExpressionDelegates();
 
 CInifile* pGameGlobals = nullptr;
 
+void LoadCallbackGlobals(bool& flag, const char*& value, const char* section)
+{
+	flag = pGameGlobals->line_exist("callbacks", section);
+	if (flag)
+	{
+		value = pGameGlobals->r_string("callbacks", section);
+		flag = (value != nullptr && value[0] != '\0');
+	}
+};
+
 extern void RegisterImGuiInGame();
 static LPVOID __cdecl luabind_allocator(
 	luabind::memory_allocation_function_parameter const,
@@ -48,6 +58,40 @@ void setup_luabind_allocator		()
 	}
 }
 
+#ifdef DEBUG
+void unit_test_stack_string()
+{
+	stack_string<char, 10> str;
+
+	assert(str.empty());
+	static_assert(str.max_size() == sizeof(char[10])); // real compile-time assert ^^
+	assert(str.max_size() == sizeof(char[10]));
+	assert(str.size() == 0);
+	assert(str.c_str());
+	assert(str.data());
+
+
+	str.append("test");
+
+	for (auto it : str)
+	{
+		char a = it;
+	}
+
+	str.append("123");
+
+	auto substr = str.substr();
+	assert(substr == str);
+	auto substr2 = str.substr(3);
+	assert(substr2 == "t123");
+
+	auto index = substr2.find("12");
+	assert(index == 1);
+	index = substr2.find("3");
+	assert(index == 3);
+}
+#endif
+
 extern "C" 
 {
 	DLL_API void __cdecl xrGameInitialize()
@@ -60,6 +104,10 @@ extern "C"
 
 #ifdef DEBUG_DRAW
 		RegisterImGuiInGame();
+#endif
+
+#ifdef DEBUG
+		unit_test_stack_string();
 #endif
 
 		string_path GameGlobals = {};

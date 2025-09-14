@@ -26,11 +26,7 @@ CHelicopter::CHelicopter()
 	m_body.parent		= this;
 }
 
-CHelicopter::~CHelicopter()
-{
-	HUD_SOUND_ITEM::DestroySound		(m_sndShot);
-	HUD_SOUND_ITEM::DestroySound		(m_sndShotRocket);
-}
+CHelicopter::~CHelicopter() = default;
 
 void CHelicopter::setState(CHelicopter::EHeliState s)
 {
@@ -87,8 +83,8 @@ void CHelicopter::Load(LPCSTR section)
 
 	//weapons
 	CShootingObject::Load				(section);
-	HUD_SOUND_ITEM::LoadSound				(section,"snd_shoot", m_sndShot, SOUND_TYPE_WEAPON_SHOOTING);
-	HUD_SOUND_ITEM::LoadSound				(section,"snd_shoot_rocket", m_sndShotRocket, SOUND_TYPE_WEAPON_SHOOTING);
+    m_sounds_layered.LoadSound(section, "snd_shoot", "m_sndShot", false, SOUND_TYPE_WEAPON_SHOOTING);
+    m_sounds_layered.LoadSound(section, "snd_shoot_rocket", "m_sndShotRocket", false, SOUND_TYPE_WEAPON_SHOOTING);
 	CRocketLauncher::Load				(section);
 
 	UseFireTrail						(m_enemy.bUseFireTrail);//temp force reloar disp params
@@ -368,10 +364,8 @@ void CHelicopter::MoveStep()
 	
 	float needBodyB = -ang_diff*sign*m_body.model_bank_k*m_movement.curLinearSpeed;
 	angle_lerp	(m_body.currBodyHPB.z, needBodyB, m_body.model_angSpeedBank, STEP);
-	
 
 	XFORM().setHPB(m_body.currBodyHPB.x,m_body.currBodyHPB.y,m_body.currBodyHPB.z);
-
 	XFORM().translate_over(m_movement.currP);
 }
 
@@ -400,7 +394,9 @@ void CHelicopter::UpdateCL()
 	m_movement.Update();
 
 	m_stepRemains+=Device.fTimeDelta;
-	while(m_stepRemains>STEP){
+
+	while(m_stepRemains>STEP)
+	{
 		MoveStep();
 		m_stepRemains-=STEP;
 	}
@@ -432,20 +428,24 @@ void CHelicopter::UpdateCL()
 
 void CHelicopter::shedule_Update(u32 time_delta)
 {
-	if (!getEnabled())	return;
+	if (!getEnabled() || OnClient())
+		return;
 
-	inherited::shedule_Update	(time_delta);
-	if(CPHDestroyable::Destroyed())CPHDestroyable::SheduleUpdate(time_delta);
-	else	CPHSkeleton::Update(time_delta);
-	
-	if(state() != CHelicopter::eDead){
-		for(u32 i=getRocketCount(); i<4; ++i)
+	inherited::shedule_Update(time_delta);
+	if (CPHDestroyable::Destroyed())
+		CPHDestroyable::SheduleUpdate(time_delta);
+	else
+		CPHSkeleton::Update(time_delta);
+
+	if (state() != CHelicopter::eDead) 
+	{
+		for (u32 i = getRocketCount(); i < 4; ++i)
 			CRocketLauncher::SpawnRocket(*m_sRocketSection, this);
 	}
-	if(m_ready_explode)ExplodeHelicopter();
+
+	if (m_ready_explode)
+		ExplodeHelicopter();
 }
-
-
 
 void CHelicopter::goPatrolByPatrolPath (LPCSTR path_name, int start_idx)
 {
@@ -499,8 +499,39 @@ void CHelicopter::load(IReader &input_packet)
 	load_data		(m_time_between_rocket_attack, input_packet);
 	load_data		(m_syncronize_rocket, input_packet);
 }
+
 void CHelicopter::net_Relcase(CObject* O )
 {
 	CExplosive::net_Relcase(O);
 	inherited::net_Relcase(O);
+}
+
+void CHelicopter::net_Import(NET_Packet& P)
+{
+	inherited::net_Import(P);
+}
+
+void CHelicopter::net_Export(NET_Packet& P)
+{
+	inherited::net_Export(P);
+}
+
+BOOL CHelicopter::net_Relevant()
+{
+	return !IsGameTypeSingle();
+}
+
+void CHelicopter::SyncRead(NET_Packet& Packet)
+{
+	Fvector Pos = Packet.r_vec3();
+
+	m_movement.SetDestPosition(&Pos);
+	SetMaxVelocity(150);
+
+	m_movement.AlreadyOnPoint();
+}
+
+void CHelicopter::SyncWrite(NET_Packet& Packet)
+{
+	Packet.w_vec3(m_movement.currP);
 }

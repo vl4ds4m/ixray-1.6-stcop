@@ -19,6 +19,12 @@
 #include "../../xrUI/UIXmlInit.h"
 #include "../../xrUI/Widgets/UI3tButton.h"
 
+#include "EffectorFall.h"
+#include "ActorEffector.h"
+#include "GamePersistent.h"
+
+BOOL EnableTalkDof = true;
+
 CUITalkWnd::CUITalkWnd()
 {
 	m_pActor				= nullptr;
@@ -30,6 +36,13 @@ CUITalkWnd::CUITalkWnd()
 	m_pOthersDialogManager	= nullptr;
 
 	ToTopicMode				();
+
+	const static Fvector4 talkDof = EngineExternal().GetTalkDof();
+	m_TalkDof.set(talkDof);
+
+	const static float fovScale = EngineExternal().GetTalkFovScale();
+	m_talkFovScale = fovScale;
+	clamp(m_talkFovScale, 0.2f, 1.0f);
 
 	InitTalkWnd				();
 	m_bNeedToUpdateQuestions = false;
@@ -63,11 +76,9 @@ void CUITalkWnd::InitTalkDialog()
 	m_pOthersDialogManager = smart_cast<CPhraseDialogManager*>(m_pOthersInvOwner);
 
 	//имена собеседников
-	UITalkDialogWnd->UICharacterInfoLeft.InitCharacter		(m_pOurInvOwner->object_id());
-	UITalkDialogWnd->UICharacterInfoRight.InitCharacter		(m_pOthersInvOwner->object_id());
+	UITalkDialogWnd->UICharacterInfoLeft.InitCharacter(m_pOurInvOwner);
+	UITalkDialogWnd->UICharacterInfoRight.InitCharacter(m_pOthersInvOwner);
 
-//.	UITalkDialogWnd->UIDialogFrame.UITitleText.SetText		(m_pOthersInvOwner->Name());
-//.	UITalkDialogWnd->UIOurPhrasesFrame.UITitleText.SetText	(m_pOurInvOwner->Name());
 	
 	//очистить лог сообщений
 	UITalkDialogWnd->ClearAll();
@@ -171,28 +182,50 @@ void CUITalkWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 }
 
 //////////////////////////////////////////////////////////////////////////
-void UpdateCameraDirection(CGameObject* pTo)
+void UpdateCameraDirection(CGameObject* pTo, bool isFocus)
 {
 	if (!pTo) return;
 	CCameraBase* cam = Actor()->cam_Active();
-
-	Fvector des_dir; 
+	Fvector des_dir;
 	Fvector des_pt;
-	pTo->Center(des_pt);
-	des_pt.y+=pTo->Radius()*0.5f;
+
+	if (isFocus)
+	{	
+		auto pk = PKinematics(pTo->Visual());
+
+		if (pk != nullptr)
+		{
+			auto bone = pk->LL_BoneID("bip01_head");
+
+			Fmatrix headPos = pk->LL_GetTransform(bone);
+			headPos.mulA_43(pTo->XFORM());
+			des_pt = headPos.c;
+		}
+	}
+	else
+	{
+		pTo->Center(des_pt);
+		des_pt.y += pTo->Radius() * 0.5f;
+	}
 
 	des_dir.sub(des_pt,cam->vPosition);
 
 	float p,h;
 	des_dir.getHP(h,p);
 
+	if (isFocus)
+	{
+		cam->yaw = angle_inertion_var(cam->yaw, -h, 0.3f, 0.35f, PI_DIV_6, Device.fTimeDelta);
+		cam->pitch = angle_inertion_var(cam->pitch, -p, 0.3f, 0.35f, PI_DIV_6, Device.fTimeDelta);
+	}
+	else
+	{
+		if (angle_difference(cam->yaw, -h) > 0.2)
+			cam->yaw = angle_inertion_var(cam->yaw, -h, 0.15f, 0.2f, PI_DIV_6, Device.fTimeDelta);
 
-	if(angle_difference(cam->yaw,-h)>0.2)
-		cam->yaw		= angle_inertion_var(cam->yaw,		-h,	0.15f,	0.2f,	PI_DIV_6,	Device.fTimeDelta);
-
-	if(angle_difference(cam->pitch,-p)>0.2)
-		cam->pitch		= angle_inertion_var(cam->pitch,	-p,	0.15f,	0.2f,	PI_DIV_6,	Device.fTimeDelta);
-
+		if (angle_difference(cam->pitch, -p) > 0.2)
+			cam->pitch = angle_inertion_var(cam->pitch, -p, 0.15f, 0.2f, PI_DIV_6, Device.fTimeDelta);
+	}
 }
 
 void CUITalkWnd::Update()
@@ -214,7 +247,7 @@ void CUITalkWnd::Update()
 		UpdateQuestions			();
 	}
 	inherited::Update			();
-	UpdateCameraDirection		(smart_cast<CGameObject*>(m_pOthersInvOwner));
+	UpdateCameraDirection		(smart_cast<CGameObject*>(m_pOthersInvOwner), m_pOthersInvOwner->GetFocusingOnNpc());
 
 	UITalkDialogWnd->UpdateButtonsLayout(b_disable_break, m_pOthersInvOwner->IsTradeEnabled());
 
@@ -238,13 +271,32 @@ void CUITalkWnd::Show(bool status)
 	if(status)
 	{
 		InitTalkDialog				();
-	}else
+
+		if (m_pOthersInvOwner->GetFocusingOnNpc())
+		{
+			if (EnableTalkDof && !fsimilar(m_TalkDof.w, -1.0f))
+			{
+				m_pActor->Cameras().AddCamEffector(new CEffectorDOF(m_TalkDof, 0.0f));
+			}
+
+			g_fov = g_fov * m_talkFovScale;
+		}
+	}
+	else
 	{
 		StopSnd						();
 		UITalkDialogWnd->Hide		();
 
 		if(m_pActor)
 		{
+			if (m_pOthersInvOwner->GetFocusingOnNpc())
+			{
+				g_fov = g_fov / m_talkFovScale;
+
+				GamePersistent().RestoreEffectorDOF();
+				m_pActor->Cameras().RemoveCamEffector(eCEDOF);
+			}
+
 			ToTopicMode					();
 
 			if (m_pActor->IsTalking()) 
@@ -330,31 +382,18 @@ void CUITalkWnd::SwitchToTrade()
 {
 	if ( m_pOurInvOwner->IsTradeEnabled() && m_pOthersInvOwner->IsTradeEnabled() )
 	{
-		CUIGameSP* pGameSP = smart_cast<CUIGameSP*>( CurrentGameUI() );
-		if ( pGameSP )
+ 		if (CurrentGameUI())
 		{
-/*			if ( pGameSP->MainInputReceiver() )
-			{
-				pGameSP->MainInputReceiver()->HideDialog();
-			}*/
-			pGameSP->StartTrade	(m_pOurInvOwner, m_pOthersInvOwner);
-		} // pGameSP
+			CurrentGameUI()->StartTrade	(m_pOurInvOwner, m_pOthersInvOwner);
+		}
 	}
 }
 
 void CUITalkWnd::SwitchToUpgrade()
 {
-	//if ( m_pOurInvOwner->IsInvUpgradeEnabled() && m_pOthersInvOwner->IsInvUpgradeEnabled() )
+	if (CurrentGameUI() && m_pOurInvOwner->IsTradeEnabled() && m_pOthersInvOwner->IsTradeEnabled())
 	{
-		CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
-		if ( pGameSP )
-		{
-/*			if ( pGameSP->MainInputReceiver() )
-			{
-				pGameSP->MainInputReceiver()->HideDialog();
-			}*/
-			pGameSP->StartUpgrade(m_pOurInvOwner, m_pOthersInvOwner);
-		}
+		CurrentGameUI()->StartUpgrade(m_pOurInvOwner, m_pOthersInvOwner);
 	}
 }
 
@@ -373,6 +412,9 @@ bool CUITalkWnd::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 		}
 		else if(is_binded(kSPRINT_TOGGLE, dik))
 		{
+			if (m_pOthersInvOwner && m_pOthersInvOwner->NeedOsoznanieMode())
+				return true;
+
 			if(UITalkDialogWnd->mechanic_mode)
 				SwitchToUpgrade();
 			else

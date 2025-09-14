@@ -96,6 +96,7 @@ void CUIWindow::ResetPPMode()
 
 CUIWindow::CUIWindow()
 :m_pParentWnd(nullptr),
+m_pFont(nullptr),
 m_pMouseCapturer(nullptr),
 m_pMessageTarget(nullptr),
 m_pKeyboardCapturer(nullptr),
@@ -125,7 +126,9 @@ CUIWindow::~CUIWindow()
 	if( parent && !ad )
 		parent->CUIWindow::DetachChild( this );
 
-	DetachAll();
+	if (!m_ChildWndList.empty()) {
+		DetachAll();
+	}
 
 	if (GetPPMode() && g_pGamePersistent != nullptr)
 		g_pGamePersistent->m_pMainMenu->UnregisterPPDraw(this);

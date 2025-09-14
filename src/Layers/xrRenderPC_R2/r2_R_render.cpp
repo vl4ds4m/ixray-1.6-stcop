@@ -98,7 +98,7 @@ void CRender::render_main	(bool deffered, bool zfill)
 			Fmatrix m_project;
 			m_project.build_projection(
 				deg2rad(Device.fFOV/* *Device.fASPECT*/), 
-				Device.fASPECT, VIEWPORT_NEAR, 
+				Device.fASPECT, Device.fViewportNear,
 				ps_r2_zfill * g_pGamePersistent->Environment().CurrentEnv->far_plane);
 			mftrans.mul(m_project,Device.mView);
 		}
@@ -169,25 +169,7 @@ void CRender::render_main	(bool deffered, bool zfill)
 				if(light* L = (light*)(spatial->dcast_Light()))
 				{
 					if (L->get_LOD()>EPS_L&&!L->flags.bHudMode)
-					{
-						
-						if(dont_test_sectors)
-						{
-							Lights.add_light(L);
-						}
-						else
-						{
-							for (u32 s_it = 0; s_it < L->m_sectors.size(); s_it++)
-							{
-								CSector* sector_ = (CSector*)L->m_sectors[s_it];
-								if(sector_ != nullptr && PortalTraverser.i_marker == sector_->r_marker)
-								{
-									Lights.add_light(L);
-									break;
-								}
-							}
-						}
-					}
+						Lights.add_light(L);
 				}
 				continue;
 			}
@@ -420,11 +402,7 @@ void CRender::Render()
 	Device.Statistic->RenderCALC.Begin			();
 	r_pmask										(true,false,true);	// enable priority "0",+ capture wmarks
 	phase										= PHASE_NORMAL;
-	{
-		PROF_EVENT("lights_spatial_move");
-		for (light* L : v_all_lights)
-			L->spatial_move();
-	}
+
 	render_main									(true);
 	r_pmask										(true,false);	// disable priority "1"
 	Device.Statistic->RenderCALC.End			();
@@ -585,12 +563,12 @@ void CRender::Render()
 
 	// Postprocess
 	Target->phase_combine					();
-	VERIFY	(0==mapDistort.size());
+	VERIFY	(0==mapDistort.size() + mapHUDDistort.size());
 }
 
 void CRender::render_forward				()
 {
-	VERIFY	(0==mapDistort.size());
+	VERIFY	(0==mapDistort.size() + mapHUDDistort.size());
 	RImplementation.o.distortion				= RImplementation.o.distortion_enabled;	// enable distorion
 
 	//******* Main render - second order geometry (the one, that doesn't support deffering)

@@ -128,10 +128,12 @@ enum ESMFlags{
 	esmUseWeaponBone	= 1<<7,
 };
 
-#if defined(_EDITOR) || defined(_MAX_EXPORT) || defined(_MAYA_EXPORT)
+#if defined(_EDITOR)
 	#include "SkeletonMotions.h"
 
-class ECORE_API CSMotion: public CCustomMotion{
+class ECORE_API CSMotion: 
+	public CCustomMotion
+{
 	BoneMotionVec	bone_mots;
 public:
     u16			           	        m_BoneOrPart;
@@ -142,6 +144,8 @@ public:
 	Flags8		           	        m_Flags;
 
 	xr_vector<motion_marks>			marks;
+	editor_notify_data notify;
+	xr_stack<float> notifies_to_remove = {};
 
     void			Clear			();
 public:

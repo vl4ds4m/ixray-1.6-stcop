@@ -35,7 +35,7 @@ jobs:
     strategy:
       matrix:
         system:
-          - windows-2025
+          - windows-latest
         preset:
           - Utilities
         platform:
@@ -73,7 +73,7 @@ jobs:
         run: |
           cmake `
             --build `
-            --target TextureCloner xrCompress mp_configs_verifyer mp_gpprof_server mp_balancer mp_screenshots_info xrForms EFC `
+            --target TextureCloner xrCompress mp_configs_verifyer mp_gpprof_server mp_balancer mp_screenshots_info xrLevelBuilder EFC `
             --preset ${{ matrix.preset }}-${{ matrix.platform }}-${{ runner.os }}-${{ matrix.config }}
 
       - name: Upload binaries
@@ -194,7 +194,7 @@ jobs:
     strategy:
       matrix:
         system:
-          - windows-2025
+          - windows-latest
 
     runs-on: ${{ matrix.system }}
 
@@ -241,7 +241,7 @@ jobs:
     strategy:
       matrix:
         system:
-          - windows-2025
+          - windows-latest
         platform:
           - x64
         preset:

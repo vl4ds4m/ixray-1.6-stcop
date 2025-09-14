@@ -114,13 +114,13 @@ void CCameraLook::UpdateDistance(Fvector& point)
 	vDir.invert(vDirection);
 
 	collide::rq_result R;
-	float covariance = VIEWPORT_NEAR * 6.0f;
+	float covariance = Device.fViewportNear * 6.0f;
 	R = GetPickResult(point, vDir, dist + covariance, parent);
 	float sl_inert = 1.f-Device.fTimeDelta*10.f;
 	float d = sl_inert * prev_d + (1.0f - sl_inert) * (R.range - covariance);
 	prev_d = d;
 
-	vPosition.mul(vDirection, -d - VIEWPORT_NEAR);
+	vPosition.mul(vDirection, -d - Device.fViewportNear);
 	vPosition.add(point);
 }
 
@@ -160,6 +160,7 @@ int cam_dik = SDL_SCANCODE_LSHIFT;
 
 Fvector CCameraLook2::m_cam_offset_r;
 Fvector CCameraLook2::m_cam_offset_l;
+bool CCameraLook2::m_use_inertion;
 Fvector m_cam_offset_curr = {0.f, 0.f, 0.f};
 
 void CCameraLook2::OnActivate( CCameraBase* old_cam )
@@ -175,7 +176,7 @@ void CCameraLook2::UpdateDistance(Fvector& pivot, Fvector& correction)
 	des_dir.sub(correction, pivot);
 	des_dir.add(Fvector(vDirection).invert());
 
-	float covariance = VIEWPORT_NEAR * 6.f;
+	float covariance = Device.fViewportNear * 6.f;
 	float d;
 
 	collide::rq_result	RQ = GetPickResult(pivot, des_dir, dist + covariance, parent);
@@ -186,10 +187,17 @@ void CCameraLook2::UpdateDistance(Fvector& pivot, Fvector& correction)
 
 	Fvector next_pos;
 	next_pos.set(correction);
-	next_pos.mul(des_dir.invert(), -d - VIEWPORT_NEAR);
+	next_pos.mul(des_dir.invert(), -d - Device.fViewportNear);
 	next_pos.add(pivot);
 
-	vPosition.inertion(next_pos, 1.f-Device.fTimeDelta*15.f);
+	if (m_use_inertion)
+	{
+		vPosition.inertion(next_pos, 1.f - Device.fTimeDelta * 15.f);
+	}
+	else
+	{
+		vPosition = next_pos;
+	}
 }
 
 #include "Actor.h"
@@ -262,6 +270,7 @@ void CCameraLook2::Load(LPCSTR section)
 
 	m_cam_offset_r = READ_IF_EXISTS(pSettings, r_fvector3, section, "offset_right", defaultOffsetRight);
 	m_cam_offset_l = READ_IF_EXISTS(pSettings, r_fvector3, section, "offset_left", defaultOffsetLeft);
+	m_use_inertion = READ_IF_EXISTS(pSettings, r_bool, section, "use_inertion", true);
 
 	dist = 1.4f;
 	prev_d = 0.0f;

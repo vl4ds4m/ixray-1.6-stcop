@@ -54,6 +54,27 @@ CRenderDevice *get_device()
 {
 	return		(&Device);
 }
+
+void trigger_assert(const char* pStringFromLua)
+{
+	#ifdef DEBUG
+	R_ASSERT(false && "catch the thing!");
+	#else
+	MessageBoxA(nullptr,
+		"Report to wh1t3lord, because xr_parser failed and is different to "
+	    "xr_logic behaviour!",
+		"Report to wh1t3lord", 0);
+	#endif
+}
+
+void trigger_vs_log(const char* pStringFromLua)
+{
+	#ifdef WIN32
+	OutputDebugStringA(pStringFromLua);
+	#else
+	#endif
+}
+
 #endif
 
 LPCSTR user_name()
@@ -189,6 +210,19 @@ namespace ixray::save
 	}
 }
 
+void TryLoadFile(const char* FileName)
+{
+	FS.TryLoad(FileName);
+}
+
+void lua_debug_print(LPCSTR str)
+{
+	if (!xr_strlen(str))
+		return;
+
+	Msg("$ DBG:[%lu] %s", Device.dwTimeGlobal, str);
+}
+
 #pragma optimize("s",on)
 void CScriptEngine::script_register(lua_State *L)
 {
@@ -212,13 +246,16 @@ void CScriptEngine::script_register(lua_State *L)
 		def("user_name",						&user_name),
 		def("time_global",						&script_time_global),
 		def("SemiLog",							&SemiLog),
+		def("debug_print",						&lua_debug_print),
 		def("time_global_async",				&script_time_global_async),
 		def("IsSupportMP",						&CheckMP),
-		def("IsEditor",							&IsEditorMode)
-
+		def("IsEditor",							&IsEditorMode),
+		def("try_load_file",					&TryLoadFile)
 #ifdef XRGAME_EXPORTS
 		,def("device",							&get_device),
-		def("TinyLog",							&MyLog)
+		def("TinyLog",							&MyLog),
+		def("trigger_assert",					&trigger_assert),
+		def("trigger_vs_log",					&trigger_vs_log)
 #endif // #ifdef XRGAME_EXPORTS
 	];
 

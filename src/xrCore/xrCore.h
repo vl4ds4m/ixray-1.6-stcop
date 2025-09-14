@@ -78,6 +78,7 @@
 #include <bitset>
 #include <chrono>
 #include <string>
+#include <optional>
 
 #pragma warning (pop)
 #pragma warning (disable : 4100 )		// unreferenced formal parameter
@@ -93,7 +94,7 @@
 #include "clsid.h"
 #include "xrSyncronize.h"
 #include "RingBuffer.h"
-#include "xrMemory.h"
+#include "memory/xrMemory.h"
 #include "xrDebug.h"
 
 #include "_stl_extensions.h"
@@ -101,11 +102,14 @@
 #include "_thread_types.h"
 #include "shared_string.h"
 #include "xrstring.h"
+#include "FixedVector.h"
 #include "xr_resource.h"
 #include "rt_compressor.h"
 #include "xr_shared.h"
 #include "string_concatenations.h"
 #include "xr_path.h"
+#include "stack_string.h"
+#include "Combinable.h"
 
 // stl ext
 struct XRCORE_API xr_rtoken
@@ -151,6 +155,9 @@ using RStringSetIt = RStringSet::iterator;
 using RTokenVec = xr_vector<xr_rtoken>;
 using RTokenVecIt = RTokenVec::iterator;
 
+template<typename T>
+using xr_optional = std::optional<T>;
+
 #include "TimeUtils.h"
 #include "xr_delegate.h"
 
@@ -189,6 +196,7 @@ public:
 	string64	UserName;
 	string64	CompName;
 	string512	Params;
+    u32			BuildId;
     Flags64     ParamsData;
 
 public:

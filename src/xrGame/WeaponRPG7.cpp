@@ -9,8 +9,9 @@
 #include "Inventory.h"
 #include "InventoryOwner.h"
 
-CWeaponRPG7::CWeaponRPG7()
+CWeaponRPG7::CWeaponRPG7() : inherited()
 {
+	CWeapon::m_bIAmWeaponRPG7 = true;
 }
 
 CWeaponRPG7::~CWeaponRPG7() 
@@ -153,13 +154,21 @@ void CWeaponRPG7::SwitchState(u32 S)
 
 void CWeaponRPG7::FireStart()
 {
+	if (!iAmmoElapsed)
+	{
+		if (infinite_fire())
+		{
+			ReloadMagazine();
+		}
+	}
+
 	inherited::FireStart();
 }
 
 void CWeaponRPG7::PlayAnimReload()
 {
 	VERIFY(GetState()==eReload);
-	PlayHUDMotion("anm_reload", FALSE, this, GetState());
+	PlayHUDMotion("anm_reload", FALSE, GetState());
 }
 
 void CWeaponRPG7::OnEvent(NET_Packet& P, u16 type) 

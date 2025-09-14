@@ -5,14 +5,15 @@
 #include "xrMU_Model.h"
 //#include "xrLC_GlobalData.h"
 #include "light_point.h"
-//#include "xrDeflector.h"
-#include "../../xrCDB/xrCDB.h"
+ 
+#include "../../xrCore/Collision/xrCDB.h"
 #include "../Shader_xrLC.h"
 #include "mu_model_face.h"
 #include "xrFace.h"
 #include "xrLC_GlobalData.h"
 
 void LightPoint(CDB::COLLIDER* DB, CDB::MODEL* MDL, base_color_c &C, Fvector &P, Fvector &N, base_lighting& lights, u32 flags, Face* skip);
+  
 union var
 {
 	int		i;
@@ -47,7 +48,7 @@ var _x	= var(x);
 */
 
 //-----------------------------------------------------------------------
-void xrMU_Model::calc_lighting	(xr_vector<base_color>& dest, const Fmatrix& xform, CDB::MODEL* MDL, base_lighting& lights, u32 flags)
+void xrMU_Model::calc_lighting	(xr_vector<base_color>& dest, const Fmatrix& xform, CDB::MODEL* MDL, base_lighting& lights, u32 flags, bool use_opcode)
 {
 	// trans-map
 	typedef	xr_multimap<float,v_vertices>	mapVert;
@@ -69,13 +70,6 @@ void xrMU_Model::calc_lighting	(xr_vector<base_color>& dest, const Fmatrix& xfor
 	// Perform lighting
 	CDB::COLLIDER				DB;
 	DB.ray_options				(0);
-
-	// Disable faces if needed
-	/*
-	BOOL bDisableFaces			= flags&LP_UseFaceDisable;
-	if	(bDisableFaces)
-		for (I=0; I<m_faces.size(); I++)	m_faces[I]->flags.bDisableShadowCast	= true;
-	*/
 
 	// MT-Safe 
 	xr_vector<_vertex> SafeVertices(m_vertices.size());
@@ -110,19 +104,37 @@ void xrMU_Model::calc_lighting	(xr_vector<base_color>& dest, const Fmatrix& xfor
 		exact_normalize			(vN); 
 
 		// multi-sample
-		const int n_samples		= (g_params().m_quality==ebqDraft)?1:6;
+		u32 SampleMAX = 6;
+		if (lc_global_data()->GetOverrideSettings())
+			SampleMAX = lc_global_data()->GetJitterMU();
+
+		const int n_samples		= (g_params().m_quality==ebqDraft) ? 1: SampleMAX;
 		for (u32 sample=0; sample<(u32)n_samples; sample++)
 		{
 			float				a	= 0.2f * float(sample) / float(n_samples);
 			Fvector				P,N;
 			N.random_dir		(vN,deg2rad(30.f));
 			P.mad				(vP,N,a);
-			LightPoint			(&DB, MDL, vC, P, N, lights, flags, 0);
+ 			LightPoint			(&DB, MDL, vC, P, N, lights, flags, 0);
 		}
-		vC.scale				(n_samples);
-		vC._tmp_				=	v_trans;
-		if (flags&LP_dont_hemi) ;
-		else					vC.hemi	+=	v_amb;
+ 
+		if (n_samples > 0)
+		{
+			vC.scale(n_samples);
+			vC._tmp_ = v_trans;
+
+			if (flags & LP_dont_hemi)
+			{
+
+			}
+			else
+				vC.hemi += v_amb;
+		}
+		else
+		{
+			vC.hemi = 0.75f;
+		}
+
 		V.C._set				(vC);
 
 		// Search
@@ -223,7 +235,7 @@ void xrMU_Model::calc_lighting	()
 	CDB::MODEL*				M	= new CDB::MODEL();
 	M->build				(CL.getV(),(u32)CL.getVS(),CL.getT(),(u32)CL.getTS());
 
-	calc_lighting			(color,Fidentity,M,inlc_global_data()->L_static(),LP_dont_rgb+LP_dont_sun);
+	calc_lighting			(color,Fidentity, M, inlc_global_data()->L_static(),LP_dont_rgb+LP_dont_sun, true);
 
 	xr_delete				(M);
 

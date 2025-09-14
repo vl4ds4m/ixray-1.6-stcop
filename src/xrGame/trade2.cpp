@@ -61,11 +61,11 @@ bool CTrade::CanTrade()
 	return true;
 }
 
-void CTrade::TransferItem(CInventoryItem* pItem, bool bBuying)
+void CTrade::TransferItem(CInventoryItem* pItem, bool bBuying, bool bFree)
 {
 	// сумма сделки учитывая ценовой коэффициент
 	// актер цену не говорит никогда, все делают за него
-	u32 dwTransferMoney					= GetItemPrice(pItem, bBuying);
+	u32 dwTransferMoney					= GetItemPrice(pItem, bBuying, bFree);
 
 	if(bBuying)
 	{
@@ -146,8 +146,11 @@ CInventoryOwner* CTrade::GetPartner()
 	return pPartner.inv_owner;
 }
 
-u32	CTrade::GetItemPrice(PIItem pItem, bool b_buying)
+u32	CTrade::GetItemPrice(PIItem pItem, bool b_buying, bool b_free)
 {
+	if (b_free)
+		return 0;
+
 	CArtefact				*pArtefact = smart_cast<CArtefact*>(pItem);
 
 	// computing base_cost
@@ -248,11 +251,12 @@ u32	CTrade::GetItemPrice(PIItem pItem, bool b_buying)
 	// use some script discounts
 	luabind::functor<float>	func;
 	if(b_buying)
-		R_ASSERT(ai().script_engine().functor("trade_manager.get_buy_discount", func));
+		ai().script_engine().functor("trade_manager.get_buy_discount", func);
 	else
-		R_ASSERT(ai().script_engine().functor("trade_manager.get_sell_discount", func));
+		ai().script_engine().functor("trade_manager.get_sell_discount", func);
 
-	result			= iFloor(result * func(smart_cast<const CGameObject*>(pThis.inv_owner)->ID()));
+	if (func)
+		result			= iFloor(result * func(smart_cast<const CGameObject*>(pThis.inv_owner)->ID()));
 	//if(result>500)
 	//	result		= iFloor(result/10+0.5f)*10;
 

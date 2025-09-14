@@ -46,7 +46,7 @@ public:
 	virtual	void	UpdateXForm			();
 	virtual void	UpdateHudAdditonal	(Fmatrix& trans);
 	void			ToggleDetector		(bool bFastMode, bool switching = false);
-	void			HideDetector		(bool bFastMode);
+	void			HideDetector		(bool bFastMode, bool force = false);
 	void			ShowDetector		(bool bFastMode);
 	float			m_fAfDetectRadius;
 	virtual bool	CheckCompatibility	(CHudItem* itm);
@@ -60,9 +60,21 @@ public:
 	void			SetHideAndRestore(bool val){m_bHideAndRestore = val;};
 
 	virtual bool	can_be_attached		() const;
+	void PlayWpnFinishDetector();
+	void 	TurnDetectorInternal(bool b);
+
+	bool NeedBlockSprint() const;
+	bool CanDrawHand() const;
+	bool CanHideHand() const;
+
+	enum EDetectorStates
+	{
+		eHandHide = eLastBaseState + 1,
+		eHandDraw,
+	};
+
 protected:
 			bool	CheckCompatibilityInt		(CHudItem* itm, u16* slot_to_activate);
-			void 	TurnDetectorInternal		(bool b);
 	void 			UpdateNightVisionMode		(bool b_off);
 	void			UpdateVisibility			();
 	virtual void	UpfateWork					();

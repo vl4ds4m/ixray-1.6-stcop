@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#include "FSR2Wrapper.h"
+#include "OverlayAPI\FSR2Wrapper.h"
 
 extern Fvector3 ps_r_taa_jitter_full;
 
@@ -19,7 +19,8 @@ void CRenderTarget::init_fsr()
 	initParams.device = RDevice;
 
 #ifdef DEBUG_DRAW
-	initParams.fpMessage = [](FfxFsr2MsgType type, const wchar_t* message) {
+	initParams.fpMessage = [](FfxFsr2MsgType type, const wchar_t* message)
+	{
 		xr_string error_msg = Platform::TCHAR_TO_ANSI_U8(message);
 		Msg("[FSR]: %s", error_msg.c_str());
 	};
@@ -28,8 +29,9 @@ void CRenderTarget::init_fsr()
 	g_Fsr2Wrapper.Create(initParams);
 }
 
-bool CRenderTarget::phase_fsr() {
-	PIX_EVENT(FSR);
+bool CRenderTarget::phase_fsr()
+{
+	GPU_EVENT(FSR);
 
 	Fsr2Wrapper::DrawParameters fsr2Params = {};
 	fsr2Params.deviceContext = RContext;
@@ -57,7 +59,7 @@ bool CRenderTarget::phase_fsr() {
 	fsr2Params.frameTimeDelta = std::max(1.0f + EPS_L, float(Device.dwTimeDelta));
 
 	fsr2Params.farPlane = g_pGamePersistent->Environment().CurrentEnv->far_plane;
-	fsr2Params.nearPlane = VIEWPORT_NEAR;
+	fsr2Params.nearPlane = Device.fViewportNear;
 	fsr2Params.fovH = deg2rad(Device.fFOV);
 
 	return g_Fsr2Wrapper.Draw(fsr2Params);

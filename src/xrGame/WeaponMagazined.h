@@ -35,6 +35,7 @@ protected:
 	// General
 	//кадр момента пересчета UpdateSounds
 	u32				dwUpdateSounds_Frame;
+	bool			last_sound_exist[2];
 protected:
 
 	virtual void	switch2_Idle	();
@@ -44,6 +45,7 @@ protected:
 	virtual void	switch2_Hiding	();
 	virtual void	switch2_Hidden	();
 	virtual void	switch2_Showing	();
+	virtual void	switch2_FireMode();
 	
 	virtual void	OnShot			();	
 	
@@ -64,6 +66,7 @@ protected:
 			void	ResetSilencerKoeffs();
 
 	virtual void	state_Fire		(float dt);
+	virtual void	state_FireChamber(float dt);
 	virtual void	state_Misfire	(float dt);
 public:
 					CWeaponMagazined	(ESoundTypes eSoundType=SOUND_TYPE_WEAPON_SUBMACHINEGUN);
@@ -93,6 +96,7 @@ public:
 	virtual bool	CanDetach		(const char* item_section_name);
 
 	virtual void	InitAddons		();
+	virtual void	HudSelector		();
 
 	virtual bool	Action			(u16 cmd, u32 flags);
 	bool			IsAmmoAvailable	();
@@ -104,22 +108,24 @@ public:
 
 public:
 	virtual bool	SwitchMode				();
-	virtual bool	SingleShotMode			()			{return 1 == m_iQueueSize;}
-	virtual void	SetQueueSize			(int size);
-	IC		int		GetQueueSize			() const	{return m_iQueueSize;};
+	virtual bool	SingleShotMode			()			{ return m_iQueueSize == 1; }
+	virtual void	SetQueueSize			(s8 size)	{ m_iQueueSize = size; }
+	IC		s8		GetQueueSize			() const	{ return m_iQueueSize; }
 	virtual bool	StopedAfterQueueFired	()			{return m_bStopedAfterQueueFired; }
-	virtual void	StopedAfterQueueFired	(bool value){m_bStopedAfterQueueFired = value; }
+	virtual void	StopedAfterQueueFired	(bool value){ m_bStopedAfterQueueFired = value; }
 	virtual float	GetFireDispersion		(float cartridge_k, bool for_crosshair = false);
 
 protected:
 	//максимальный размер очереди, которой можно стрельнуть
-	int				m_iQueueSize;
+	s8				m_iQueueSize;
 	//количество реально выстреляных патронов
 	int				m_iShotNum;
 	//после какого патрона, при непрерывной стрельбе, начинается отдача (сделано из-за Абакана)
 	int				m_iBaseDispersionedBulletsCount;
 	//скорость вылета патронов, на которые не влияет отдача (сделано из-за Абакана)
 	float			m_fBaseDispersionedBulletsSpeed;
+	float			m_fBaseDispersionedBulletsTimeDelta;
+	float			m_fSingleShootsTimeDelta;
 	//скорость вылета остальных патронов
 	float			m_fOldBulletSpeed;
 	Fvector			m_vStartPos, m_vStartDir;
@@ -130,10 +136,9 @@ protected:
 	//(даже если очень быстро нажали на курок и вызвалось FireEnd)
 	bool			m_bFireSingleShot;
 	//режимы стрельбы
-	bool			m_bHasDifferentFireModes;
 	xr_vector<s8>	m_aFireModes;
-	int				m_iCurFireMode;
-	int				m_iPrefferedFireMode;
+	s8				m_iCurFireMode;
+	s8				m_iPrevFireMode;
 
 	//переменная блокирует использование
 	//только разных типов патронов
@@ -142,13 +147,15 @@ protected:
 public:
 	virtual void	OnZoomIn			();
 	virtual void	OnZoomOut			();
-			void	OnNextFireMode		();
-			void	OnPrevFireMode		();
-			bool	HasFireModes		() { return m_bHasDifferentFireModes; };
+			void	ChangeFireMode		(u16 cmd);
+			bool	HasFireModes		() { return m_aFireModes.size() > 1; };
 	virtual	int		GetCurrentFireMode	() { return m_aFireModes[m_iCurFireMode]; };	
 
 	virtual void	save				(NET_Packet &output_packet);
 	virtual void	load				(IReader &input_packet);
+
+	virtual void OnMotionMark(u32 state, const motion_marks&);
+	virtual bool WpnCanShoot() const { return true; }
 
 protected:
 	virtual bool	install_upgrade_impl( LPCSTR section, bool test );
@@ -165,6 +172,10 @@ protected:
 	virtual void	PlayReloadSound		();
 	virtual void	PlayAnimAim			();
 	virtual void    PlaySoundAim		(bool in = true);
+	virtual shared_str SetCurrentReloadAnimation();
+	virtual shared_str SetCurrentShootAnimation();
+	virtual shared_str SetCurrentStateAnimation(const shared_str& first_name);
+	virtual shared_str SetCurrentAimAnimation();
 
 	virtual	int		ShotsFired			() { return m_iShotNum; }
 	virtual float	GetWeaponDeterioration	();

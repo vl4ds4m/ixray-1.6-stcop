@@ -34,7 +34,8 @@ void CUIActorMenu::InitTradeMode()
 	m_pInventoryBagList->Show		(false);
 	m_PartnerCharacterInfo->Show	(true);
 	m_PartnerMoney->Show			(true);
-	m_pQuickSlot->Show				(true);
+	if (m_pQuickSlot)
+		m_pQuickSlot->Show				(true);
 
 	m_pTradeActorBagList->Show		(true);
 	m_pTradeActorList->Show			(true);
@@ -47,8 +48,12 @@ void CUIActorMenu::InitTradeMode()
 
 	m_PartnerBottomInfo->Show		(true);
 	m_PartnerWeight->Show			(true);
-	m_trade_buy_button->Show		(true);
-	m_trade_sell_button->Show		(true);
+    if (m_trade_button)
+        m_trade_button->Show(true);
+    if (m_trade_buy_button)
+        m_trade_buy_button->Show(true);
+    if (m_trade_sell_button)
+        m_trade_sell_button->Show(true);
 
 	VERIFY							( m_pPartnerInvOwner );
 	m_pPartnerInvOwner->StartTrading();
@@ -145,18 +150,19 @@ void CUIActorMenu::DeInitTradeMode()
 
 	m_PartnerBottomInfo->Show		(false);
 	m_PartnerWeight->Show			(false);
-	m_trade_buy_button->Show		(false);
-	m_trade_sell_button->Show		(false);
+	if (m_trade_button)
+		m_trade_button->Show(false);
+	if (m_trade_buy_button)
+		m_trade_buy_button->Show(false);
+	if (m_trade_sell_button)
+		m_trade_sell_button->Show(false);
 
-	if(!CurrentGameUI())
+	if (!CurrentGameUI())
 		return;
-	//только если находимся в режиме single
-	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
-	if(!pGameSP) return;
 
-	if(pGameSP->TalkMenu->IsShown())
+	if (CurrentGameUI()->TalkMenu->IsShown())
 	{
-		pGameSP->TalkMenu->NeedUpdateQuestions();
+		CurrentGameUI()->TalkMenu->NeedUpdateQuestions();
 	}
 }
 
@@ -182,9 +188,13 @@ bool CUIActorMenu::ToActorTrade(CUICellItem* itm, bool b_use_cursor_pos)
 			VERIFY							(new_owner==m_pTradeActorList);
 		}else
 			new_owner						= m_pTradeActorList;
-		
-		bool result							= (old_owner_type!=iActorBag) ? m_pActorInvOwner->inventory().Ruck(iitem) : true;
-		VERIFY								(result);
+
+		if (IsGameTypeSingle())
+		{
+			bool result = (old_owner_type != iActorBag) ? m_pActorInvOwner->inventory().Ruck(iitem) : true;
+			R_ASSERT(result);
+		}
+
 		CUICellItem* i						= old_owner->RemoveItem(itm, (old_owner==new_owner) );
 		
 		if(b_use_cursor_pos)
@@ -192,6 +202,8 @@ bool CUIActorMenu::ToActorTrade(CUICellItem* itm, bool b_use_cursor_pos)
 		else
 			new_owner->SetItem				(i);
 		
+		// Pavel: Если мы переносим предмет из слота в окно торговли
+        // то необходимо переместить его по факту в рюкзак
 		if ( old_owner_type != iActorBag )
 		{
 			SendEvent_Item2Ruck				(iitem, m_pActorInvOwner->object_id());
@@ -202,7 +214,8 @@ bool CUIActorMenu::ToActorTrade(CUICellItem* itm, bool b_use_cursor_pos)
 
 bool CUIActorMenu::ToPartnerTrade(CUICellItem* itm, bool b_use_cursor_pos)
 {
-	PIItem	iitem						= (PIItem)itm->m_pData;
+	//Перенос в список для покупки.
+	PIItem iitem						= (PIItem)itm->m_pData;
 	SInvItemPlace	pl;
 	pl.type		= eItemPlaceRuck;
 	if ( !m_pPartnerInvOwner->AllowItemToTrade( iitem, pl ) )
@@ -222,7 +235,9 @@ bool CUIActorMenu::ToPartnerTrade(CUICellItem* itm, bool b_use_cursor_pos)
 	}else
 		new_owner						= m_pTradePartnerList;
 
-	CUICellItem* i						= old_owner->RemoveItem(itm, (old_owner==new_owner) );
+
+	CUICellItem* i = nullptr;
+	i = old_owner->RemoveItem(itm, (old_owner == new_owner));
 	
 	if(b_use_cursor_pos)
 		new_owner->SetItem				(i,old_owner->GetDragItemPosition());
@@ -235,23 +250,23 @@ bool CUIActorMenu::ToPartnerTrade(CUICellItem* itm, bool b_use_cursor_pos)
 
 bool CUIActorMenu::ToPartnerTradeBag(CUICellItem* itm, bool b_use_cursor_pos)
 {
-	CUIDragDropListEx*	old_owner		= itm->OwnerList();
-	CUIDragDropListEx*	new_owner		= nullptr;
+	// Перенос назад в список предметов NPC
+	CUIDragDropListEx* old_owner = itm->OwnerList();
+	CUIDragDropListEx* new_owner = NULL;
 
-	if(b_use_cursor_pos)
+	if (b_use_cursor_pos)
 	{
-		new_owner						= CUIDragDropListEx::m_drag_item->BackList();
-		VERIFY							(new_owner==m_pTradePartnerBagList);
-	}else
-		new_owner						= m_pTradePartnerBagList;
-	
-	CUICellItem* i						= old_owner->RemoveItem(itm, (old_owner==new_owner) );
-
-	if(b_use_cursor_pos)
-		new_owner->SetItem				(i,old_owner->GetDragItemPosition());
+		new_owner = CUIDragDropListEx::m_drag_item->BackList();
+		VERIFY(new_owner == m_pTradePartnerBagList);
+	}
 	else
-		new_owner->SetItem				(i);
-	
+		new_owner = m_pTradePartnerBagList;
+	CUICellItem* i = old_owner->RemoveItem(itm, (old_owner == new_owner));
+	if (b_use_cursor_pos)
+		new_owner->SetItem(i, old_owner->GetDragItemPosition());
+	else
+		new_owner->SetItem(i);
+
 	return true;
 }
 
@@ -315,6 +330,16 @@ bool CUIActorMenu::CanMoveToPartner(PIItem pItem)
 	{
 		return false;
 	}
+
+	if (m_isCanMoveToPartner)
+	{
+		luabind::functor<bool> funct;
+		R_ASSERT2(ai().script_engine().functor(m_onCanMoveToPartner, funct), "failed to get OnCanMoveToPartner functor");
+		
+		if (funct(m_pPartnerInvOwner->cast_game_object()->lua_game_object(), pItem->object().lua_game_object(), r1, r2, itmWeight, partner_inv_weight, partner_max_weight) == false)
+			return false;
+	}
+
 	return true;
 }
 
@@ -367,7 +392,7 @@ void CUIActorMenu::UpdatePartnerBag()
 	}
 	else if ( m_pPartnerInvOwner->InfinitiveMoney() ) 
 	{
-		m_PartnerMoney->SetText( "--- RU" );
+		m_PartnerMoney->SetText( "∞ RU" );
 	}
 	else
 	{
@@ -418,6 +443,49 @@ void CUIActorMenu::UpdatePrices()
 	m_PartnerTradePrice->SetWndPos( pos );
 //	pos.x = pos.x - m_PartnerTradeCaption->GetWndSize().x - 5.0f;
 //	m_PartnerTradeCaption->SetWndPos( pos );
+}
+
+void CUIActorMenu::OnBtnPerformTrade(CUIWindow* w, void* d)
+{
+	if (m_pTradeActorList->ItemsCount() == 0 && m_pTradePartnerList->ItemsCount() == 0)
+	{
+		return;
+	}
+
+	int actor_money = (int)m_pActorInvOwner->get_money();
+	int partner_money = (int)m_pPartnerInvOwner->get_money();
+	int actor_price = (int)CalcItemsPrice(m_pTradeActorList, m_partner_trade, true);
+	int partner_price = (int)CalcItemsPrice(m_pTradePartnerList, m_partner_trade, false);
+
+	int delta_price = actor_price - partner_price;
+	actor_money += delta_price;
+	partner_money -= delta_price;
+
+	if ((actor_money >= 0) && (partner_money >= 0) && (actor_price >= 0 || partner_price > 0))
+	{
+		m_partner_trade->OnPerformTrade(partner_price, actor_price);
+
+		TransferItems(m_pTradeActorList, m_pTradePartnerBagList, m_partner_trade, true);
+		TransferItems(m_pTradePartnerList, m_pTradeActorBagList, m_partner_trade, false);
+	}
+	else
+	{
+		if (actor_money < 0)
+		{
+			CallMessageBoxOK("not_enough_money_actor");
+		}
+		else if (partner_money < 0)
+		{
+			CallMessageBoxOK("not_enough_money_partner");
+		}
+		else
+		{
+			CallMessageBoxOK("trade_dont_make");
+		}
+	}
+	SetCurrentItem(nullptr);
+
+	UpdateItemsPlace();
 }
 
 void CUIActorMenu::OnBtnPerformTradeBuy(CUIWindow* w, void* d)
@@ -507,6 +575,12 @@ void CUIActorMenu::OnBtnPerformTradeSell(CUIWindow* w, void* d)
 
 void CUIActorMenu::TransferItems( CUIDragDropListEx* pSellList, CUIDragDropListEx* pBuyList, CTrade* pTrade, bool bBuying )
 {
+	if (!IsGameTypeSingle())
+	{
+		TransferItemsMp(pSellList, pBuyList, pTrade, bBuying);
+		return;
+	}
+
 	while ( pSellList->ItemsCount() )
 	{
 		CUICellItem* cell_item = pSellList->RemoveItem( pSellList->GetItemIdx(0), false );
@@ -530,3 +604,111 @@ void CUIActorMenu::TransferItems( CUIDragDropListEx* pSellList, CUIDragDropListE
 	pTrade->pThis.inv_owner->set_money(    pTrade->pThis.inv_owner->get_money(),    true );
 	pTrade->pPartner.inv_owner->set_money( pTrade->pPartner.inv_owner->get_money(), true );
 }
+
+void CUIActorMenu::TransferItemsMp(CUIDragDropListEx* pSellList, CUIDragDropListEx* pBuyList, CTrade* pTrade, bool bBuying)
+{
+	if (pSellList->ItemsCount() == 0)
+		return;
+
+	CGameObject* pPlayer = smart_cast<CGameObject*>(pTrade->pPartner.inv_owner);
+	R_ASSERT(!!smart_cast<CActor*>(pPlayer));
+
+	NET_Packet P;
+	pPlayer->u_EventGen(P, GE_GAME_EVENT, pPlayer->ID());
+	P.w_u16(GAME_EVENT_MP_TRADE);
+	P.w_u8(bBuying);								// Set as buying
+	P.w_u16(pTrade->pThis.inv_owner->object_id());	// NPC ID
+	P.w_u16(pPlayer->ID());							// Actor ID
+
+	u32 totalPrice = 0;
+	if (bBuying)
+	{
+		// Sell to NPC
+		xr_vector<PIItem> items_to_destroy;
+		while (pSellList->ItemsCount())
+		{
+			CUICellItem* cell_item = pSellList->GetItemIdx(0);
+			PIItem item = (PIItem)cell_item->m_pData;
+			items_to_destroy.push_back(item);
+			totalPrice += pTrade->GetItemPrice(item, bBuying);
+			cell_item = pSellList->RemoveItem(cell_item, false);
+			delete_data(cell_item);
+			cell_item = nullptr;
+		}
+
+		// Check to max for signed value
+		R_ASSERT(totalPrice < INT32_MAX);
+
+		P.w_s32(static_cast<s32>(totalPrice));	// Total price
+		P.w_u32(items_to_destroy.size());		// Items count
+
+		for (PIItem Itm : items_to_destroy)
+		{
+			P.w_u16(Itm->object_id());		// Item ID
+			P.w_float(Itm->GetCondition());	// Item condition (for correct price calculation)
+		}
+	}
+	else
+	{
+		// Buy from NPC
+		xr_map<u16, u16> sellMap;
+		while (pSellList->ItemsCount())
+		{
+			CUICellItem* cell_item = pSellList->GetItemIdx(0);
+			PIItem item = (PIItem)cell_item->m_pData;
+			sellMap[item->object_id()] += 1;
+			totalPrice += pTrade->GetItemPrice(item, bBuying);
+			cell_item = pSellList->RemoveItem(cell_item, false);
+			delete_data(cell_item);
+			cell_item = nullptr;
+		}
+		// Check to max for signed value
+		R_ASSERT(totalPrice < INT32_MAX);
+		P.w_s32(static_cast<s32>(totalPrice)); // Total price
+		P.w_u32(sellMap.size());				// Map Size
+
+		for (auto&[ID, Count] : sellMap)
+		{
+			P.w_u16(ID);  // Item ID
+			P.w_u16(Count); // Count
+		}
+	}
+
+	pPlayer->u_EventSend(P);
+}
+
+//Alundaio: Donate current item while in trade menu
+void CUIActorMenu::DonateCurrentItem(CUICellItem* cell_item)
+{
+	if (!m_partner_trade || !m_pTradePartnerList)
+		return;
+
+	CUIDragDropListEx* invlist = GetListByType(iActorBag);
+	if (!invlist->IsOwner(cell_item))
+		return;
+
+	PIItem item = (PIItem)cell_item->m_pData;
+	if (!item)
+		return;
+
+	//Alundaio: 
+	luabind::functor<bool> funct;
+
+	R_ASSERT2(
+		ai().script_engine().functor(m_onDonateCurrentItem, funct),
+		make_string<const char*>("Failed to get functor <onDonateCurrentItem>, item = %s", item->m_section_id.c_str())
+	);
+
+	funct(m_pPartnerInvOwner->cast_game_object()->lua_game_object(), item->object().lua_game_object());
+	//-Alundaio
+
+	CUICellItem* itm = invlist->RemoveItem(cell_item, false);
+
+	m_partner_trade->TransferItem(item, true, true);
+
+	m_pTradePartnerList->SetItem(itm);
+
+	SetCurrentItem(NULL);
+	UpdateItemsPlace();
+}
+//-Alundaio

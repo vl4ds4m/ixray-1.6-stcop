@@ -10,22 +10,13 @@
 
 XRCORE_API void VerifyPath	(LPCSTR path);
 
-
-#ifdef _DEBUG
-XRCORE_API extern size_t g_file_mapped_memory;
-XRCORE_API extern size_t g_file_mapped_count;
-extern void register_file_mapping(void* address, const size_t& size, LPCSTR file_name);
-extern void unregister_file_mapping(void* address, const size_t& size);
-#endif // DEBUG
-
-
 //------------------------------------------------------------------------------------
 // Write
 //------------------------------------------------------------------------------------
 class XRCORE_API IWriter
 {
 private:
-	xr_stack<u32>		chunk_pos;
+	xr_stack<size_t>		chunk_pos;
 public:
 	shared_str			fName;
 public:
@@ -38,8 +29,8 @@ public:
 	}
 
 	// kernel
-	virtual void	seek	(u32 pos)				= 0;
-	virtual u32		tell	()						= 0;
+	virtual void	seek	(size_t pos)				= 0;
+	virtual size_t	tell	()						= 0;
 
 	virtual void	w		(const void* ptr, u32 count)	= 0;
 
@@ -99,7 +90,7 @@ public:
 class XRCORE_API CMemoryWriter : public IWriter
 {
 	u8*				data;
-	u32				position;
+	size_t			position;
 	u32				mem_size;
 	u32				file_size;
 public:
@@ -114,8 +105,8 @@ public:
 	// kernel
 	virtual void	w			(const void* ptr, u32 count);
 
-	virtual void	seek		(u32 pos)	{	position = pos;				}
-	virtual u32		tell		() 			{	return position;			}
+	virtual void		seek		(size_t pos)	{	position = pos;				}
+	virtual size_t		tell		() 			{	return position;			}
 
 	// specific
 	IC u8*			pointer		()			{	return data;				}
@@ -132,11 +123,20 @@ public:
 //------------------------------------------------------------------------------------
 // Read
 //------------------------------------------------------------------------------------
+class CFileReader;
+class CVirtualFileReader;
+class IReader;
+
 class IReaderBase
 {
 public:
 	IC				IReaderBase	() : m_last_pos (0) {}
 	virtual			~IReaderBase()			{}
+
+	virtual CFileReader* cast_file_reader() { return nullptr; }
+	virtual CVirtualFileReader* cast_virtual_file_reader() { return nullptr; }
+	virtual IReader* cast_reader() { return nullptr; }
+
 	virtual u32			elapsed()	const = 0;
 	IC BOOL			eof			()	const		{return elapsed() <= 0;	};
 
@@ -215,12 +215,10 @@ public:
 		} else return FALSE;
 	}
 
-private:
-	u32					m_last_pos;
+	u32 m_last_pos;
 };
 
-class XRCORE_API IReader : 
-	public IReaderBase
+class XRCORE_API IReader :  public IReaderBase
 {
 protected:
 	char *			data	;
@@ -243,6 +241,7 @@ public:
 		Pos			= 0				;
 		iterpos		= _iterpos		;
 	}
+	virtual IReader* cast_reader() { return this; }
 
 protected:
 	IC u32			correction					(u32 p)

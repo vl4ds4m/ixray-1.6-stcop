@@ -23,6 +23,7 @@ UITopBarForm::UITopBarForm()
     m_tReloadConfigs         = EDevice->Resources->_CreateTexture("ed\\bar\\reload_configs");
     m_tOpenGameData          = EDevice->Resources->_CreateTexture("ed\\bar\\open_gamedata");
     m_VerifySpaceRestrictors = false;
+    m_Simulate               = false;
 
 	m_PreferencesIcon = EDevice->Resources->_CreateTexture("ed\\bar\\win_preferences");
 }
@@ -42,7 +43,7 @@ UITopBarForm::~UITopBarForm() {}
 
 #define IMGUI_HINT_BUTTON_EX(Name, Ptr, Timer, Hint, Callback) \
 			Ptr->Load(); \
-			if (ImGui::ImageButton("##" Name, Ptr->pSurface, ImVec2(20, 20), ImVec2(Timer > EDevice->TimerAsync() ? 0.5 : 0, 0), ImVec2(m_timeUndo > EDevice->TimerAsync() ? 1 : 0.5, 1))) \
+			if (ImGui::ImageButton("##" Name, Ptr->pSurface, ImVec2(20, 20), ImVec2(Timer > EDevice->TimerAsync() ? 0.5 : 0, 0), ImVec2(Timer > EDevice->TimerAsync() ? 1 : 0.5, 1))) \
 			{ \
 				Callback(); \
 				Timer = EDevice->TimerAsync() + 130;\
@@ -73,6 +74,7 @@ void UITopBarForm::Draw()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2( 2,0));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(2, 2));
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(-2, 0));
+	ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(6, 6));
 	ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
 	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.f, 0.f, 0.f, 0.f));
 
@@ -80,7 +82,7 @@ void UITopBarForm::Draw()
 	{
 		ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 6);
 
-		if (ImGui::BeginTable("##ToolbarTable", 9, ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ContextMenuInBody | ImGuiTableFlags_Hideable))
+		if (ImGui::BeginTable("##ToolbarTable", 10, ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_ContextMenuInBody | ImGuiTableFlags_Hideable))
 		{
 			ImGui::TableSetupColumn("Actions");
 			ImGui::TableSetupColumn("File");
@@ -90,6 +92,7 @@ void UITopBarForm::Draw()
 			ImGui::TableSetupColumn("Engine");
 			ImGui::TableSetupColumn("Directory Actions");
 			ImGui::TableSetupColumn("Sound Preferences");
+			ImGui::TableSetupColumn("Physics");
 			ImGui::TableSetupColumn("Preferences");
 
 			if (ImGui::TableNextColumn())
@@ -172,22 +175,52 @@ void UITopBarForm::Draw()
 			if (ImGui::TableNextColumn())
 			{
 				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3);
+				ImGui::Checkbox("Hint ", &MainForm->GetRenderForm()->UseHint);
+				ImGui::SameLine();
+				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3);
 				ImGui::SetNextItemWidth(150);
 				ImGui::SliderFloat("Volume", &psSoundVEffects, 0, 1, "%.2f");
 			}
 
 			if (ImGui::TableNextColumn())
 			{
-				IMGUI_HINT_BUTTON("Preferences", m_PreferencesIcon, "Preferences", ClickPreferences);
+				ImGui::SetCursorPosY(3);
+				if (ImGui::Checkbox("Phys Simulation", &m_Simulate))
+				{
+					ExecCommand(COMMAND_SIMULATE, true);
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+					ImGui::SetTooltip("Activates the physics simulation of the selected object(s).");
+				}
+				ImGui::SameLine(0, 10);
+
+				ImGui::SetCursorPosY(3);
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.f, 0.f, 0.f, 0.15f));
+				if (ImGui::Button("Use Pos"))
+				{
+					ExecCommand(COMMAND_USE_SIMULATE_POSITIONS, true);
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+					ImGui::SetTooltip("Use the position of the selected object when physics simulation is active. The position of the object will be applied when simulating physics.");
+				}
+				ImGui::PopStyleColor();
 			}
 
-		}
+			if (ImGui::TableNextColumn())
+			{
+				IMGUI_HINT_BUTTON("Preferences", m_PreferencesIcon, "Preferences", ClickPreferences);
+			}
+        }
 		ImGui::EndTable();
 	}
 
 	ImGui::End();
 	ImGui::PopStyleColor();
-	ImGui::PopStyleVar(6);
+	ImGui::PopStyleVar(7);
 	
 }
 

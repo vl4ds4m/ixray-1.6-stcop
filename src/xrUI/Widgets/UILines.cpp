@@ -21,6 +21,7 @@ CUILines::CUILines()
 	m_eTextAlign					= CGameFont::alLeft;
 	m_eVTextAlign					= valTop;
 	m_dwTextColor					= 0xffffffff;
+	m_dwTextGradientColor			= 0xff888888;
 	m_TextOffset.set				(0.0f,0.0f);
 	m_text							="";
 	uFlags.zero();
@@ -30,6 +31,7 @@ CUILines::CUILines()
 	uFlags.set(flColoringMode,		TRUE);
 	uFlags.set(flCutWordsMode,		FALSE);
 	uFlags.set(flRecognizeNewLine,	TRUE);
+	m_eTextGradientMode				= CGameFont::gm_vert;
 
 	m_wndSize = {0, 0};
 	m_wndPos  = {0, 0};
@@ -334,12 +336,28 @@ void CUILines::SetTextColor(u32 color)
 	m_dwTextColor = color; 
 }
 
+void CUILines::SetTextGradientColor(u32 color)
+{
+	if (color == m_dwTextGradientColor)
+		return;
+	uFlags.set(flNeedReparse, true);
+	m_dwTextGradientColor = color;
+}
+
 void CUILines::SetFont(CGameFont* pFont)
 {
 	if (pFont == m_pFont)
 		return;
 	uFlags.set(flNeedReparse, true);
 	m_pFont = pFont;
+}
+
+void CUILines::SetTextGradient(bool val)
+{
+	if (!m_pFont)
+		return;
+	uFlags.set(flNeedReparse, true);
+	m_pFont->SetGradient(val);
 }
 
 LPCSTR GetElipsisText(CGameFont* pFont, float width, LPCSTR source_text, LPSTR buff, int buff_len)
@@ -389,6 +407,7 @@ void CUILines::Draw(float x, float y)
 
 	R_ASSERT(m_pFont);
 	m_pFont->SetColor(m_dwTextColor);
+	m_pFont->SetGradientColor(m_dwTextGradientColor);
 
 	if (!uFlags.is(flComplexMode))
 	{
@@ -406,10 +425,12 @@ void CUILines::Draw(float x, float y)
 				passText[i] = '*';
 			passText[sz] = 0;
 			m_pFont->SetAligment((CGameFont::EAligment)m_eTextAlign);
+			m_pFont->SetGradientMode(m_eTextGradientMode);
 			m_pFont->Out(text_pos.x, text_pos.y, "%s", passText);
 		}
 		else{
 			m_pFont->SetAligment((CGameFont::EAligment)m_eTextAlign);
+			m_pFont->SetGradientMode(m_eTextGradientMode);
 			if(uFlags.test(flEllipsis) )
 			{
 				u32 buff_len	= sizeof(char)*xr_strlen(m_text.c_str()) + 1;
@@ -435,6 +456,7 @@ void CUILines::Draw(float x, float y)
 		u32 size		= (u32)m_lines.size();
 
 		m_pFont->SetAligment((CGameFont::EAligment)m_eTextAlign);
+		m_pFont->SetGradientMode(m_eTextGradientMode);
 		for (int i=0; i<(int)size; i++)
 		{
 			pos.x			= x + GetIndentByAlign();

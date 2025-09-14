@@ -5,8 +5,8 @@ class CCustomObject;
 
 typedef u32	ObjClassID;
 
-
-enum{
+enum ESceneItemsGuids
+{
     OBJCLASS_DUMMY     	= -1,
     OBJCLASS_FIRST_CLASS= 0,
     OBJCLASS_GROUP		= 0,
@@ -26,6 +26,7 @@ enum{
     OBJCLASS_WM			= 14,
     OBJCLASS_FOG_VOL	= 15,
     OBJCLASS_PUDDLES	= 16,
+    OBJCLASS_TERRAIN	= 17,
     OBJCLASS_COUNT		,
     OBJCLASS_force_dword = u32(-1)
 };

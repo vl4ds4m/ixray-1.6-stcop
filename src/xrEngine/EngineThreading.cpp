@@ -10,7 +10,7 @@
 void XRay::Engine::PreRenderThread()
 {
 	Platform::SetThreadName("X-Ray Pre-Render");
-	PROF_THREAD("Secondary Task 1");
+	PROF_THREAD("X-Ray Pre-Render");
 	{
 		PROF_EVENT("Discord Sync");
 		g_Discord.Update();
@@ -20,6 +20,11 @@ void XRay::Engine::PreRenderThread()
 		PROF_EVENT("seqParallelRender");
 		for (auto& it : Device.seqParallelRender)
 			it();
+	}
+
+	if (g_pGamePersistent && g_pGamePersistent->pEnvironment && g_pGamePersistent->pEnvironment->eff_Rain)
+	{
+		g_pGamePersistent->pEnvironment->eff_Rain->UpdateItems();
 	}
 
 	if (Device.ParticleWorkerCallback)
@@ -35,7 +40,7 @@ void XRay::Engine::GameThread()
 {
 	Platform::SetThreadName("X-Ray Game Thread");
 
-	PROF_THREAD("Secondary Task 2")
+	PROF_THREAD("X-Ray Game Thread")
 		// we has granted permission to execute
 	{
 		PROF_EVENT("g_hud OnFrameMT")

@@ -10,6 +10,7 @@
 #include "../UICursor.h"
 #include <luabind/luabind.hpp>
 #include <luabind/adopt_policy.hpp>
+#include "UIHint.h"
 
 CFontManager& mngr()
 {
@@ -84,6 +85,7 @@ CGameFont* ui_font_letter_25()
 	return UI().Font().GetFont(FontName);
 }
 
+int SetARGB(u32 rgba, u32 a) { return subst_alpha(rgba, a); }
 
 int GetARGB(u16 a, u16 r, u16 g, u16 b)
 {return color_argb(a,r,g,b);}
@@ -123,6 +125,7 @@ void CUIWindow::script_register(lua_State *L)
 		def("GetCursorPosition",			&GetCursorPosition_script),
 		def("SetCursorPosition",			&SetCursorPosition_script),
 		def("FitInRect",					&fit_in_rect),
+		def("SetARGB", &SetARGB),
 
 		class_<CUIWindow>("CUIWindow")
 		.def(							constructor<>())
@@ -146,6 +149,8 @@ void CUIWindow::script_register(lua_State *L)
 		.def("IsEnabled",				&CUIWindow::IsEnabled)
 		.def("Show",					&CUIWindow::Show)
 		.def("IsShown",					&CUIWindow::IsShown)
+		.def("SetFont",					&CUIWindow::SetFont)
+		.def("GetFont",					&CUIWindow::GetFont)
 
 		.def("WindowName",				&CUIWindow::WindowName_script)
 		.def("SetWindowName",			&CUIWindow::SetWindowName)
@@ -156,10 +161,15 @@ void CUIWindow::script_register(lua_State *L)
 	module(L)
 	[
 		class_<CDialogHolder>("CDialogHolder")
+		.def(constructor<>())
+		.def("start_stop_menu",			&CDialogHolder::StartStopMenu)
+		.def("TopInputReceiver", 		&CDialogHolder::TopInputReceiver)
+		.def("SetMainInputReceiver",	&CDialogHolder::SetMainInputReceiver)
 		.def("AddDialogToRender",		&CDialogHolder::AddDialogToRender)
 		.def("RemoveDialogToRender",	&CDialogHolder::RemoveDialogToRender),
 
 		class_<CUIDialogWnd, CUIWindow>("CUIDialogWnd")
+		.def(constructor<>())
 		.def("ShowDialog",				&CUIDialogWnd::ShowDialog)
 		.def("HideDialog",				&CUIDialogWnd::HideDialog)
 		.def("GetHolder",				&CUIDialogWnd::GetHolder),
@@ -176,6 +186,13 @@ void CUIWindow::script_register(lua_State *L)
 		.def("SetHeight",				&CUIFrameLineWnd::SetHeight)
 		.def("SetColor",				&CUIFrameLineWnd::SetTextureColor),
 
+		class_<UIHint, CUIWindow>("UIHint")
+		.def(							constructor<>())
+		.def("SetWidth",				&UIHint::SetWidth)
+		.def("SetHeight",				&UIHint::SetHeight)
+		.def("SetHintText",				&UIHint::set_text)
+		.def("GetHintText",				&UIHint::get_text),
+		
 		class_<CUIScrollView, CUIWindow>("CUIScrollView")
 		.def(							constructor<>())
 		.def("AddWindow",				&CUIScrollView::AddWindow)
@@ -186,6 +203,7 @@ void CUIWindow::script_register(lua_State *L)
 		.def("GetMinScrollPos",			&CUIScrollView::GetMinScrollPos)
 		.def("GetMaxScrollPos",			&CUIScrollView::GetMaxScrollPos)
 		.def("GetCurrentScrollPos",		&CUIScrollView::GetCurrentScrollPos)
+		.def("SetFixedScrollBar", 		&CUIScrollView::SetFixedScrollBar)																
 		.def("SetScrollPos",			&CUIScrollView::SetScrollPos),
 
 		class_<enum_exporter<EUIMessages> >("ui_events")
@@ -227,7 +245,8 @@ void CUIWindow::script_register(lua_State *L)
 	// CUIListWnd
 				value("LIST_ITEM_CLICKED",				int(LIST_ITEM_CLICKED)),
 				value("LIST_ITEM_SELECT",				int(LIST_ITEM_SELECT)),
-	
+				value("LIST_ITEM_UNSELECT",				int(LIST_ITEM_UNSELECT)),
+
 	// UIPropertiesBox
 				value("PROPERTY_CLICKED",				int(PROPERTY_CLICKED)),
 
@@ -242,7 +261,9 @@ void CUIWindow::script_register(lua_State *L)
 
 				value("EDIT_TEXT_COMMIT",				int(EDIT_TEXT_COMMIT)),
 	// CMainMenu
-				value("MAIN_MENU_RELOADED",				int(MAIN_MENU_RELOADED))
+				value("MAIN_MENU_RELOADED",				int(MAIN_MENU_RELOADED)),
+	// CUITrackBar
+				value("TRACK_VALUE_CHANGED",			int(TRACK_VALUE_CHANGED))
 			]
 	];
 }

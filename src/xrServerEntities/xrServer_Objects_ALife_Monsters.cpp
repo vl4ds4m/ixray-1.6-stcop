@@ -12,6 +12,7 @@
 #include "object_broker.h"
 #include "alife_human_brain.h"
 
+#include "../xrEngine/string_table.h"
 
 
 #ifndef AI_COMPILER
@@ -37,6 +38,8 @@
 #	include "custommonster.h"
 #	include "movement_manager.h"
 #	include "location_manager.h"
+#	include "../xrGame/Level.h"
+#include "../xrGame/InventoryOwner.h"
 #endif
 
 void setup_location_types_section(GameGraph::TERRAIN_VECTOR &m_vertex_types, CInifile const * ini, LPCSTR section)
@@ -116,6 +119,33 @@ void setup_location_types(GameGraph::TERRAIN_VECTOR &m_vertex_types, CInifile co
 
 using namespace ALife;
 
+xr_string TranslateName(LPCSTR nameStr)
+{
+	xr_string ret;
+
+	// Savegame (before this tweak) + custom npc compatibility
+	if (!strstr(nameStr, ":lname_"))
+	{
+		ret = g_pStringTable->translate(nameStr).c_str();
+		return ret;
+	}
+
+	// Split name string and translate it
+	R_ASSERT2(_GetItemCount(nameStr, ':') == 2, nameStr);
+
+	string512 name;
+	_GetItem(nameStr, 0, name, ':');
+
+	string512 lname;
+	_GetItem(nameStr, 1, lname, ':');
+
+	ret = g_pStringTable->translate(name).c_str();
+	ret += " ";
+	ret += g_pStringTable->translate(lname).c_str();
+
+	return ret;
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // CSE_ALifeTraderAbstract
 ////////////////////////////////////////////////////////////////////////////
@@ -180,7 +210,7 @@ void CSE_ALifeTraderAbstract::STATE_Write	(NET_Packet &tNetPacket)
 	tNetPacket.w_s32			(NO_RANK);
 	tNetPacket.w_s32			(NO_REPUTATION);
 #endif
-	save_data					(m_character_name, tNetPacket);
+	save_data					(m_character_name_raw, tNetPacket);
 	
 	tNetPacket.w_u8				( (m_deadbody_can_take)? 1 : 0 );
 	tNetPacket.w_u8				( (m_deadbody_closed)? 1 : 0 );
@@ -242,8 +272,10 @@ void CSE_ALifeTraderAbstract::STATE_Read	(NET_Packet &tNetPacket, u16 size)
 			tNetPacket.r_s32	(m_reputation);
 		}
 
-		if (m_wVersion > 104) {
-			load_data			(m_character_name, tNetPacket);
+		if (m_wVersion > 104) 
+		{
+			load_data(m_character_name_raw, tNetPacket);
+			m_character_name = TranslateName(m_character_name_raw.c_str());
 		}
 	}
 
@@ -428,36 +460,35 @@ void CSE_ALifeTraderAbstract::set_specific_character	(shared_str new_spec_char)
 	}
 
 	m_icon_name = selected_char.IconName();
-
-	m_character_name = *(g_pStringTable->translate(selected_char.Name()));
+	m_character_name_raw = selected_char.Name();
 	
 	LPCSTR gen_name = "GENERATE_NAME_";
-	if( strstr(m_character_name.c_str(),gen_name) ){
-		//select name and lastname
-		xr_string subset			= m_character_name.c_str()+xr_strlen(gen_name);
+	if (strstr(m_character_name_raw.c_str(), gen_name))
+	{
+		// select name and lastname
+		xr_string subset = m_character_name_raw.c_str() + xr_strlen(gen_name);
 
-		string_path					t1;
-		xr_strconcat(t1,"stalker_names_",subset.c_str());
-		u32 name_cnt				= pSettings->r_u32(t1, "name_cnt");
-		u32 last_name_cnt			= pSettings->r_u32(t1, "last_name_cnt");
-		
-		string512			S;
-		xr_string n			= "name_";
-		n					+= subset;
-		n					+= "_";
-		n					+= _itoa(::Random.randI(name_cnt),S,10);
-		m_character_name	= *(g_pStringTable->translate(n.c_str()));
-		m_character_name	+= " ";
+		string_path t1;
+		xr_strconcat(t1, "stalker_names_", subset.c_str());
+		u32 name_cnt = pSettings->r_u32(t1, "name_cnt");
+		u32 last_name_cnt = pSettings->r_u32(t1, "last_name_cnt");
 
-		n					= "lname_";
-		n					+= subset;
-		n					+= "_";
-		n					+= _itoa(::Random.randI(last_name_cnt),S,10);
-		m_character_name	+= *(g_pStringTable->translate(n.c_str()));
+		string512 S;
+		xr_string n = "name_";
+		n += subset;
+		n += "_";
+		n += itoa(::Random.randI(name_cnt), S, 10);
+		m_character_name_raw = n.c_str();
+		m_character_name_raw += ":";
 
-
-	
+		n = "lname_";
+		n += subset;
+		n += "_";
+		n += itoa(::Random.randI(last_name_cnt), S, 10);
+		m_character_name_raw += n.c_str();
 	}
+	m_character_name = TranslateName(m_character_name_raw.c_str());
+
 	u32 min_m = selected_char.MoneyDef().min_money;
 	u32 max_m = selected_char.MoneyDef().max_money;
 	if(min_m!=0 && max_m!=0){
@@ -990,7 +1021,7 @@ u32	 CSE_ALifeCreatureAbstract::ef_detector_type() const
 #ifdef XRGAME_EXPORTS
 void CSE_ALifeCreatureAbstract::on_death(CSE_Abstract* killer)
 {
-	VERIFY(!m_game_death_time);
+	//VERIFY(!m_game_death_time);
 
 	if (GameID() == eGameIDSingle)
 		m_game_death_time = ai().get_alife() ? alife().time_manager().game_time() : Level().GetGameTime();
@@ -1440,7 +1471,21 @@ void CSE_ALifeCreatureActor::load(NET_Packet &tNetPacket)
 
 BOOL CSE_ALifeCreatureActor::Net_Relevant()
 {
-	return TRUE; // this is a big question ;)
+#ifdef XRGAME_EXPORTS
+	return IsGameTypeSingle(); // this is a big question ;)
+#else
+	return true;
+#endif
+}
+
+void CSE_ALifeCreatureActor::SyncRead(NET_Packet& Packet)
+{
+	IsWaunded = Packet.r_u8();
+}
+
+void CSE_ALifeCreatureActor::SyncWrite(NET_Packet& Packet)
+{
+	Packet.w_u8(IsWaunded);
 }
 
 void CSE_ALifeCreatureActor::UPDATE_Read	(NET_Packet	&tNetPacket)
@@ -1452,6 +1497,7 @@ void CSE_ALifeCreatureActor::UPDATE_Read	(NET_Packet	&tNetPacket)
 	tNetPacket.r_sdir			(velocity	);
 	tNetPacket.r_float			(fRadiation	);
 	tNetPacket.r_u8				(weapon		);
+
 	////////////////////////////////////////////////////
 	tNetPacket.r_u16			(m_u16NumItems);
 
@@ -1495,7 +1541,8 @@ void CSE_ALifeCreatureActor::UPDATE_Write	(NET_Packet	&tNetPacket)
 	tNetPacket.w_u8				(weapon		);
 	////////////////////////////////////////////////////
 	tNetPacket.w_u16			(m_u16NumItems);
-	if (!m_u16NumItems) return;	
+	if (!m_u16NumItems)
+		return;	
 
 	if (m_u16NumItems == 1)
 	{
@@ -1936,42 +1983,92 @@ void CSE_ALifeMonsterBase::STATE_Write	(NET_Packet	&tNetPacket)
 	tNetPacket.w_u16			(m_spec_object_id);	
 }
 
+void CSE_ALifeMonsterBase::SyncWrite(NET_Packet& Packet)
+{
+	Packet.w_angle8(o_torso.pitch);
+	Packet.w_angle8(o_torso.yaw);
+
+	Packet << phSyncFlag;
+
+	if (phSyncFlag) 
+	{
+#ifdef XRGAME_EXPORTS
+		physics_state->write(Packet);
+#endif
+	}
+	else 
+	{
+		Packet << o_Position;
+	}
+
+	// Sound Sync
+	Packet << m_snd_sync_flag;
+
+	if (m_snd_sync_flag != eMonsterSound::monster_sound_no) 
+	{
+		Packet << m_snd_sync_sound;
+
+		if (m_snd_sync_flag == eMonsterSound::monster_sound_play_with_delay)
+		{
+			Packet << m_snd_sync_sound_delay;
+		}
+	}
+
+	Packet << u_motion_idx;
+	Packet << u_motion_slot;
+
+	float whealth = f_health;
+	clamp(whealth, 0.f, 1.f);
+
+	Packet.w_float_q8(whealth, 0, 1);
+}
+
+void CSE_ALifeMonsterBase::SyncRead(NET_Packet& Packet)
+{
+	Packet.r_angle8(o_torso.pitch);
+	Packet.r_angle8(o_torso.yaw);
+
+	Packet >> phSyncFlag;
+
+	if (phSyncFlag)
+	{
+#ifdef XRGAME_EXPORTS
+		physics_state->read(Packet);
+		o_Position.set(physics_state->physics_position);
+#endif
+	}
+	else
+	{
+		Packet >> o_Position;
+	}
+
+	// Sound Sync
+	Packet >> m_snd_sync_flag;
+
+	if (m_snd_sync_flag != eMonsterSound::monster_sound_no)
+	{
+		Packet >> m_snd_sync_sound;
+
+		if (m_snd_sync_flag == eMonsterSound::monster_sound_play_with_delay)
+		{
+			Packet >> m_snd_sync_sound_delay;
+		}
+	}
+
+	// Sound Sync
+	Packet >> u_motion_idx;
+	Packet >> u_motion_slot;
+
+	float health = 0;
+	Packet.r_float_q8(health, 0, 1);
+	set_health(health);
+}
+
 void CSE_ALifeMonsterBase::UPDATE_Read	(NET_Packet	&tNetPacket)
 {
 #ifdef XRGAME_EXPORTS
-	if(g_pGamePersistent->GameType() != eGameIDSingle) {
-		tNetPacket.r_angle8(o_torso.pitch);
-		tNetPacket.r_angle8(o_torso.yaw);
-
-		tNetPacket >> phSyncFlag;
-
-		if(phSyncFlag) 
-		{
-			physics_state->read(tNetPacket);
-			o_Position.set(physics_state->physics_position);
-		}
-		else
-		{
-			tNetPacket >> o_Position;
-		}
-
-		// Sound Sync
-		tNetPacket >> m_snd_sync_flag;
-
-		if(m_snd_sync_flag != eMonsterSound::monster_sound_no) {
-			tNetPacket >> m_snd_sync_sound;
-
-			if(m_snd_sync_flag == eMonsterSound::monster_sound_play_with_delay) {
-				tNetPacket >> m_snd_sync_sound_delay;
-			}
-		}
-		// Sound Sync
-
-		tNetPacket >> u_motion_idx;
-		tNetPacket >> u_motion_slot;
-
-		tNetPacket >> f_health;
-		set_health(f_health);
+	if(g_pGamePersistent->GameType() != eGameIDSingle)
+	{
 		return;
 	}
 #endif
@@ -1985,34 +2082,6 @@ void CSE_ALifeMonsterBase::UPDATE_Write(NET_Packet& tNetPacket)
 #ifdef XRGAME_EXPORTS
 	if(g_pGamePersistent->GameType() != eGameIDSingle) 
 	{
-		tNetPacket.w_angle8(o_torso.pitch);
-		tNetPacket.w_angle8(o_torso.yaw);
-
-		tNetPacket << phSyncFlag;
-
-		if(phSyncFlag) {
-			physics_state->write(tNetPacket);
-		}
-		else {
-			tNetPacket << o_Position;
-		}
-
-		// Sound Sync
-		tNetPacket << m_snd_sync_flag;
-
-		if(m_snd_sync_flag != eMonsterSound::monster_sound_no) {
-			tNetPacket << m_snd_sync_sound;
-
-			if(m_snd_sync_flag == eMonsterSound::monster_sound_play_with_delay) {
-				tNetPacket << m_snd_sync_sound_delay;
-			}
-		}
-		// Sound Sync
-
-		tNetPacket << u_motion_idx;
-		tNetPacket << u_motion_slot;
-
-		tNetPacket << get_health();
 		return;
 	}
 #endif
@@ -2024,7 +2093,8 @@ void CSE_ALifeMonsterBase::UPDATE_Write(NET_Packet& tNetPacket)
 BOOL CSE_ALifeMonsterBase::Net_Relevant() 
 {
 #ifdef XRGAME_EXPORTS
-	if(g_pGamePersistent->GameType() != eGameIDSingle) {
+	if(g_pGamePersistent->GameType() != eGameIDSingle)
+	{
 		return g_Alive();
 	}
 #endif
@@ -2191,18 +2261,53 @@ void CSE_ALifeHumanStalker::STATE_Read		(NET_Packet &tNetPacket, u16 size)
 		tNetPacket.r_u8			();
 }
 
-void CSE_ALifeHumanStalker::UPDATE_Write	(NET_Packet &tNetPacket)
+void CSE_ALifeHumanStalker::UPDATE_Write(NET_Packet& tNetPacket)
 {
-	inherited1::UPDATE_Write	(tNetPacket);
-	inherited2::UPDATE_Write	(tNetPacket);
-	tNetPacket.w_stringZ		(m_start_dialog);
+#ifdef XRGAME_EXPORTS
+	if (g_pGamePersistent->GameType() != eGameIDSingle)
+	{
+		return;
+	}
+#endif
+
+	inherited1::UPDATE_Write(tNetPacket);
+	inherited2::UPDATE_Write(tNetPacket);
+	tNetPacket.w_stringZ(m_start_dialog);
 }
 
-void CSE_ALifeHumanStalker::UPDATE_Read		(NET_Packet &tNetPacket)
+void CSE_ALifeHumanStalker::UPDATE_Read(NET_Packet& tNetPacket)
 {
-	inherited1::UPDATE_Read		(tNetPacket);
-	inherited2::UPDATE_Read		(tNetPacket);
-	tNetPacket.r_stringZ		(m_start_dialog);
+#ifdef XRGAME_EXPORTS
+	if (g_pGamePersistent->GameType() != eGameIDSingle)
+	{
+		return;
+	}
+#endif
+
+	inherited1::UPDATE_Read(tNetPacket);
+	inherited2::UPDATE_Read(tNetPacket);
+	tNetPacket.r_stringZ(m_start_dialog);
+}
+
+void CSE_ALifeHumanStalker::SyncRead(NET_Packet& Packet)
+{
+#ifdef XRGAME_EXPORTS
+	m_state_mngr.CSE_StateRead(Packet);
+	m_state_mngr.GetStateCSE(this);
+#endif
+}
+
+void CSE_ALifeHumanStalker::SyncWrite(NET_Packet& Packet)
+{
+#ifdef XRGAME_EXPORTS
+	m_state_mngr.FillStateCSE(this);
+	m_state_mngr.CSE_StateWrite(Packet);
+#endif
+}
+
+BOOL CSE_ALifeHumanStalker::Net_Relevant()
+{
+	return g_Alive();
 }
 
 void CSE_ALifeHumanStalker::load			(NET_Packet &tNetPacket)

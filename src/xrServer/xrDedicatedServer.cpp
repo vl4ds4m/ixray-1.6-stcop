@@ -34,6 +34,7 @@ int APIENTRY WinMain
 
 	EngineLoadStage1(lpCmdLine);
 
+	SDL_ShowCursor();
 	EngineLoadStage2();
 
 	Console = new CTextConsole();
@@ -41,7 +42,7 @@ int APIENTRY WinMain
 
 	Engine.External.CreateRendererList();
 
-	Console->Execute("renderer renderer_r1");
+	Console->Execute("renderer renderer_ds0");
 	
 	Engine.External.Initialize();
 	//Console->Execute("stat_memory");

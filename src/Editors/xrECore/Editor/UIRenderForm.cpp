@@ -86,8 +86,14 @@ void UIRenderForm::DrawStatistics()
 		print(" DT_Render", "%2.2fms", s->RenderDUMP_DT_Render.result);
 		print(" DT_Cache", "%2.2fms", s->RenderDUMP_DT_Cache.result);
 	}
+    if (psDeviceFlags.test(rsEnvironment))
+    {
+        ImGui::NewLine();
+        // color(0xFFC8DCAF);
+        print("GAME TIME", "%02d:%02d:%02d", s->hours, s->minutes, s->seconds);
+    }
 
-	ImGui::NewLine();
+    ImGui::NewLine();
 	print("Camera Pos", "%2.2f, %2.2f, %2.2f", UI->CurrentView().m_Camera.GetPosition().x, UI->CurrentView().m_Camera.GetPosition().y, UI->CurrentView().m_Camera.GetPosition().z);
 
 	ImGui::EndTable();
@@ -125,6 +131,7 @@ void UIRenderForm::Draw()
 	m_render_pos.bottom = ImGui::GetWindowSize().y;
 	m_render_pos.top = ImGui::GetWindowPos().y;
 
+	bool cursor_in_zone = true;
 	if (UI && UI->Views[ViewportID].RTFreez->pSurface)
 	{
 		int ShiftState = ssNone;
@@ -144,7 +151,6 @@ void UIRenderForm::Draw()
 		ImVec2 canvas_pos = ImGui::GetCursorScreenPos();
 		ImVec2 canvas_size = ImGui::GetContentRegionAvail();
 		ImVec2 mouse_pos = ImGui::GetIO().MousePos;
-		bool cursor_in_zone = true;
 		if (mouse_pos.x < canvas_pos.x)
 		{
 			cursor_in_zone = false;
@@ -280,7 +286,12 @@ void UIRenderForm::Draw()
 				ImGui::ProgressBar(UI->ProgressStatus / 100.f, {280, 25});
 			}
 			ImGui::EndChild();
-		} 
+		}
+
+		if (cursor_in_zone && UseHint)
+		{
+			UI->ShowHint();
+		}
 	}
 
 	ImGui::End();
@@ -312,6 +323,10 @@ void UIRenderForm::HandleDragDrop(const ImVec2& canvas_pos)
 	else if (Data.FileName.ends_with(".group"))
 	{
 		DragFunctor(Data.FileName, 0);
+	}
+	else if (Data.FileName.ends_with(".r16"))
+	{
+		DragFunctor(Data.FileName, 17);
 	}
 	else {
 		DragFunctor(Data.FileName, 6);

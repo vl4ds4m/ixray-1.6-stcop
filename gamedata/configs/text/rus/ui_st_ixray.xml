@@ -37,6 +37,9 @@
     <string id="smaa">
         <text>SMAA</text>
     </string>
+    <string id="taa">
+        <text>TAA</text>
+    </string>
     <string id="ui_mm_r_scale_mode">
         <text>Масштабирование</text>
     </string>
@@ -91,6 +94,9 @@
     </string>
     <string id="ui_mm_dof_reload">
         <text>DoF при перезарядке</text>
+    </string>
+    <string id="ui_mm_dof_talk">
+        <text>DoF при диалоге</text>
     </string>
     <string id="ui_rs_fps_show">
         <text>Счетчик фпс</text>
@@ -344,4 +350,40 @@
     <string id="ui_mm_grass_distance">
         <text>Дальность видимости травы</text>
     </string>
+    <string id="ui_mm_screenshot_format">
+        <text>Формат скриншотов</text>
+    </string>
+    <string id="ss_jpg">
+        <text>.jpg</text>
+    </string>
+    <string id="ss_tga">
+        <text>.tga</text>
+    </string>
+    <string id="ss_png">
+        <text>.png</text>
+    </string>
+	<string id="st_client_connecting_to">
+		<text>Клиент: Соединение с</text>
+	</string>
+	<string id="st_client_spawning">
+		<text>Клиент: Создание</text>
+	</string>
+	<string id="st_client_synchronising">
+		<text>Клиент: Синхронизация</text>
+	</string>
+	<string id="st_creating_new_game">
+		<text>Создание новой игры</text>
+	</string>
+	<string id="ui_mm_lang">
+		<text>Язык</text>
+	</string>
+    <string id="rus">
+		<text>Русский</text>
+	</string>
+	<string id="eng">
+		<text>English</text>
+	</string>
+	<string id="ui_inv_max_weight">
+		<text>макс.</text>
+	</string>
 </string_table>

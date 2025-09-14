@@ -22,15 +22,33 @@
 #include "inventory_upgrade.h"
 
 #include "UIInventoryUpgradeWnd.h"
+#include "Level.h"
+#include "UIActorMenu.h"
+#include "UIInvUpgradeInfo.h"
 
-UIUpgrade::UIUpgrade( CUIInventoryUpgradeWnd* parent_wnd )
-:m_point(nullptr)
+UIUpgrade::UIUpgrade( CUIInventoryUpgradeWnd* parent_wnd, bool cellBorder) :
+	m_point(nullptr)
 {
 	VERIFY( parent_wnd );
 	m_parent_wnd = parent_wnd;
 
 	m_item   = new CUIStatic();	m_item->SetAutoDelete(   true );	AttachChild( m_item   );
 	m_color  = new CUIStatic();	m_color->SetAutoDelete(  true );	AttachChild( m_color  );
+
+	if (cellBorder)
+	{
+		m_border = new CUIStatic();
+		m_border->SetAutoDelete(true);
+		AttachChild(m_border);
+		m_ink = new CUIStatic();
+		m_ink->SetAutoDelete(true);
+		AttachChild(m_ink);
+	}
+	else
+	{
+		m_border = nullptr;
+		m_ink = nullptr;
+	}
 
 	m_upgrade_id = nullptr;
 	Reset();
@@ -52,7 +70,7 @@ void UIUpgrade::init_upgrade( LPCSTR upgrade_id, CInventoryItem& item )
 
 UIUpgrade::Upgrade_type* UIUpgrade::get_upgrade()
 {
-	Upgrade_type* res = ai().alife().inventory_upgrade_manager().get_upgrade( m_upgrade_id );
+	Upgrade_type* res = Level().m_upgrade_manager->get_upgrade( m_upgrade_id );
 	VERIFY( res );
 	return res;
 }
@@ -66,12 +84,14 @@ void UIUpgrade::Reset()
 	m_button_state = BUTTON_FREE;
 	m_state_lock   = false;
 
+	if (m_ink)
+		m_ink->Show(false);
 	m_color->Show( false );
 		
 	inherited::Reset();
 }
 // -----------------------------------------------------------------------------------
-void UIUpgrade::load_from_xml( CUIXml& ui_xml, int i_column, int i_cell, Frect const& t_cell_item )
+void UIUpgrade::load_from_xml(CUIXml& ui_xml, int i_column, int i_cell, Frect const* t_cell_border, Frect const& t_cell_item)
 {
 	m_scheme_index.x = i_column;
 	m_scheme_index.y = i_cell; // row
@@ -79,20 +99,52 @@ void UIUpgrade::load_from_xml( CUIXml& ui_xml, int i_column, int i_cell, Frect c
 	CUIXmlInit::InitWindow( ui_xml, "cell", i_cell, this );
 
 	Fvector2 f2, color;
-	
+	Frect border;
+	if (t_cell_border)
+		border = *t_cell_border;
+
 	f2.set( t_cell_item.x1, t_cell_item.y1 );
 	m_item->SetWndPos( f2 );
-	color.set(f2.x+(UI().is_widescreen()?2.0f:3.0f), f2.y+3.0f);
-	m_color->SetWndPos(color);
+	if (!t_cell_border)
+	{
+		color.set(f2.x + (UI().is_widescreen() ? 2.0f : 3.0f), f2.y + 3.0f);
+		m_color->SetWndPos(color);
+	}
+	else
+	{
+		m_color->SetWndPos(f2);
+	}
 
 	f2.set( t_cell_item.width(), t_cell_item.height() );
 	m_item->SetWndSize( f2 );
-	color.set(UI().is_widescreen()?4.0f:5.0f, 38.0f);
-	m_color->SetWndSize( Fvector2().set(5.0f, 38.0f) );
+	if (!t_cell_border)
+	{
+		color.set(/*UI().is_widescreen() ? 4.0f :*/ 5.0f, 38.0f);
+		m_color->SetWndSize(color);
+	}
+	else
+	{
+		m_color->SetWndSize(f2);
+	}
 	SetWndSize( f2 );
+
+	if (t_cell_border)
+	{
+		f2.set(border.x1, border.y1);
+		m_border->SetWndPos(f2);
+		m_ink->SetWndPos(f2);
+		f2.set(border.width(), border.height());
+		m_border->SetWndSize(f2);
+		m_ink->SetWndSize(f2);
+	}
 
 	m_item->SetStretchTexture(true);
 	m_color->SetStretchTexture(true);
+	if (t_cell_border)
+	{
+		m_border->SetStretchTexture(true);
+		m_ink->SetStretchTexture(true);
+	}
 }
 
 void UIUpgrade::set_texture( Layer layer, LPCSTR texture )
@@ -100,7 +152,18 @@ void UIUpgrade::set_texture( Layer layer, LPCSTR texture )
 	switch( layer )
 	{
 	case LAYER_ITEM:   VERIFY( texture ); m_item->InitTexture( texture ); break;
-	case LAYER_POINT:   VERIFY( texture ); m_point->InitTexture( texture ); break;
+	case LAYER_BORDER:
+		if (m_border)
+			m_border->InitTexture(texture);
+		break;
+	case LAYER_INK:
+		if (m_ink)
+			m_ink->InitTexture(texture);
+		break;
+	case LAYER_POINT:   
+		if (m_point)
+			m_point->InitTexture( texture );
+		break;
 	case LAYER_COLOR:
 		{
 			if ( texture )
@@ -135,13 +198,39 @@ void UIUpgrade::Update()
 	{
 		update_mask();
 	}
+	if (m_ink)
+		m_ink->Show(get_upgrade()->get_highlight());
+	if (m_point)
+		m_point->Show(get_upgrade()->get_highlight());
+}
 
-	m_point->Show(get_upgrade()->get_highlight());
+bool UIUpgrade::OverrideFreeButtonState(const UIUpgrade::Upgrade_type* my_upgrade, const UIUpgrade::Upgrade_type* active_upgrade, ViewState& new_state)
+{
+	if (active_upgrade == nullptr || my_upgrade == nullptr)
+		return false;
+
+	// Эта функция вызывается для обновлений, на которые курсор не наведен.
+	// Чтобы переопределить состояние, запишите новое состояние в new_state и верните true.
+
+	bool result = false;
+
+	// Получаем группы для текущего апгрейда и активного апгрейда
+	const char* active_group = active_upgrade->parent_group()->id_str();
+	const char* my_group = my_upgrade->parent_group()->id_str();
+
+	// Проверяем, что оба апгрейда принадлежат одной группе и они не одинаковы
+	if (active_group != nullptr && my_group != nullptr && my_upgrade != active_upgrade && active_group == my_group)
+	{
+		result = true;
+		new_state = STATE_DISABLED_GROUP;  // Устанавливаем новое состояние для кнопки
+	}
+
+	return result;
 }
 
 void UIUpgrade::update_upgrade_state()
 {
-	if ( m_bCursorOverWindow || m_point->CursorOverWindow())
+    if (m_bCursorOverWindow || m_point && m_point->CursorOverWindow())
 	{
 		on_over_window();
 	}
@@ -158,17 +247,32 @@ void UIUpgrade::update_upgrade_state()
 	switch ( m_button_state )
 	{
 	case BUTTON_FREE:
-		if(m_state==STATE_ENABLED || m_state==STATE_FOCUSED)
-			m_state = STATE_ENABLED;
-		else
-			m_state = STATE_DISABLED_FOCUSED;
+	{
+		bool locked = false;
+		CUIActorMenu* pActorMenu = dynamic_cast<CUIActorMenu*>(m_parent_wnd->GetParent());
+		if (pActorMenu != nullptr && pActorMenu->GetUpgradeInfo() != nullptr)
+		{
+			ViewState temp_state;
+			if (OverrideFreeButtonState(get_upgrade(), pActorMenu->GetUpgradeInfo()->get_upgrade(), temp_state))
+			{
+				m_state = temp_state;
+				locked = true;
+			}
+		}
 
-		break;
+		if (!locked)
+		{
+			if (m_state == STATE_ENABLED || m_state == STATE_FOCUSED)
+				m_state = STATE_ENABLED;
+			else
+				m_state = STATE_DISABLED_FOCUSED;
+		}
+	}break;
 	case BUTTON_FOCUSED:
 		if(m_state==STATE_ENABLED || m_state==STATE_FOCUSED)
 			m_state = STATE_FOCUSED;
 		else
-			m_state = STATE_DISABLED_FOCUSED;
+			m_state = STATE_DISABLED_GROUP;
 		break;
 	case BUTTON_PRESSED:
 	case BUTTON_DPRESSED:
@@ -195,7 +299,7 @@ bool UIUpgrade::OnMouseAction( float x, float y, EUIMessages mouse_action )
 	if( inherited::OnMouseAction( x, y, mouse_action ) )
 		return true;
 
-	if ( m_bCursorOverWindow || m_point->CursorOverWindow())
+	if ( m_bCursorOverWindow || m_point && m_point->CursorOverWindow())
 	{
 		highlight_relation( true );
 		if ( mouse_action == WINDOW_LBUTTON_DOWN )

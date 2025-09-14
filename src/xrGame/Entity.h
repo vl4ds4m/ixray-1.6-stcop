@@ -21,7 +21,6 @@ class CEntity :
 	friend class CEntityCondition;
 private:
 	typedef	CPhysicsShellHolder		inherited;			
-	CEntityConditionSimple*			m_entity_condition;
 
 protected:
 	//время через которое мертвое тело убирется с уровня
@@ -30,6 +29,8 @@ protected:
 	virtual	CEntityConditionSimple	*create_entity_condition	(CEntityConditionSimple* ec);
 
 public:
+	CEntityConditionSimple* m_entity_condition = nullptr;
+
 	IC float					GetfHealth			() const			{ return m_entity_condition->GetHealth(); }
 	IC float					SetfHealth			(float value)		{ m_entity_condition->SetHealth( value ) ; return value;}
 	float						m_fMorale;
@@ -98,7 +99,7 @@ public:
 
 	virtual void			Die					(CObject* who);
 //			void			KillEntity			(CObject* who);
-			void			KillEntity			(u16 whoID);
+			void			KillEntity			(u16 whoID, bool bypass_actor_check = false);
 		
 	// Events
 	virtual void			OnEvent				( NET_Packet& P, u16 type		);
@@ -126,4 +127,7 @@ public:
 
 private:
 	bool					m_registered_member;
+	bool					m_isSkipKillActor = false;
+	const char*				m_onSkipKillActor = {};
+
 };

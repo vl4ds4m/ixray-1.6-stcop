@@ -10,48 +10,45 @@ static const char* h_str =
 "-? or -h	== this help\n"
 "-f<NAME>	== compile level in gamedata\\levels\\<NAME>\\\n"
 "-o			== modify build options\n"
+"-use_intel == включить Embree"
 "\n"
 "NOTE: The last key is required for any functionality\n";
 
 void Help(const char*);
 
-void xrLight();
+void xrLight_Details();
  
-void StartupDO(LPSTR lpCmdLine) {
+#include "CompilersUI.h"
+extern CompilersMode gCompilerMode;
+
+void StartupDO()
+{
 	bClose = FALSE;
 
-	char cmd[512], name[256];
+	for (auto& [Name, Selected] : gCompilerMode.Files)
+	{
+		if (!Selected)
+			continue;
 
-	bool bNet = false;
-	xr_strcpy(cmd, lpCmdLine);
-	_strlwr(cmd);
+		char name[256];
+		strcpy(name, Name.data());
+		// Load project
 
-	if (strstr(cmd, "-?") || strstr(cmd, "-h")) {
-		Help(h_str); 
-		return; 
+		string256 temp;
+		xr_sprintf(temp, "%s - Detail Compiler", name);
+
+		SDL_SetWindowTitle(g_AppInfo.Window, temp);
+
+		FS.get_path("$level$")->_set(name);
+
+		Phase("Loading level...");
+		gl_data.xrLoad();
+
+		gl_data.use_intel = gCompilerMode.Embree;
+
+		Phase("Lighting nodes...");
+		xrLight_Details();
+
+		gl_data.slots_data.Free();
 	}
-
-	if (strstr(cmd, "-f") == 0) {
-		Help(h_str); 
-		return; 
-	}
- 
-	// Load project
-	name[0] = 0;
-	sscanf(strstr(cmd, "-f") + 2, "%s", name);
-
-	extern  HWND logWindow;
-	string256			temp;
-	xr_sprintf(temp, "%s - Detail Compiler", name);
-	SetWindowTextA(logWindow, temp);
-
-	FS.get_path("$level$")->_set(name);
-
-	Phase("Loading level...");
-	gl_data.xrLoad();
-
-	Phase("Lighting nodes...");
- 	xrLight();
-
-	gl_data.slots_data.Free();
 }

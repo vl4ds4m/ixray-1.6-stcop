@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../../xrEngine/Render.h"
-#include "../../xrCDB/ISpatial.h"
+#include "../../xrCore/Collision/ISpatial.h"
 #include "r__dsgraph_types.h"
 #include "r__sector.h"
 
@@ -49,6 +49,8 @@ public:
 	R_dsgraph::mapSorted_T										mapEmissive;
 	R_dsgraph::mapSorted_T										mapHUDEmissive;
 #endif
+	R_dsgraph::mapHUD_T											mapHUDScopeMask;
+	R_dsgraph::mapSorted_T										mapHUDDistort;
 
 	xr_vector<R_dsgraph::_LodItem,render_alloc<R_dsgraph::_LodItem> >	lstLODs		;
 	xr_vector<int,render_alloc<int> >									lstLODgroups;
@@ -111,6 +113,7 @@ public:
 		mapLOD.destroy			();
 		mapDistort.destroy		();
 		mapHUDSorted.destroy();
+		mapHUDDistort.destroy();
 
 #if RENDER!=R_R1
 		mapWmark.destroy		();
@@ -128,8 +131,10 @@ public:
 	void		r_dsgraph_render_hud							();
 	void		r_dsgraph_render_hud_ui							();
 	void		r_dsgraph_render_lods							(bool	_setup_zb,	bool _clear);
-	void		r_dsgraph_render_sorted							();
+	void		r_dsgraph_render_sorted							(bool hud_render = true);
+	void		r_dsgraph_render_sorted_hud						();
 	void		r_dsgraph_render_emissive						();
+	void		r_dsgraph_render_scope							();
 	void		r_dsgraph_render_wmarks							();
 	void		r_dsgraph_render_distort						();
 	void		r_dsgraph_render_subspace						(IRender_Sector* _sector, CFrustum* _frustum, Fmatrix& mCombined, Fvector& _cop, BOOL _dynamic, BOOL _precise_portals=FALSE, CObject*O=nullptr );

@@ -1,204 +1,192 @@
-#include "StdAfx.h"
-#include "Build.h"
-#include "xrPhase_MergeLM_Rect.h"
-#include "../xrLC_Light/xrDeflector.h"
-#include <mmintrin.h>
+#include "stdafx.h" 
+#include "xrPhase_MergeLM_Surface.h"
+#include <immintrin.h>
+#include <intrin.h>
 
-static	BYTE*	surface;
-const	u32		alpha_ref		= 254-BORDER;
+#define MAX_GRID_SPACE_WRITE 0.9f	// 90% НАПОЛНЕНИЯ LMAP
+// Surfaces
 
-// Initialization
-void _InitSurface	()
+void SurfacePlacePerpixel::RecalcY()
 {
-	surface = new BYTE[c_LMAP_size * c_LMAP_size];
-	FillMemory(surface,c_LMAP_size*c_LMAP_size,0);
-}
-
-// Rendering of rect
-void _rect_register	(L_rect &R, lm_layer* D, BOOL bRotate)
-{
-	u8*		lm	= &*(D->marker.begin());
-	u32		s_x	= D->width+2*BORDER;
-	u32		s_y = D->height+2*BORDER;
-	
-	if (!bRotate) {
-		// Normal (and fastest way)
-		for (u32 y=0; y<s_y; y++)
-		{
-			BYTE*	P = surface+(y+R.a.y)*c_LMAP_size+R.a.x;	// destination scan-line
-			u8*		S = lm + y*s_x;
-			for (u32 x=0; x<s_x; x++,P++,S++) 
-				if (*S >= alpha_ref)			*P	= 255;
-		}
-	} else {
-		// Rotated :(
-		for (u32 y=0; y<s_x; y++)
-		{
-			BYTE*	P = surface+(y+R.a.y)*c_LMAP_size+R.a.x;	// destination scan-line
-			for (u32 x=0; x<s_y; x++,P++)
-				if (lm[x*s_x+y] >= alpha_ref)	*P	= 255;
-		}
+	u32 _Y = 0;
+	while (occupied_y[_Y] > SurfaceGrid * MAX_GRID_SPACE_WRITE)
+	{
+		_Y++;
 	}
+	StartYPos = _Y;
+
+	u32 total_occupied = 0;
+	for (u32 y = 0; y < SurfaceGrid ; ++y)
+	{
+		total_occupied += occupied_y[y];
+	}
+
+	FilledSize = total_occupied;
+ 	FilledPercent = u32 ( float( float(total_occupied) / float(SurfaceGrid * SurfaceGrid) ) * 100.0f);
 }
 
-// Test of per-pixel intersection (surface test)
-bool Place_Perpixel	(L_rect& R, lm_layer* D, BOOL bRotate)
+void SurfacePlacePerpixel::_InitSurface_tbb()
 {
-	u8*	lm			= &*( D->marker.begin() );
-	int	s_x			= D->width + 2 * BORDER;
-	int	s_y			= D->height + 2 * BORDER;
-	int x;
+	StartYPos   = 0;
+	SurfaceGrid = getLMSIZE();
+	surface_tbb = xr_alloc<u8>(SurfaceGrid * SurfaceGrid);
+	FillMemory(surface_tbb, SurfaceGrid * SurfaceGrid, 0);
 
-	const __m128i mm_alpha_ref = _mm_set1_epi8( alpha_ref );
-	const __m128i mm_zero = _mm_setzero_si128();
-	
-	if ( !bRotate ) {
-		// Normal (and fastest way)
-		for ( int y = 0 ; y < s_y ; y++ ) {
-			BYTE* P = surface + ( y + R.a.y ) * c_LMAP_size + R.a.x;	// destination scan-line
-			u8* S = lm + y * s_x;
-			// accelerated part
-			for ( x = 0; x < s_x - 8 ; x += 8 , P += 8 , S += 8 ) {
-				// if ( (*P) && ( *S >= alpha_ref ) ) goto r_false;	// overlap
-				__m128i mm_reg_s = _mm_set1_epi64x(*(__int64*)S);
-				__m128i mm_reg_p = _mm_set1_epi64x(*(__int64*)P);
+	occupied_y = xr_alloc<u16>(SurfaceGrid);
+	FillMemory(occupied_y, SurfaceGrid, 0);
+}
 
-				__m128i mm_max = _mm_max_epu8(mm_reg_s, mm_alpha_ref );
-				__m128i mm_cmp = _mm_cmpeq_epi8( mm_max , mm_alpha_ref );
-				__m128i mm_andn = _mm_andnot_si128( mm_cmp , mm_reg_p);
-				__m128i mm_sad = _mm_sad_epu8( mm_andn , mm_zero );
-				if (_mm_cvtsi128_si32( mm_sad ) ) {
-					//_mm_empty();
-					return false;
-				}
+void SurfacePlacePerpixel::_rect_register_tbb(L_rect& R, lm_layer* D)
+{
+	u8* lm = &*(D->marker.begin());
+	u32		s_x = D->width + 2 * BORDER;
+	u32		s_y = D->height + 2 * BORDER;
+
+	// Normal (and fastest way)
+ 	for (u32 y = 0; y < s_y; y++)
+	{
+		u32 _Y = y + R.a.y;
+
+		BYTE* P = surface_tbb + _Y * SurfaceGrid + R.a.x;	// destination scan-line
+		u8* S = lm + y * s_x;
+		for (u32 x = 0; x < s_x; x++, P++, S++)
+		{
+			if (*S >= alpha_ref)
+			{
+				*P = 255;
+				occupied_y[_Y] += 1;
 			}
-			// remainder part
-			for ( ; x < s_x ; x++ , P++ , S++ ) 
-				if ( (*P) && ( *S >= alpha_ref ) ) {
-					//_mm_empty();
-					return false;
-				}
-		}
-	} else {
-		// Rotated :(
-		for ( int y = 0 ; y < s_x ; y++ ) {
-			BYTE* P = surface + ( y + R.a.y ) * c_LMAP_size + R.a.x;	// destination scan-line
-			for ( x=0 ; x < s_y ; x++ , P++ )
-				if ( (*P) && ( lm[ x * s_x + y ] >= alpha_ref ) ) {
-					//_mm_empty();
-					return false;
-				}
 		}
 	}
-	
+}
+ 
+bool SurfacePlacePerpixel::Place_Perpixel_tbb(L_rect& R, lm_layer* D)
+{
+	u8* lm = &*(D->marker.begin());
+	u32	s_x = D->width + 2 * BORDER;
+	u32	s_y = D->height + 2 * BORDER;
+
+	// Normal
+	const auto mm_alpha_ref256	= _mm256_set1_epi8(alpha_ref);	 
+	const auto mm_zero256		= _mm256_setzero_si256();		 
+
+	const auto mm_alpha_ref		= _mm_set1_epi8(alpha_ref);	 
+	const auto mm_zero			= _mm_setzero_si128();		 
+
+	for (u32 y = 0; y < s_y; y++)
+	{
+		/* ForserX Почини плз.
+		if (s_x >= 32 && CPU::ID.hasFeature(CPUFeature::AVX) )
+		{
+			u8* P = surface_tbb + (y + R.a.y) * SurfaceGrid + R.a.x;	// destination scan-line
+			u8* S = lm + y * s_x;
+
+ 			u32 x = 0;
+			// Проходим по 32 байт за итерацию
+ 			for (x = 0; x < s_x - 32; x += 32, P += 32, S += 32)
+			{
+				auto mm_reg_s	= _mm256_loadu_si256((__m256i*) S);
+				auto mm_reg_p	= _mm256_loadu_si256((__m256i*) P);
+				auto mm_max		= _mm256_max_epu8(mm_reg_s, mm_alpha_ref256);
+				auto mm_cmp		= _mm256_cmpeq_epi8(mm_max, mm_alpha_ref256);
+				auto mm_andn	= _mm256_andnot_si256(mm_cmp, mm_reg_p);
+				auto mm_sad		= _mm256_sad_epu8(mm_andn, mm_zero256);
+
+				__m128i lower_128 = _mm256_castsi256_si128(mm_sad); // взять младшие 128 бит
+				if (_mm_cvtsi128_si32(lower_128))
+					return false;
+			}
+			 
+			// Оставшееся 
+			for (; x < s_x; x++, P++, S++)
+			{
+				if ((*P) && (*S >= alpha_ref))
+					return false;
+			}
+		}
+		else if (s_x >= 16 && CPU::ID.hasFeature(CPUFeature::SSE2))
+		{
+			u8* P = surface_tbb + (y + R.a.y) * SurfaceGrid + R.a.x;	// destination scan-line
+			u8* S = lm + y * s_x;
+
+			u32 x = 0;
+			// Проходим по 16 байт за итерацию
+			for (x = 0; x < s_x - 16; x += 16, P += 16, S += 16)
+			{
+				auto mm_reg_s = _mm_loadu_si128((__m128i*) S);
+				auto mm_reg_p = _mm_loadu_si128((__m128i*) P);
+				auto mm_max = _mm_max_epu8(mm_reg_s, mm_alpha_ref);
+				auto mm_cmp = _mm_cmpeq_epi8(mm_max, mm_alpha_ref);
+				auto mm_andn = _mm_andnot_si128(mm_cmp, mm_reg_p);
+				auto mm_sad = _mm_sad_epu8(mm_andn, mm_zero);
+
+ 				if (_mm_cvtsi128_si32(mm_sad))
+					return false;
+			}
+ 
+			// Оставшееся 
+			for (; x < s_x; x++, P++, S++)
+			{
+				if ((*P) && (*S >= alpha_ref))
+					return false;
+			}
+		}
+		else
+		*/
+		{
+			BYTE* P = surface_tbb + (y + R.a.y) * SurfaceGrid + R.a.x;	// destination scan-line
+			u8* S = lm + y * s_x;
+			for (u32 x = 0; x < s_x; x++, P++, S++)
+			{
+				if ((*P) && (*S >= alpha_ref))
+					return false;
+			}
+		}
+	}
+ 
 	// It's OK to place it
-	//_mm_empty();
 	return true;
 }
 
-// Check for intersection
-BOOL _rect_place(L_rect &r, lm_layer* D)
+bool SurfacePlacePerpixel::rect_place_full(L_rect& r, lm_layer* D)
 {
+	int SizeX = r.b.x;
+	int SizeY = r.b.y;
+
+	int x_max = SurfaceGrid - SizeX;
+	int y_max = SurfaceGrid - SizeY;
+
+	int y_max_line = SurfaceGrid * MAX_GRID_SPACE_WRITE;
+
 	L_rect R;
-	int _X;
-	BYTE* temp_surf;
-
-	// Normal
+	
+	for (int _Y = StartYPos; _Y < y_max; _Y++)
 	{
-		int x_max = c_LMAP_size - r.b.x; 
-		int y_max = c_LMAP_size - r.b.y; 
-		for ( int _Y = 0 ; _Y < y_max ; _Y++ ) {
-			temp_surf = surface + _Y * c_LMAP_size;
-			// accelerated part
-			for ( _X = 0 ; _X < x_max - 8 ; ) {
+		if (occupied_y[_Y] > y_max_line)			// Нет Места под заливку
+			continue;
 
-				__m128i mm_reg = _mm_set1_epi64x(*(__int64*)(temp_surf + _X));
-				__m128i m64_cmp = _mm_cmpeq_epi8(mm_reg, _mm_setzero_si128() );
-				__m128i m64_work = _mm_sad_epu8( m64_cmp , _mm_setzero_si128() );
+		if (occupied_y[_Y] > SurfaceGrid - SizeX)	// Нет Места под заливку
+			continue;
 
-				if ( !_mm_cvtsi128_si32( m64_work ) ) {
-					_X += 8;
-					continue;
-				}
-
-				if ( temp_surf[ _X ] ) {
-					_X++;
-					continue;
-				}
-
-				R.init( _X , _Y , _X + r.b.x , _Y + r.b.y );
-
-				_X++;
-
-				if (Place_Perpixel( R , D , FALSE ) ) {
-					_rect_register( R , D , FALSE );
-					r.set( R );
-					//_mm_empty();
-					return TRUE;
-				}
-			}
-			// remainder part
-			for ( ; _X < x_max ; _X++ ) {
-				if ( temp_surf[ _X ] ) continue;
-				R.init( _X , _Y , _X + r.b.x , _Y + r.b.y );
-				if (Place_Perpixel( R , D , FALSE ) ) {
-					_rect_register( R , D , FALSE );
-					r.set( R );
-					//_mm_empty();
-					return TRUE;
-				}
+		if (SurfaceGrid - occupied_y[_Y] < SizeX)   // Не влезет тупо
+			continue;
+  
+		BYTE* temp_surf = surface_tbb + _Y * SurfaceGrid;
+ 
+		// remainder part
+		for (int _X = 0; _X < x_max; _X++)
+		{
+			R.init(_X, _Y, _X + SizeX, _Y + SizeY);
+			if (Place_Perpixel_tbb(R, D))
+			{
+				_rect_register_tbb(R, D);
+ 				r.set(R);
+				return TRUE;
 			}
 		}
 	}
-	
-	// Rotated
-	{
-		int x_max = c_LMAP_size - r.b.y; 
-		int y_max = c_LMAP_size - r.b.x; 
-		for ( int _Y = 0 ; _Y < y_max ; _Y++ ) {
-			temp_surf = surface + _Y * c_LMAP_size;
-			// accelerated part
-			for ( _X = 0 ; _X < x_max - 8 ; ) {
-
-				__m128i mm_reg = _mm_set1_epi64x(*(__int64*)(temp_surf + _X));
-				__m128i m64_cmp = _mm_cmpeq_epi8(mm_reg, _mm_setzero_si128() );
-				__m128i m64_work = _mm_sad_epu8( m64_cmp , _mm_setzero_si128() );
-
-				if ( ! _mm_cvtsi128_si32( m64_work ) ) {
-					_X += 8;
-					continue;
-				}
-				
-				if ( temp_surf[ _X ] ) {
-					_X++;
-					continue;
-				}
-
-				R.init( _X , _Y , _X + r.b.y , _Y + r.b.x );
-				
-				_X++;
-
-				if ( Place_Perpixel( R , D ,TRUE ) ) {
-					_rect_register( R , D , TRUE );
-					r.set( R );
-					//_mm_empty();
-					return TRUE;
-				}
-			}
-			// remainder part
-			for ( ; _X < x_max ; _X++ ) {
-				if ( temp_surf[ _X ] ) continue;
-				R.init( _X , _Y , _X + r.b.y , _Y + r.b.x );
-				if ( Place_Perpixel( R , D ,TRUE ) ) {
-					_rect_register( R , D , TRUE );
-					r.set( R );
-					//_mm_empty();
-					return TRUE;
-				}
-			}
-		}
-	}
-	
-	//_mm_empty();
 	return FALSE;
 }
+
+SurfacePlacePerpixel placer_perpixel;
+ 

@@ -111,22 +111,14 @@ void CActor::net_Export	(NET_Packet& P)					// export to server
 	P.w_u8				(u8(g_Squad()));
 	P.w_u8				(u8(g_Group()));
 
-
-	//CSE_ALifeCreatureTrader
-//	P.w_float			(inventory().TotalWeight());
-//	P.w_u32				(m_dwMoney);
-
-	//CSE_ALifeCreatureActor
-	
 	u16 ms	= (u16)(mstate_real & 0x0000ffff);
 	P.w_u16				(u16(ms));
 	P.w_sdir			(NET_SavedAccel);
 	Fvector				v = character_physics_support()->movement()->GetVelocity();
-	P.w_sdir			(v);//m_PhysicMovementControl.GetVelocity());
-//	P.w_float_q16		(fArmor,-500,1000);
+	P.w_sdir			(v);
 	P.w_float			(g_Radiation());
 
-	P.w_u8				(u8(inventory().GetActiveSlot()));
+	P.w_u8(u8(inventory().GetActiveSlot()));
 	/////////////////////////////////////////////////
 	u16 NumItems		= PHGetSyncItemsNumber();
 	
@@ -135,8 +127,9 @@ void CActor::net_Export	(NET_Packet& P)					// export to server
 	
 	if (!g_Alive()) NumItems = 0;
 	
-	P.w_u16				(NumItems);
-	if (!NumItems)		return;
+	P.w_u16(NumItems);
+	if (!NumItems)
+		return;
 
 	if (g_Alive())
 	{
@@ -146,26 +139,26 @@ void CActor::net_Export	(NET_Packet& P)					// export to server
 		pSyncObj = PHGetSyncItem(0);
 		pSyncObj->get_State(State);
 
-		P.w_u8					( State.enabled );
+		P.w_u8(State.enabled);
 
-		P.w_vec3				( State.angular_vel);
-		P.w_vec3				( State.linear_vel);
+		P.w_vec3(State.angular_vel);
+		P.w_vec3(State.linear_vel);
 
-		P.w_vec3				( State.force);
-		P.w_vec3				( State.torque);
+		P.w_vec3(State.force);
+		P.w_vec3(State.torque);
 
-		P.w_vec3				( State.position);
+		P.w_vec3(State.position);
 
-		P.w_float				( State.quaternion.x );
-		P.w_float				( State.quaternion.y );
-		P.w_float				( State.quaternion.z );
-		P.w_float				( State.quaternion.w );
+		P.w_float(State.quaternion.x);
+		P.w_float(State.quaternion.y);
+		P.w_float(State.quaternion.z);
+		P.w_float(State.quaternion.w);
 	}
 	else
 	{
 		net_ExportDeadBody(P);
-	};
-};
+	}
+}
 
 static void w_vec_q8(NET_Packet& P,const Fvector& vec,const Fvector& min,const Fvector& max)
 {
@@ -303,9 +296,19 @@ void CActor::net_Import		(NET_Packet& P)					// import from server
 	//-----------------------------------------------
 	net_Import_Physic(P);
 	//-----------------------------------------------
-};
+}
 
-void		CActor::net_Import_Base				( NET_Packet& P)
+void CActor::SyncRead(NET_Packet& Packet)
+{
+	IsWaunded = Packet.r_u8();
+}
+
+void CActor::SyncWrite(NET_Packet& Packet)
+{
+	Packet.w_u8(IsWaunded);
+}
+
+void CActor::net_Import_Base( NET_Packet& P)
 {
 	net_update			N;
 
@@ -335,61 +338,47 @@ void		CActor::net_Import_Base				( NET_Packet& P)
 	id_Team				= P.r_u8();
 	id_Squad			= P.r_u8();
 	id_Group			= P.r_u8();
-	
-	
-	//----------- for E3 -----------------------------
-//	if (OnClient())
-	//------------------------------------------------
+
+	if (Level().IsDemoPlay())
 	{
-//		if (OnServer() || Remote())
-		if (Level().IsDemoPlay())
-		{
-			unaffected_r_torso.yaw		= N.o_torso.yaw;
-			unaffected_r_torso.pitch	= N.o_torso.pitch;
-			unaffected_r_torso.roll		= N.o_torso.roll;
+		unaffected_r_torso.yaw = N.o_torso.yaw;
+		unaffected_r_torso.pitch = N.o_torso.pitch;
+		unaffected_r_torso.roll = N.o_torso.roll;
 
-			cam_Active()->yaw	= -N.o_torso.yaw;
-			cam_Active()->pitch = N.o_torso.pitch;
-		};
-	};
+		cam_Active()->yaw = -N.o_torso.yaw;
+		cam_Active()->pitch = N.o_torso.pitch;
+	}
 
-	//CSE_ALifeCreatureTrader
-//	P.r_float			(fDummy);
-//	m_dwMoney =			P.r_u32();
-
-	//CSE_ALifeCreatureActor
 	P.r_u16				(tmp			); N.mstate = u32(tmp);
 	P.r_sdir			(N.p_accel		);
 	P.r_sdir			(N.p_velocity	);
 	float				fRRadiation;
 	P.r_float			(fRRadiation);
-	//----------- for E3 -----------------------------
+
 	if (OnClient())		
 	{
-//		fArmor = fRArmor;
 		SetfRadiation(fRRadiation);
 	};
-	//------------------------------------------------
 
-	u8					ActiveSlot;
-	P.r_u8				(ActiveSlot);
-	
-	//----------- for E3 -----------------------------
+	u8 ActiveSlot = P.r_u8();
+
 	if (OnClient())
-	//------------------------------------------------
 	{
-		if (ActiveSlot == NO_ACTIVE_SLOT) inventory().SetActiveSlot(NO_ACTIVE_SLOT);
-		else 
+		if (ActiveSlot == NO_ACTIVE_SLOT)
 		{
-			if (inventory().GetActiveSlot() != u16(ActiveSlot))
-				inventory().Activate(ActiveSlot);
-		};
+			inventory().SetActiveSlot(NO_ACTIVE_SLOT);
+		}
+		else if (inventory().GetActiveSlot() != u16(ActiveSlot))
+		{
+			inventory().Activate(ActiveSlot);
+		}
 	}
 
-	//----------- for E3 -----------------------------
-	if (Local() && OnClient()) return;
-	//-------------------------------------------------
-	if (!NET.empty() && N.dwTimeStamp < NET.back().dwTimeStamp) return;
+	if (Local() && OnClient())
+		return;
+
+	if (!NET.empty() && N.dwTimeStamp < NET.back().dwTimeStamp) 
+		return;
 
 	if (!NET.empty() && N.dwTimeStamp == NET.back().dwTimeStamp)
 	{
@@ -400,24 +389,22 @@ void		CActor::net_Import_Base				( NET_Packet& P)
 		NET.push_back			(N);
 		if (NET.size()>5) NET.pop_front();
 	}	
-	//-----------------------------------------------
-	net_Import_Base_proceed	();
-	//-----------------------------------------------
-};
 
-void	CActor::net_Import_Base_proceed		( )
+	net_Import_Base_proceed	();
+}
+
+void CActor::net_Import_Base_proceed()
 {
 	if (g_Alive())
 	{
-		setVisible				((BOOL)!HUDview	());
-		setEnabled				(TRUE);
+		setVisible((BOOL)!HUDview());
+		setEnabled(TRUE);
 	};
 	//---------------------------------------------
-		
-	if (Remote()) return;
 
-	net_update N		= NET.back();
-};
+	if (Remote())
+		return;
+}
 
 void		CActor::net_Import_Physic			( NET_Packet& P)
 {
@@ -532,14 +519,16 @@ BOOL CActor::net_Spawn		(CSE_Abstract* DC)
 			if (!smart_cast<CActorMP*>(this))
 			{
 				E->s_flags.set(M_SPAWN_OBJECT_LOCAL, TRUE);
-				Msg("single_actor_spawn");
+				E->s_flags.set(M_SPAWN_OBJECT_ASPLAYER, FALSE);
+				
+				Msg("[Actor.cpp] single_actor_spawn");
 				g_actor = this;
 				g_actor_single = this;
 				g_pIGameActor = this;
 			}
 		}
 
-		if (OnClient())
+		if (OnClient() || (OnServer() && !g_dedicated_server))
 		{
 			if (smart_cast<CActorMP*>(this)) 
 			{
@@ -547,7 +536,7 @@ BOOL CActor::net_Spawn		(CSE_Abstract* DC)
 				{
 					if (TRUE == E->s_flags.test(M_SPAWN_OBJECT_ASPLAYER))
 					{
-						Msg("mp_actor_spawn");
+						Msg("[Actor.cpp] mp_actor_spawn");
 						g_actor = this;
 						g_pIGameActor = this;
 					}
@@ -601,8 +590,10 @@ BOOL CActor::net_Spawn		(CSE_Abstract* DC)
 //.	if(	TRUE == E->s_flags.test(M_SPAWN_OBJECT_LOCAL) && TRUE == E->s_flags.is(M_SPAWN_OBJECT_ASPLAYER))
 //.		CurrentGameUI()->UIMainIngameWnd->m_artefactPanel->InitIcons(m_ArtefactsOnBelt);
 		
-
-	ROS()->force_mode	(IRender_ObjectSpecific::TRACE_ALL);
+	if (ROS())
+	{
+		ROS()->force_mode(IRender_ObjectSpecific::TRACE_ALL);
+	}
 
 	//mstate_wishful = E->mstate;
 	mstate_wishful=0;
@@ -653,8 +644,7 @@ BOOL CActor::net_Spawn		(CSE_Abstract* DC)
 		setEnabled(TRUE);
 	}
 
-	m_hit_slowmo				= 0.f;
-
+	m_hit_slowmo = 0.f;
 	OnChangeVisual();
 	//----------------------------------
 	m_bAllowDeathRemove = false;
@@ -732,7 +722,7 @@ BOOL CActor::net_Spawn		(CSE_Abstract* DC)
 	m_bWasHitted = false;
 	m_dwILastUpdateTime		= 0;
 
-	if (IsGameTypeSingle())
+	if (IsGameTypeSingleCompatible())
 	{
 
 		Level().MapManager().AddMapLocation("actor_location",ID());
@@ -813,12 +803,12 @@ void CActor::net_Destroy	()
 void CActor::net_Relcase	(CObject* O)
 {
 	
- 	VERIFY(O);
-	CGameObject* GO = smart_cast<CGameObject*>(O);
+	VERIFY(O);
+	CGameObject* GO = O->cast_game_object();
 	if(GO&&m_pObjectWeLookingAt==GO){
 		m_pObjectWeLookingAt=nullptr;
 	}
-	CHolderCustom* HC=smart_cast<CHolderCustom*>(GO);
+	CHolderCustom* HC= GO->cast_holder_custom();
 	if(HC&&HC==m_pVehicleWeLookingAt){
 		m_pVehicleWeLookingAt=nullptr;
 	}
@@ -891,40 +881,46 @@ void	CActor::OnChangeVisual()
 	}
 	
 	IKinematicsAnimated* V	= smart_cast<IKinematicsAnimated*>(Visual());
-	if (V){
-		CStepManager::reload(cNameSect().c_str());
-		SetCallbacks		();
-		m_anims->Create		(V);
-		m_vehicle_anims->Create			(V);
-		CDamageManager::reload(*cNameSect(),"damage",pSettings);
-		//-------------------------------------------------------------------------------
-		m_head				= smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_head");
-		m_eye_left			= smart_cast<IKinematics*>(Visual())->LL_BoneID("eye_left");
-		m_eye_right			= smart_cast<IKinematics*>(Visual())->LL_BoneID("eye_right");
-		m_r_hand			= smart_cast<IKinematics*>(Visual())->LL_BoneID(pSettings->r_string(*cNameSect(),"weapon_bone0"));
-		m_l_finger1			= smart_cast<IKinematics*>(Visual())->LL_BoneID(pSettings->r_string(*cNameSect(),"weapon_bone1"));
-		m_r_finger2			= smart_cast<IKinematics*>(Visual())->LL_BoneID(pSettings->r_string(*cNameSect(),"weapon_bone2"));
-		//-------------------------------------------------------------------------------
-		m_neck				= smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_neck");
-		m_l_clavicle		= smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_l_clavicle");
-		m_r_clavicle		= smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_r_clavicle");
-		m_spine2			= smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_spine2");
-		m_spine1			= smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_spine1");
-		m_spine				= smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_spine");
-		//-------------------------------------------------------------------------------
-		reattach_items();
-		//-------------------------------------------------------------------------------
-		m_pPhysics_support->in_ChangeVisual();
-		//-------------------------------------------------------------------------------
-		SetCallbacks		();
-		//-------------------------------------------------------------------------------
-		m_current_head.invalidate	();
-		m_current_legs.invalidate	();
-		m_current_torso.invalidate	();
-		m_current_legs_blend		= nullptr;
-		m_current_torso_blend		= nullptr;
-		m_current_jump_blend		= nullptr;
+	if (V == nullptr)
+	{
+		return;
 	}
+
+	CheckExo();
+
+	CStepManager::reload(cNameSect().c_str());
+
+	SetCallbacks();
+	m_anims->Create(V);
+	m_vehicle_anims->Create(V);
+	CDamageManager::reload(*cNameSect(), "damage", pSettings);
+	//-------------------------------------------------------------------------------
+	m_head = smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_head");
+	m_eye_left = smart_cast<IKinematics*>(Visual())->LL_BoneID("eye_left");
+	m_eye_right = smart_cast<IKinematics*>(Visual())->LL_BoneID("eye_right");
+	m_r_hand = smart_cast<IKinematics*>(Visual())->LL_BoneID(pSettings->r_string(*cNameSect(), "weapon_bone0"));
+	m_l_finger1 = smart_cast<IKinematics*>(Visual())->LL_BoneID(pSettings->r_string(*cNameSect(), "weapon_bone1"));
+	m_r_finger2 = smart_cast<IKinematics*>(Visual())->LL_BoneID(pSettings->r_string(*cNameSect(), "weapon_bone2"));
+	//-------------------------------------------------------------------------------
+	m_neck = smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_neck");
+	m_l_clavicle = smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_l_clavicle");
+	m_r_clavicle = smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_r_clavicle");
+	m_spine2 = smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_spine2");
+	m_spine1 = smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_spine1");
+	m_spine = smart_cast<IKinematics*>(Visual())->LL_BoneID("bip01_spine");
+	//-------------------------------------------------------------------------------
+	reattach_items();
+	//-------------------------------------------------------------------------------
+	m_pPhysics_support->in_ChangeVisual();
+	//-------------------------------------------------------------------------------
+	SetCallbacks();
+	//-------------------------------------------------------------------------------
+	m_current_head.invalidate();
+	m_current_legs.invalidate();
+	m_current_torso.invalidate();
+	m_current_legs_blend = nullptr;
+	m_current_torso_blend = nullptr;
+	m_current_jump_blend = nullptr;
 };
 
 void	CActor::ChangeVisual			( shared_str NewVisual )
@@ -1414,6 +1410,8 @@ void CActor::save(NET_Packet &output_packet)
 	output_packet.w_stringZ(g_quick_use_slots[1]);
 	output_packet.w_stringZ(g_quick_use_slots[2]);
 	output_packet.w_stringZ(g_quick_use_slots[3]);
+
+	output_packet.w_u8(u8(m_inventory_disabled));
 }
 
 void CActor::load(IReader &input_packet)
@@ -1436,6 +1434,8 @@ void CActor::load(IReader &input_packet)
 	input_packet.r_stringZ(g_quick_use_slots[1], sizeof(g_quick_use_slots[1]));
 	input_packet.r_stringZ(g_quick_use_slots[2], sizeof(g_quick_use_slots[2]));
 	input_packet.r_stringZ(g_quick_use_slots[3], sizeof(g_quick_use_slots[3]));
+
+	set_inventory_disabled(!!input_packet.r_u8());
 }
 
 #ifdef DEBUG
@@ -2005,21 +2005,16 @@ void				CActor::OnCriticalRadiationHealthLoss	()
 	u_EventSend(P);
 };
 
-bool				CActor::Check_for_BackStab_Bone			(u16 element)
+bool CActor::Check_for_BackStab_Bone(u16 element)
 {
 	if (element == m_head) return true;
-	else
-		if (element == m_neck) return true;
-		else
-			if (element == m_spine2) return true;
-			else
-				if (element == m_l_clavicle) return true;
-				else
-					if (element == m_r_clavicle) return true;
-					else
-						if (element == m_spine1) return true;
-						else 
-							if (element == m_spine) return true;
+	else if (element == m_neck) return true;
+	else if (element == m_spine2) return true;
+	else if (element == m_l_clavicle) return true;
+	else if (element == m_r_clavicle) return true;
+	else if (element == m_spine1) return true;
+	else if (element == m_spine) return true;
+
 	return false;
 }
 
@@ -2052,8 +2047,11 @@ BOOL CActor::BonePassBullet(int boneID)
 
 void CActor::On_B_NotCurrentEntity()
 {
-#ifndef MASTER_GOLD
-	Msg("CActor::On_B_NotCurrentEntity");
-#endif // #ifndef MASTER_GOLD
 	inventory().Items_SetCurrentEntityHud(false);
-};
+}
+
+void CAI_Stalker::OnChangeVisual()
+{
+	inherited::OnChangeVisual();
+	CheckExo();
+}

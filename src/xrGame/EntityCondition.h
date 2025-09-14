@@ -109,6 +109,7 @@ public:
 	virtual void			load					(IReader &input_packet);
 
 	IC float				GetPower				() const			{return m_fPower;}	
+	IC void					SetPower				(float val)			{ m_fPower = val; clamp(m_fPower, 0.f, m_fPowerMax); }
 	IC float				GetRadiation			() const			{return m_fRadiation;}
 	IC float				GetPsyHealth			() const			{return m_fPsyHealth;}
 
@@ -150,8 +151,8 @@ public:
 
 	IC void 				SetCanBeHarmedState		(bool CanBeHarmed) 			{m_bCanBeHarmed = CanBeHarmed;}
 	IC bool					CanBeHarmed				() const					{return OnServer() && m_bCanBeHarmed;};
-	virtual bool			ApplyInfluence			(const SMedicineInfluenceValues& V, const shared_str& sect);
-	virtual bool			ApplyBooster			(const SBooster& B, const shared_str& sect);
+	virtual bool			ApplyInfluence			(const SMedicineInfluenceValues& V, const shared_str& sect, bool use_sound = true);
+	virtual bool			ApplyBooster			(const SBooster& B, const shared_str& sect, bool use_sound = true);
 	void					ClearWounds();
 
 	IC float				GetBoostRadiationImmunity() const {return m_fBoostRadiationImmunity;};
@@ -162,6 +163,8 @@ public:
 	PLAYER_ADDICTION_BASE(Alcohol);
 	PLAYER_ADDICTION_BASE(Thirst);
 	PLAYER_ADDICTION_BASE(Sleepiness);
+	using WOUND_VECTOR = xr_vector<CWound*>;
+	using WOUND_VECTOR_IT = WOUND_VECTOR::iterator;
 
 protected:
 	void					UpdateHealth			();

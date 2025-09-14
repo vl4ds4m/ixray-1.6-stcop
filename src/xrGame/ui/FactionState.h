@@ -6,8 +6,8 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-/*
-#include "UIWindow.h"
+
+#include "../../xrUI/Widgets/UIWindow.h"
 
 class FactionState
 {
@@ -100,4 +100,3 @@ private:
 }; // struct FactionState
 
 #include "FactionState_inline.h"
-*/

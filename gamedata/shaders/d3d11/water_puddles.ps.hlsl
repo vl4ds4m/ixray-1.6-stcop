@@ -26,8 +26,6 @@ float4 main(PSInput I) : SV_Target
 	float4 base = s_base.Sample(smp_base, tcdh);
 	float3 normal = s_nmap.Sample(smp_base, tcdh).xyz * 2.0 - 1.0;
 
-    float3 WaterPoint = mul(m_V, float4(I.world_position, 1.0)).xyz;
-
 	//Build cotangent frame and transform our normal to world space
 	float3x3 TBN = {float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), float3(0.0, 1.0, 0.0)};
 	
@@ -45,29 +43,53 @@ float4 main(PSInput I) : SV_Target
 	float3 vreflect = reflect(v2point, Nw);
 
 	float fresnel = saturate(dot(vreflect, v2point));
+	float3 WaterPos = mul(m_V, float4(I.world_position, 1.0)).xyz;
 
 #ifdef USE_SSLR_ON_WATER
-	float4 sslr = calc_reflections(I.hpos.xy, WaterPoint.z, vreflect);
+    float3 WaterPoint = WaterPos.z * float3(I.hpos.xy * pos_decompression_params.zw - pos_decompression_params.xy, 1.0f);
+	float3 Reflect = mul((float3x3)m_V, vreflect);
+	
+    float4 sslr = ScreenSpaceLocalReflections(WaterPoint, Reflect);
+	
+	#ifdef USE_OFFSCREEN_REFLECTIONS
+		float4 vslr = FastViewReflections(WaterPoint, Reflect);
+		
+		float Fog = saturate(length(vslr.xyz) * fog_params.w + fog_params.x);
+		vslr.w *= 1.f - Fog * Fog;
+		
+		vslr.xyz = s_env.SampleLevel(smp_rtlinear, vslr.xyz, 0.0f);
+		vslr.xyz *= rcp(1.00001f - vslr.xyz);
+	#endif
+#else
+	#ifdef USE_OFFSCREEN_REFLECTIONS
+		float3 Reflect = mul((float3x3)m_V, vreflect);
+		float4 vslr = s_env.SampleLevel(smp_rtlinear, Reflect.xyz, 0.0f);
+		vslr.xyz *= rcp(1.00001f - vslr.xyz);
+		
+		float Fog = saturate(vslr.w * fog_params.w + fog_params.x);
+		vslr.w = 1.f - Fog * Fog;
+	#endif
 #endif
 
 	float2 rotation = 0.0f;
 	sincos(L_sky_color.w, rotation.x, rotation.y);
 	vreflect.xz = float2(vreflect.x * rotation.y - vreflect.z * rotation.x, vreflect.x * rotation.x + vreflect.z * rotation.y);
 	
-	// true remapping. Slow.
-	float3 vreflectabs = abs(vreflect);
-	float vreflectmax = max(vreflectabs.x, max(vreflectabs.y, vreflectabs.z));
-	
-	vreflect /= vreflectmax;
-	vreflect.y = vreflect.y * 2.0f - 1.0f;
+#ifndef USE_FULL_SKY_SPHERE
+	RemapVector(vreflect);
+#endif
 
 	float3 env0 = s_env0.Sample(smp_rtlinear, vreflect).xyz;
 	float3 env1 = s_env1.Sample(smp_rtlinear, vreflect).xyz;
 	
 	float3 env = lerp(env0, env1, L_ambient.w) * L_sky_color.xyz;
 
+#ifdef USE_OFFSCREEN_REFLECTIONS
+	env.xyz = lerp(env, PopGamma(vslr.xyz), vslr.w);
+#endif
+	
 #ifdef USE_SSLR_ON_WATER
-	env = lerp(env, sslr.xyz, sslr.w);
+	env = lerp(env, PopGamma(sslr.xyz), sslr.w);
 #endif
 
     float power = pow(fresnel, 5.0f);
@@ -81,7 +103,7 @@ float4 main(PSInput I) : SV_Target
 	// Igor: additional depth test
 #ifdef USE_SOFT_WATER
     float4 Point = GbufferGetPoint(I.hpos.xy);
-	float waterDepth = length(WaterPoint.xyz - Point.xyz) * 0.75f;
+	float waterDepth = length(WaterPos.xyz - Point.xyz) * 0.75f;
 
 	alpha = min(alpha, saturate(waterDepth));
 	alpha = max(1.0f - exp(-4.0f * waterDepth), alpha);
@@ -90,8 +112,7 @@ float4 main(PSInput I) : SV_Target
 	Light *= 1.0f - base.w;
 
 	final += SpecularPhong(v2point, Nw, L_sun_dir_w.xyz) * Light.w;
-
-#endif //USE_SOFT_WATER
+#endif
 	
-	return lerp(float4(final, alpha), fog_color, calc_fogging(I.world_position));
+	return PushGamma(lerp(float4(final, PopGamma(alpha)), fog_color, calc_fogging(I.world_position)));
 }

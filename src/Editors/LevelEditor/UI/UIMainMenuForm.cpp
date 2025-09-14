@@ -10,31 +10,93 @@
 
 #include "../../xrEUI/imgui_EditorEx.h"
 
+#include "Plugins/PluginManager.h"
+#include "Plugins/PluginsUIRun.h"
 
 UIMainMenuForm::UIMainMenuForm()
 {
+	PlugPy = EDevice->Resources->_CreateTexture("ed\\plugins\\python");
+	PlugLua = EDevice->Resources->_CreateTexture("ed\\plugins\\lua");
 }
 
 UIMainMenuForm::~UIMainMenuForm()
 {
 }
 
+shared_str UIMainMenuForm::GetCommandShortcat(int CommandID) const
+{
+	ECommandVec& CommandVec = GetEditorCommands();
+
+	if (CommandVec[CommandID] == nullptr)
+		return {};
+
+	ESubCommandVec& SubCommandVec = CommandVec[CommandID]->sub_commands;
+
+	if (SubCommandVec.empty())
+		return {};
+
+	const xr_shortcut& Cat = SubCommandVec[0]->shortcut;
+
+	xr_string txt;
+	if (Cat.key == 0)
+	{
+		return {};
+	}
+
+	if (Cat.ext.test(xr_shortcut::flCtrl))
+	{
+		txt.append("Ctrl+");
+	}
+	if (Cat.ext.test(xr_shortcut::flShift))
+	{
+		txt.append("Shift+");
+	}
+	if (Cat.ext.test(xr_shortcut::flAlt))
+	{
+		txt.append("Alt+");
+	}
+
+	txt += SDL_GetScancodeName((SDL_Scancode)Cat.key);
+
+
+	return txt.c_str();
+}
+
+void UIMainMenuForm::DrawMenuItem(const char* label, int command, const xr_string& param, int flag)
+{
+	if (ImGui::MenuItem(label, *GetCommandShortcat(command)))
+	{
+		ExecCommand(command, param, flag);
+	}
+}
+
+void UIMainMenuForm::DrawMenuItem(const char* label, int command, int param, int flag)
+{
+	if (ImGui::MenuItem(label, *GetCommandShortcat(command)))
+	{
+		ExecCommand(command, param, flag);
+	}
+}
 
 void UIMainMenuForm::Draw()
 {
 	if (IXBeginMainMenuBar())
 	{
+		DrawLevelName();
+
 		if (ImGui::BeginMenu("File"))
 		{
-			if (ImGui::MenuItem("Clear", "")) { ExecCommand(COMMAND_CLEAR); }
-			if (ImGui::MenuItem("Open...", "")) { ExecCommand(COMMAND_LOAD); }
-			if (ImGui::MenuItem("Save", "")) { ExecCommand(COMMAND_SAVE, xr_string(LTools->m_LastFileName.c_str())); }
-			if (ImGui::MenuItem("Save As ...", "")) { ExecCommand(COMMAND_SAVE, 0, 1); }
+			DrawMenuItem("Clear", COMMAND_CLEAR);
+			DrawMenuItem("Open", COMMAND_LOAD);
+			DrawMenuItem("Save", COMMAND_SAVE, LTools->m_LastFileName);
+			DrawMenuItem("Save As ...", COMMAND_SAVE, 0, 1);
 			ImGui::Separator();
-			if (ImGui::MenuItem("Open Selection...", "")) { ExecCommand(COMMAND_LOAD_SELECTION); }
-			if (ImGui::MenuItem("Save Selection As...", "")) { ExecCommand(COMMAND_SAVE_SELECTION); }
+
+			DrawMenuItem("Open Selection", COMMAND_LOAD_SELECTION);
+			DrawMenuItem("Save Selection", COMMAND_SAVE_SELECTION);
 			ImGui::Separator();
-			if (ImGui::BeginMenu("Open Recent", ""))
+
+			if (ImGui::BeginMenu("Open Recent", *GetCommandShortcat(COMMAND_LOAD)))
 			{
 				for (auto& str : EPrefs->scene_recent_list)
 				{
@@ -43,10 +105,11 @@ void UIMainMenuForm::Draw()
 				ImGui::EndMenu();
 			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Quit", "")) { ExecCommand(COMMAND_QUIT); }
+
+			DrawMenuItem("Quit", COMMAND_QUIT);
 			ImGui::EndMenu();
 		}
-		
+
 		if (ImGui::BeginMenu("Scene"))
 		{
 			{
@@ -67,22 +130,18 @@ void UIMainMenuForm::Draw()
 			}
 			ImGui::Separator();
 
-			if (ImGui::MenuItem("Validate", "")) { ExecCommand(COMMAND_VALIDATE_SCENE); }
+			DrawMenuItem("Validate", COMMAND_VALIDATE_SCENE);
 			ImGui::Separator();
-			if (ImGui::MenuItem("Summary Info", "")) {
+			if (ImGui::MenuItem("Summary Info", "")) 
+			{
 				ExecCommand(COMMAND_CLEAR_SCENE_SUMMARY);
 				ExecCommand(COMMAND_COLLECT_SCENE_SUMMARY);
 				ExecCommand(COMMAND_SHOW_SCENE_SUMMARY);
 			}
-			if (ImGui::MenuItem("Highlight Texture...", ""))
-			{
-				ExecCommand(COMMAND_SCENE_HIGHLIGHT_TEXTURE);
-			}
+			DrawMenuItem("Highlight Texture", COMMAND_SCENE_HIGHLIGHT_TEXTURE);
 			ImGui::Separator();
-			if (ImGui::MenuItem("Clear Debug Draw", ""))
-			{
-				ExecCommand(COMMAND_CLEAR_DEBUG_DRAW);
-			}
+
+			DrawMenuItem("Clear Debug Draw", COMMAND_CLEAR_DEBUG_DRAW);
 			ImGui::Separator();
 			if (ImGui::MenuItem("Export entire Scene as Obj", ""))
 			{
@@ -98,35 +157,15 @@ void UIMainMenuForm::Draw()
 		{
 			if (ImGui::BeginMenu("Make"))
 			{
-				if (ImGui::MenuItem("Make All", ""))
-				{
-					ExecCommand(COMMAND_BUILD);
-				}
+				DrawMenuItem("Make All", COMMAND_BUILD);
 				ImGui::Separator();
-				if (ImGui::MenuItem("Make Game", ""))
-				{
-					ExecCommand(COMMAND_MAKE_GAME);
-				}
-				if (ImGui::MenuItem("Make Puddles", ""))
-				{
-					ExecCommand(COMMAND_MAKE_PUDDLES);
-				}
-				if (ImGui::MenuItem("Make Details", ""))
-				{
-					ExecCommand(COMMAND_MAKE_DETAILS);
-				}
-				if (ImGui::MenuItem("Make Hom", ""))
-				{
-					ExecCommand(COMMAND_MAKE_HOM);
-				}
-				if (ImGui::MenuItem("Make SOM", ""))
-				{
-					ExecCommand(COMMAND_MAKE_SOM);
-				}
-				if (ImGui::MenuItem("Make AI-Map", ""))
-				{
-					ExecCommand(COMMAND_MAKE_AIMAP);
-				}
+				DrawMenuItem("Make Game", COMMAND_MAKE_GAME);
+				DrawMenuItem("Make Puddles", COMMAND_MAKE_PUDDLES);
+				DrawMenuItem("Make Details", COMMAND_MAKE_DETAILS);
+				DrawMenuItem("Make Hom", COMMAND_MAKE_HOM);
+				DrawMenuItem("Make SOM", COMMAND_MAKE_SOM);
+				DrawMenuItem("Make AI-Map (25 bit)", COMMAND_MAKE_AIMAP);
+				DrawMenuItem("Make AI-Map (Legacy)", COMMAND_MAKE_AIMAP_LEGACY);
 				ImGui::EndMenu();
 			}
 			bool bDisable = false;
@@ -181,29 +220,21 @@ void UIMainMenuForm::Draw()
 				ImGui::EndDisabled();
 			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Import Error List", ""))
-			{
-				ExecCommand(COMMAND_IMPORT_COMPILER_ERROR);
-			}
-			if (ImGui::MenuItem("Import xrAI Error List", ""))
-			{
-				ExecCommand(COMMAND_IMPORT_AICOMPILER_ERROR);
-			}
-			if (ImGui::MenuItem("Export Error List", ""))
-			{
-				ExecCommand(COMMAND_EXPORT_COMPILER_ERROR);
-			}
-			if (ImGui::MenuItem("Clear Error List", ""))
-			{
-				ExecCommand(COMMAND_CLEAR_DEBUG_DRAW);
-			}
+
+			DrawMenuItem("Import Error List", COMMAND_IMPORT_COMPILER_ERROR);
+			DrawMenuItem("Import xrAI Error List", COMMAND_IMPORT_AICOMPILER_ERROR);
+			DrawMenuItem("Export Error List", COMMAND_EXPORT_COMPILER_ERROR);
+			DrawMenuItem("Clear Error List", COMMAND_CLEAR_DEBUG_DRAW);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Objects"))
 		{
-			if (ImGui::MenuItem("Library Editor")) { ExecCommand(COMMAND_LIBRARY_EDITOR); }
+			DrawMenuItem("Library Editor", COMMAND_LIBRARY_EDITOR);
 			ImGui::Separator();
-			if (ImGui::MenuItem("Multi Rename")) { ExecCommand(COMMAND_MULTI_RENAME_OBJECTS); }
+
+			DrawMenuItem("Clip Editor", COMMAND_SHOW_CLIP_EDITOR);
+			DrawMenuItem("Multi Rename", COMMAND_MULTI_RENAME_OBJECTS);
+
 			if (ImGui::MenuItem("Multi Replace")) 
 			{ 
 				UIReferenceReplacer* RefUI = new UIReferenceReplacer;
@@ -211,19 +242,22 @@ void UIMainMenuForm::Draw()
 
 				UI->Push(RefUI);
 			}
-			if (ImGui::MenuItem("Reload")) { ExecCommand(COMMAND_RELOAD_OBJECTS); }
+			DrawMenuItem("Reload", COMMAND_RELOAD_OBJECTS);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Images"))
 		{
-			if (ImGui::MenuItem("Image Editor", "")) { ExecCommand(COMMAND_IMAGE_EDITOR); }
+			DrawMenuItem("Image Editor", COMMAND_IMAGE_EDITOR);
 			ImGui::Separator();
-			if (ImGui::MenuItem("Reload Textures", "")) { ExecCommand(COMMAND_RELOAD_TEXTURES); }
+
+			DrawMenuItem("Reload Textures", COMMAND_RELOAD_TEXTURES);
 			ImGui::Separator();
-			if (ImGui::MenuItem("Synchronize Textures", "")) { ExecCommand(COMMAND_REFRESH_TEXTURES); }
-			if (ImGui::MenuItem("Check New Textures", "")) { ExecCommand(COMMAND_CHECK_TEXTURES); }
+
+			DrawMenuItem("Synchronize Textures", COMMAND_REFRESH_TEXTURES);
+			DrawMenuItem("Check New Textures", COMMAND_CHECK_TEXTURES);
 			ImGui::Separator();
-			if (ImGui::MenuItem("Edit minimap", "")) { ExecCommand(COMMAND_MINIMAP_EDITOR); }
+
+			DrawMenuItem("Edit minimap", COMMAND_MINIMAP_EDITOR);
 			if (ImGui::MenuItem("Sync THM", ""))
 			{
 				FS_FileSet      files;
@@ -243,13 +277,15 @@ void UIMainMenuForm::Draw()
 		}
 		if (ImGui::BeginMenu("Sounds"))
 		{
-			if (ImGui::MenuItem("Sound Editor", "")) { ExecCommand(COMMAND_SOUND_EDITOR, xr_string("")); }
+			DrawMenuItem("Sound Editor", COMMAND_SOUND_EDITOR, "");
 			ImGui::Separator();
-			if (ImGui::MenuItem("Synchronize Sounds (Soft)", "")) { ExecCommand(COMMAND_SYNC_SOUNDS); }
-			if (ImGui::MenuItem("Synchronize Sounds (Hard)", "")) { ExecCommand(COMMAND_SYNC_SOUNDS_HARD); }
+
+			DrawMenuItem("Synchronize Sounds (Soft)", COMMAND_SYNC_SOUNDS);
+			DrawMenuItem("Synchronize Sounds (Hard)", COMMAND_SYNC_SOUNDS_HARD);
 			ImGui::Separator();
-			if (ImGui::MenuItem("Refresh Environment Library", "")) { ExecCommand(COMMAND_REFRESH_SOUND_ENVS); }
-			if (ImGui::MenuItem("Refresh Environment Geometry", "")) { ExecCommand(COMMAND_REFRESH_SOUND_ENV_GEOMETRY); }
+
+			DrawMenuItem("Refresh Environment Library", COMMAND_REFRESH_SOUND_ENVS);
+			DrawMenuItem("Refresh Environment Geometry", COMMAND_REFRESH_SOUND_ENV_GEOMETRY);
 			ImGui::EndMenu();
 
 		}
@@ -417,15 +453,26 @@ void UIMainMenuForm::Draw()
 					UI->RedrawScene();
 				}
 			}
+            // Погода
 			{
 				if (ImGui::BeginMenu("Environment"))
 				{
+                    {
+                        if (ImGui::Button("Weather properties"))
+                        {
+                            ExecCommand(COMMAND_WEATHER_PROPERTIES);
+                        }
+                        if (ImGui::IsItemHovered())
+                            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                    }
 					bool selected = !psDeviceFlags.test(rsEnvironment);
 					if (ImGui::MenuItem("None", "", &selected))
 					{
 						psDeviceFlags.set(rsEnvironment, false);
 						UI->RedrawScene();
 					}
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 					ImGui::Separator();
 					for (auto& i : g_pGamePersistent->Environment().WeatherCycles)
 					{
@@ -436,6 +483,8 @@ void UIMainMenuForm::Draw()
 							g_pGamePersistent->Environment().SetWeather(i.first.c_str(), true);
 							UI->RedrawScene();
 						}
+                        if (ImGui::IsItemHovered())
+                            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 					}
 
 					ImGui::EndMenu();
@@ -462,17 +511,12 @@ void UIMainMenuForm::Draw()
 				if (ImGui::MenuItem("Stats", "", &selected)) { psDeviceFlags.set(rsStatistic, selected);  UI->RedrawScene(); }
 
 			}
-			//ImGui::Separator();
-			//if (ImGui::MenuItem("Preferences", "")) { ExecCommand(COMMAND_EDITOR_PREF); }
 			ImGui::EndMenu();
 		}
 
 		if (ImGui::BeginMenu("Windows"))
 		{
-			if (ImGui::MenuItem("Light Anim Editor", ""))
-			{
-				ExecCommand(COMMAND_LIGHTANIM_EDITOR);
-			}
+			DrawMenuItem("Light Anim Editor", COMMAND_LIGHTANIM_EDITOR);
 
 			if (ImGui::MenuItem("Macro Editor", ""))
 			{
@@ -509,7 +553,7 @@ void UIMainMenuForm::Draw()
 			{
 				bool selected = AllowLogCommands();
 
-				if (ImGui::MenuItem("Log", "", &selected)) { ExecCommand(COMMAND_LOG_COMMANDS); }
+				if (ImGui::MenuItem("Log", *GetCommandShortcat(COMMAND_LOG_COMMANDS), &selected)) { ExecCommand(COMMAND_LOG_COMMANDS); }
 
 				CUIThemeManager& ThemeInstance = CUIThemeManager::Get();
 				bool selected2 = !ThemeInstance.IsClosed();
@@ -547,6 +591,51 @@ void UIMainMenuForm::Draw()
 			ImGui::EndMenu();
 		}
 
+		if (ImGui::BeginMenu("Plugins", ""))
+		{
+			CPluginsManagers& PlugMngr = CPluginsManagers::Instance();
+
+			bool NeedReinit = false;
+			if (ImGui::MenuItem("Reinit"))
+			{
+				PlugMngr.Reinit();
+			}
+
+			ImGui::Separator();
+			PlugPy->Load();
+			PlugLua->Load();
+
+			for (IPluginBase* Plug : PlugMngr.Plugins)
+			{
+				if (Plug->Type == EPluginType::Lua)
+				{
+					ImGui::Image(PlugLua->pSurface, { 15, 15 });
+				}
+				else
+				{
+					ImGui::Image(PlugPy->pSurface, { 15, 15 });
+				}
+				ImGui::SameLine();
+				if (ImGui::MenuItem(Plug->Name.c_str(), ""))
+				{
+					if (Plug->IsSimple())
+					{
+						Plug->Run();
+					}
+					else
+					{
+						UI->Push(new CPluginUIRun(Plug));
+					}
+				}
+
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip(Plug->Desc.c_str());
+				}
+			}
+			ImGui::EndMenu();
+		}
+
 		ImGui::Separator();
 
 		{
@@ -562,6 +651,33 @@ void UIMainMenuForm::Draw()
 
 		IXEndMainMenuBar();
 	}
+}
+
+void UIMainMenuForm::DrawLevelName()
+{
+	if (Scene->full_name.empty())
+		return;
+
+	ImVec4 CheckMarkColor = ImGui::GetStyle().Colors[ImGuiCol_CheckMark];
+
+	if (Scene->IsUnsaved())
+	{
+		CheckMarkColor = ImColor(255, 22, 22);
+	}
+
+	shared_str LevelPath = xr_path(Scene->full_name).stem().string().c_str();
+	
+
+	ImGui::SameLine();
+	ImGui::SetCursorPosX(ImGui::GetCursorPosX() - 7);
+	ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
+	ImGui::PushStyleColor(ImGuiCol_Text, CheckMarkColor);
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3, 0));
+	ImGui::Button(*LevelPath, ImVec2(0, 20));
+	ImGui::PopStyleVar();
+	ImGui::PopStyleColor();
+	ImGui::SameLine();
+	//ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 5);
 }
 
 void UIMainMenuForm::ExportLevelAsArchive()
@@ -754,14 +870,5 @@ void UIMainMenuForm::ExportLevelAsArchive()
 		EDetail* NormalPtr = (EDetail*)DetObjPtr;
 		ParseObject(NormalPtr->m_pRefs, NormalPtr->m_pRefs->GetName(), RawObjectPath);
 	}
-
-	// Parse details 
-	//ESceneGroupTool* pGroupTool = (ESceneGroupTool*)Scene->GetTool(OBJCLASS_GROUP);
-	//
-	//for (auto ObjPtr : pGroupTool->GetObjects())
-	//{
-	//	CGroupObject* NormalPtr = (CGroupObject*)ObjPtr;
-	//	ParseObject(NormalPtr, NormalPtr->RefName(), RawGroupPath);
-	//}
 }
 

@@ -34,7 +34,7 @@ ENGINE_API _action  actions[]		= {
 															
 	{ "torch",				kTORCH					,_both},	
 	{ "night_vision",		kNIGHT_VISION			,_both},	
-	{ "show_detector",		kDETECTOR				,_sp},		
+	{ "show_detector",		kDETECTOR				,_both},
 
 	{ "wpn_1",				kWPN_1					,_both},	
 	{ "wpn_2",				kWPN_2					,_both},	
@@ -58,9 +58,9 @@ ENGINE_API _action  actions[]		= {
 	{ "use",				kUSE					,_both},	
 	{ "scores",				kSCORES					,_both},	
 	{ "chat",				kCHAT					,_mp},		
+	{ "chat_team",			kCHAT_TEAM				,_mp},		
 	{ "voice_chat",         kVOICE_CHAT             ,_mp},
 	{ "voice_distance",     kVOICE_DISTANCE         ,_mp},
-	{ "chat_team",			kCHAT_TEAM				,_mp},		
 	{ "screenshot",			kSCREENSHOT				,_both},	
 	{ "quit",				kQUIT					,_both},	
 	{ "console",			kCONSOLE				,_both},	
@@ -89,7 +89,10 @@ ENGINE_API _action  actions[]		= {
 
 	{ "quick_save",			kQUICK_SAVE				,_sp},		
 	{ "quick_load",			kQUICK_LOAD				,_sp},		
-//	{ "alife_command",		kALIFE_CMD				,_sp},		
+	{ "alife_command",		kALIFE_CMD				,_sp},		
+	{ "use_bandage",		kUSE_BANDAGE			,_sp},
+	{ "use_medkit",			kUSE_MEDKIT				,_sp},
+
 	{ "custom1",			kCUSTOM1				,_sp},
 	{ "custom2",			kCUSTOM2				,_sp},
 	{ "custom3",			kCUSTOM3				,_sp},

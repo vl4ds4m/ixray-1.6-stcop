@@ -256,26 +256,26 @@ CRender::~CRender()
 	xr_delete(Target);
 }
 
-void					CRender::Initialize()
+void CRender::Initialize()
 {
 	PSLibrary.OnCreate();
 }
-void					CRender::ShutDown()
+void CRender::ShutDown()
 {
 	PSLibrary.OnDestroy();
 }
 
-void					CRender::OnDeviceCreate()
+void CRender::OnDeviceCreate()
 {
 	Models = new CModelPool();
-	Models->Logging(FALSE);
 }
-void					CRender::OnDeviceDestroy()
+
+void CRender::OnDeviceDestroy()
 {
 	xr_delete(Models);
 }
 
-ref_shader	CRender::getShader(int id) { return 0; }//VERIFY(id<int(Shaders.size()));	return Shaders[id];	}
+ref_shader	CRender::getShader(int id) { return 0; }
 
 BOOL CRender::occ_visible(Fbox& B)
 {
@@ -308,8 +308,6 @@ void CRender::Calculate()
 	Target->reset_light_marker();
 	{
 		//Lights Delete queue
-		for (light* L : v_all_lights)
-			L->spatial_move();
 		for (light*L:v_all_lights_dque)
 			xr_delete(L);
 		v_all_lights_dque.clear();
@@ -543,13 +541,15 @@ DWORD CRender::get_dx_level()
 	return 90;
 }
 
-static class cl_lighting_enable : public R_constant_setup {
-	virtual void setup(R_constant* C) {
+static class cl_lighting_enable : 
+	public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
 		float is_lighting_enable = 0.0f;
-		if(g_pGamePersistent && g_pGameLevel) {
-			if(g_pGamePersistent->Environment().Current[0] && g_pGamePersistent->Environment().Current[1]) {
-				is_lighting_enable = 1.0f;
-			}
+		if(g_pGamePersistent && psDeviceFlags.test(rsEnvironment))
+		{
+			is_lighting_enable = (int)g_pGamePersistent->Environment().Current[0] && g_pGamePersistent->Environment().Current[1];
 		}
 		RCache.set_c(C, is_lighting_enable, is_lighting_enable, is_lighting_enable, is_lighting_enable);
 	}
@@ -682,7 +682,6 @@ public:
 
 IRender_Glow* CRender::glow_create() { return new RGlow(); }
 void CRender::glow_destroy(IRender_Glow* p_) {  }
-void CRender::model_Logging(BOOL bEnable) {}
 void CRender::models_Prefetch() {}
 void CRender::models_Clear(BOOL b_complete) {}
 void CRender::Screenshot(ScreenshotMode mode, LPCSTR name) {}

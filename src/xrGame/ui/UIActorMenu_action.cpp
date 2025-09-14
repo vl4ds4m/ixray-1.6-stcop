@@ -76,7 +76,7 @@ bool CUIActorMenu::OnItemDrop(CUICellItem* itm)
 	InfoCurItem( nullptr );
 	CUIDragDropListEx*	old_owner		= itm->OwnerList();
 	CUIDragDropListEx*	new_owner		= CUIDragDropListEx::m_drag_item->BackList();
-	if ( old_owner==new_owner || !old_owner || !new_owner )
+	if ( !old_owner || !new_owner )
 	{
 		return false;
 	}
@@ -88,6 +88,42 @@ bool CUIActorMenu::OnItemDrop(CUICellItem* itm)
 		Msg("incorrect action [%d]->[%d]",t_old, t_new);
 		return true;
 	}
+	
+	if (old_owner == new_owner){
+		
+		if (m_isItemDropped)
+		{
+			//Alundaio: Here we export the action of dragging one inventory item ontop of another!
+			luabind::functor<bool> funct1;
+			R_ASSERT2(ai().script_engine().functor(m_onItemDropped, funct1), "failed to get OnItemDropped functor");
+
+			//If list only has 1 item, get it, otherwise try to get item at current drag position
+			CUICellItem* _citem = (new_owner->ItemsCount() == 1) ? new_owner->GetItemIdx(0) : 0;
+			if (!_citem)
+			{
+				CUICellContainer* c = old_owner->GetContainer();
+				Ivector2 c_pos = c->PickCell(old_owner->GetDragItemPosition());
+				if (c->ValidCell(c_pos))
+				{
+					CUICell& ui_cell = c->GetCellAt(c_pos);
+					if (!ui_cell.Empty())
+						_citem = ui_cell.m_item;
+				}
+			}
+
+			PIItem _iitem = _citem ? (PIItem)_citem->m_pData : 0;
+
+			CGameObject* GO1 = CurrentIItem()->cast_game_object();
+			CGameObject* GO2 = _iitem ? _iitem->cast_game_object() : 0;
+			if (funct1(GO1 ? GO1->lua_game_object() : (0), GO2 ? GO2->lua_game_object() : (0), (int)t_old, (int)t_new) == false)
+				return false;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
 	switch(t_new)
 	{
 	case iTrashSlot:
@@ -146,8 +182,38 @@ bool CUIActorMenu::OnItemDrop(CUICellItem* itm)
 
 	OnItemDropped				(CurrentIItem(), new_owner, old_owner);
 
-	UpdateItemsPlace			();
+	if (m_isItemDropped)
+	{
+		//Alundaio: Here we export the action of dragging one inventory item ontop of another! 
+		luabind::functor<bool> funct1;
+		R_ASSERT2(ai().script_engine().functor(m_onItemDropped, funct1), "failed to get OnItemDropped functor");
+
+		//If list only has 1 item, get it, otherwise try to get item at current drag position
+		CUICellItem* _citem = (new_owner->ItemsCount() == 1) ? new_owner->GetItemIdx(0) : NULL;
+		if (!_citem)
+		{
+			CUICellContainer* c = old_owner->GetContainer();
+			Ivector2 c_pos = c->PickCell(old_owner->GetDragItemPosition());
+			if (c->ValidCell(c_pos))
+			{
+				CUICell& ui_cell = c->GetCellAt(c_pos);
+				if (!ui_cell.Empty())
+					_citem = ui_cell.m_item;
+			}
+		}
+
+		PIItem _iitem = _citem ? (PIItem)_citem->m_pData : NULL;
+
+		CGameObject* GO1 = smart_cast<CGameObject*>(CurrentIItem());
+		CGameObject* GO2 = _iitem ? smart_cast<CGameObject*>(_iitem) : NULL;
+		if (funct1(GO1 ? GO1->lua_game_object() : (0), GO2 ? GO2->lua_game_object() : (0), (int)t_old, (int)t_new) == false)
+			return false;
+
+		//-Alundaio
+	}
+
 	UpdateConditionProgressBars	();
+	UpdateItemsPlace			();
 
 	return true;
 }
@@ -160,6 +226,7 @@ bool CUIActorMenu::OnItemStartDrag(CUICellItem* itm)
 
 bool CUIActorMenu::OnItemDbClick(CUICellItem* itm)
 {
+	SetCurrentItem(itm);
 	InfoCurItem( nullptr );
 	CUIDragDropListEx*	old_owner		= itm->OwnerList();
 	EDDListType t_old					= GetListType(old_owner);
@@ -236,8 +303,8 @@ bool CUIActorMenu::OnItemDbClick(CUICellItem* itm)
 
 	}; //switch 
 
-	UpdateItemsPlace();
 	UpdateConditionProgressBars();
+	UpdateItemsPlace();
 
 	return true;
 }
@@ -266,6 +333,19 @@ bool CUIActorMenu::OnItemFocusReceive(CUICellItem* itm)
 
 	itm->m_selected = true;
 	set_highlight_item( itm );
+
+	if (m_isItemFocusReceive)
+	{
+		luabind::functor<bool> funct1;
+		R_ASSERT2(ai().script_engine().functor(m_onItemFocusReceive, funct1), "failed to get OnItemFocusReceive functor");
+		PIItem _iitem = (PIItem)itm->m_pData;
+
+		CGameObject* GO = _iitem ? _iitem->cast_game_object() : NULL;
+		if (GO)
+			funct1(GO->lua_game_object());
+		
+	}
+
 	return true;
 }
 
@@ -277,6 +357,19 @@ bool CUIActorMenu::OnItemFocusLost(CUICellItem* itm)
 	}
 	InfoCurItem( nullptr );
 	clear_highlight_lists();
+
+	if (m_isItemFocusLost)
+	{
+		luabind::functor<bool> funct1;
+		if (ai().script_engine().functor(m_onItemFocusLost, funct1))
+		{
+			PIItem _iitem = (PIItem)itm->m_pData;
+
+			CGameObject* GO = _iitem ? smart_cast<CGameObject*>(_iitem) : NULL;
+			if (GO)
+				funct1(GO->lua_game_object());
+		}
+	}
 
 	return true;
 }
@@ -292,7 +385,7 @@ bool CUIActorMenu::OnItemFocusedUpdate(CUICellItem* itm)
 		}
 	}
 	VERIFY( m_ItemInfo );
-	if ( Device.dwTimeContinual < itm->FocusReceiveTime() + m_ItemInfo->delay )
+	if (itm != nullptr && Device.dwTimeContinual < itm->FocusReceiveTime() + m_ItemInfo->delay )
 	{
 		return true; //false
 	}
@@ -417,10 +510,15 @@ void CUIActorMenu::OnMesBoxYes( CUIWindow*, void* )
 	case mmTrade:
 		break;
 	case mmUpgrade:
-		if ( m_repair_mode )
+		if (m_repair_mode == 1)
 		{
 			RepairEffect_CurItem();
-			m_repair_mode = false;
+			m_repair_mode = 0;
+		}
+		else if (m_repair_mode == 2)
+		{
+			PerformDisassemble();
+			m_repair_mode = 0;
 		}
 		else
 		{
@@ -447,7 +545,7 @@ void CUIActorMenu::OnMesBoxNo(CUIWindow*, void*)
 	case mmTrade:
 		break;
 	case mmUpgrade:
-		m_repair_mode = false;
+		m_repair_mode = 0;
 		break;
 	case mmDeadBodySearch:
 		break;

@@ -323,8 +323,12 @@ CCommandVar CommandClear(CCommandVar p1, CCommandVar p2)
 {
 	LoaderEvent.wait();
 
-	if( !Scene->locked() ){
-		if (!Scene->IfModified()) return TRUE;
+	if( !Scene->locked() )
+	{
+		Scene->Stop();
+		
+		if (!Scene->IfModified()) 
+			return TRUE;
 		UI->CurrentView().m_Camera.Reset	();
 		Scene->Reset			();
 		Scene->m_LevelOp.Reset	();
@@ -355,12 +359,14 @@ CCommandVar CommandClearDebugDraw(CCommandVar p1, CCommandVar p2)
 	UI->RedrawScene				();
 	return 						TRUE;
 }
+
+#include "Utils/ClipMaker.h"
 CCommandVar CommandShowClipEditor(CCommandVar p1, CCommandVar p2)
 {
-/*	if(g_clip_maker==NULL)
-	   g_clip_maker = TClipMaker::CreateForm();
+	if(g_clip_maker==NULL)
+	   g_clip_maker = new TClipMaker();
 
-	if(!g_clip_maker->Visible)	
+	//if(!g_clip_maker->)	
 	{
 		ESceneCustomOTool* st = Scene->GetOTool(OBJCLASS_SPAWNPOINT);
 
@@ -383,10 +389,12 @@ CCommandVar CommandShowClipEditor(CCommandVar p1, CCommandVar p2)
 		CSpawnPoint* sp = smart_cast<CSpawnPoint*>(CO);
 
 		
-		CKinematicsAnimated* KA 	= PKinematicsAnimated(sp->m_SpawnData.m_Visual->visual);
-		R_ASSERT					(KA);
-		g_clip_maker->ShowEditor	(KA);
-	}*/
+		if (CKinematicsAnimated* KA = PKinematicsAnimated(sp->m_SpawnData.m_Visual->visual))
+		{
+			g_clip_maker->ShowEditor(KA);
+			UI->Push(g_clip_maker);
+		}
+	}
 	return 							TRUE;
 }
 
@@ -442,6 +450,15 @@ CCommandVar CommandCleanLibrary(CCommandVar p1, CCommandVar p2)
 CCommandVar CommandReloadObjects(CCommandVar p1, CCommandVar p2)
 {
 	Lib.ReloadObjects	();
+
+	ObjectIt _F = Scene->FirstObj(OBJCLASS_SECTOR);
+	ObjectIt _E = Scene->LastObj(OBJCLASS_SECTOR);
+	for (; _F != _E; _F++)
+	{
+		CSector* _S = (CSector*)(*_F);
+		_S->ReloadObjectsReferences();
+	}
+
 	return 				TRUE;
 }
 
@@ -696,7 +713,17 @@ CCommandVar CommandMakeAIMap(CCommandVar p1, CCommandVar p2)
 {
 	if( !Scene->locked() ){
 		if (mrYes==ELog.DlgMsg(mtConfirmation, mbYes |mbNo, "Are you sure to export ai-map?"))
-			return 				Builder.MakeAIMap( );
+			return 				Builder.MakeAIMap(false);
+	}else{
+		ELog.DlgMsg( mtError, "Scene sharing violation" );
+	}
+	return 						FALSE;
+}
+CCommandVar CommandMakeAIMapLegacy(CCommandVar p1, CCommandVar p2)
+{
+	if( !Scene->locked() ){
+		if (mrYes==ELog.DlgMsg(mtConfirmation, mbYes |mbNo, "Are you sure to export ai-map?"))
+			return 				Builder.MakeAIMap(true);
 	}else{
 		ELog.DlgMsg( mtError, "Scene sharing violation" );
 	}
@@ -1137,6 +1164,7 @@ void CLevelMain::RegisterCommands()
 	REGISTER_CMD_SE	    (COMMAND_MAKE_GAME,              	"Compile\\Make Game",	        CommandMakeGame,false);
 	REGISTER_CMD_SE	    (COMMAND_MAKE_PUDDLES,             	"Compile\\Make Puddles",	    CommandMakePuddles,false);
 	REGISTER_CMD_SE	    (COMMAND_MAKE_AIMAP,              	"Compile\\Make AI Map",	        CommandMakeAIMap,false);
+	REGISTER_CMD_SE	    (COMMAND_MAKE_AIMAP_LEGACY,        	"Compile\\Make AI Map Legacy",  CommandMakeAIMapLegacy,false);
 	REGISTER_CMD_SE	    (COMMAND_MOVE_GIZMO,              	"Gizmo\\Set at camera",	        CommandMakeGizmo,false);
 	REGISTER_CMD_SE	    (COMMAND_UPDATE_GIZMO,             	"Gizmo\\Update at camera",	    CommandUpdateGizmo,false);
 	REGISTER_CMD_SE	    (COMMAND_MAKE_DETAILS,              "Compile\\Make Details",        CommandMakeDetails,false);
@@ -1246,46 +1274,37 @@ bool EditLibPickObjectGeometry(  Fvector& hitpoint,  const Fvector& start, const
 	return false;
 }
 
-bool ScenePickObjectGeometry( Fvector& hitpoint,  const Fvector& start, const Fvector& direction, int bSnap, Fvector* hitnormal )
+bool ScenePickObjectGeometry(Fvector& hitpoint, const Fvector& start, const Fvector& direction, int bSnap, Fvector* hitnormal)
 {
-
-	SRayPickInfo pinf;
-
-   
-	SRayPickInfo l_pinf;
-	bool bResult = false;
-
+	constexpr std::array ObjClasses = 
 	{
-	  SRayPickInfo l_pinf;
-	  bool l_bres = Scene->RayPickObject( l_pinf.inf.range, start,direction, OBJCLASS_SPAWNPOINT , &l_pinf, Scene->GetSnapList(false) );
-	  
-	  if( l_bres )
-	  {
-		  pinf = l_pinf;
-		  bResult = true;
-	  }
-	  
-	}
-	{
-	
-	 SRayPickInfo l_pinf;
-	 bool l_bres = Scene->RayPickObject( l_pinf.inf.range, start, direction, OBJCLASS_SCENEOBJECT , &l_pinf, Scene->GetSnapList(false) );
+	   OBJCLASS_SPAWNPOINT,
+	   OBJCLASS_SCENEOBJECT,
+	   OBJCLASS_TERRAIN
+	};
 
-	 if( !bResult||(l_bres && l_pinf.inf.range < pinf.inf.range) )
-		  pinf = l_pinf;
-	 if( l_bres )
-		   bResult = true;
-		   
+	xr_optional<SRayPickInfo> Hits;
+
+	for (ESceneItemsGuids objClass : ObjClasses)
+	{
+		SRayPickInfo currentInfo;
+		if (Scene->RayPickObject(currentInfo.inf.range, start, direction, objClass, &currentInfo, Scene->GetSnapList(false)))
+		{
+			if (!Hits || currentInfo.inf.range < Hits->inf.range)
+			{
+				Hits = currentInfo;
+			}
+		}
 	}
 
+	if (Hits)
+	{
+		RetrieveSceneObjPointAndNormal(hitpoint, hitnormal, *Hits, bSnap);
+		return true;
+	}
 
-	 if( bResult )
-			RetrieveSceneObjPointAndNormal( hitpoint,  hitnormal, pinf, bSnap );
-			
-	 return  bResult;
-
+	return false;
 }
-
 
 bool PickObjectGeometry( EEditorState est, Fvector& hitpoint,  const Fvector& start, const Fvector& direction, int bSnap, Fvector* hitnormal )
 {

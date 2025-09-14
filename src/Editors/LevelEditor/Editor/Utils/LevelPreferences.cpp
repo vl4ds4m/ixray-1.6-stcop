@@ -2,6 +2,8 @@
 #include "LevelPreferences.h"
 #include "ContentView.h"
 
+#include "../xrECore/Editor/UILogForm.h"
+
 void CLevelPreferences::Load()
 {
 	inherited::Load		();
@@ -40,6 +42,11 @@ void CLevelPreferences::Load()
 		OpenSnapList = JSONData["windows"]["snap_list"];
 	}
 
+	if (JSONData["windows"].contains("log_clear_in_pie"))
+	{
+		UILogForm::bClearInPIE = JSONData["windows"]["log_clear_in_pie"];
+	}
+
 	if (JSONData["windows"].contains("light_anim"))
 	{
 		OpenLightAnim = JSONData["windows"]["light_anim"];
@@ -48,6 +55,10 @@ void CLevelPreferences::Load()
 	if (JSONData["ContentBrowser"].contains("CurPath"))
 	{
 		GContentView->CurrentDir = JSONData["ContentBrowser"]["CurPath"];
+		if (!std::filesystem::exists(GContentView->CurrentDir.c_str()))
+		{
+			GContentView->CurrentDir = GContentView->RootDir;
+		}
 	}
 
 	if (JSONData["ContentBrowser"].contains("ViewMode"))
@@ -64,6 +75,11 @@ void CLevelPreferences::Load()
 		}
 	}
 	
+
+	if (JSONData.contains("gizmo") && JSONData["gizmo"].contains("matrixmode"))
+	{
+		imManipulator.MatrixMode = JSONData["gizmo"]["matrixmode"];
+	}
 
 	if (JSONData["ContentBrowser"].contains("IsSpawnElement"))
 	{
@@ -85,10 +101,12 @@ void CLevelPreferences::Save()
 {
 	inherited::Save		();
 
+	JSONData["gizmo"]["matrixmode"] = imManipulator.MatrixMode;
 	JSONData["windows"]["object_list"] = OpenObjectList;
 	JSONData["windows"]["properties"] = OpenProperties;
 	JSONData["windows"]["world_properties"] = OpenWorldProperties;
 	JSONData["windows"]["snap_list"] = OpenSnapList;
+	JSONData["windows"]["log_clear_in_pie"] = UILogForm::bClearInPIE;
 	JSONData["windows"]["light_anim"] = OpenLightAnim;
 	
 	JSONData["LibaryEditor"]["Preview"] = PreviewRenderLibrary;

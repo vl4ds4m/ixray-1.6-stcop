@@ -43,6 +43,8 @@ enum class EditorUI : u8
 	Game_SpawnManager,
 	Game_WeaponManager,
 	Game_SearchManager,
+	Game_HudAdjustManager,
+	Tools_OMFEditor,
 	Count
 };
 
@@ -67,6 +69,7 @@ public:
 public:
 	void				Initialize	();
 	void				InitializeNotDedicated();
+	void				InitializeDedicated();
 	void				Destroy		();
 
 	void				CreateRendererList();

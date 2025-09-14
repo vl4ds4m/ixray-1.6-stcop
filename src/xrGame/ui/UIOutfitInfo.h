@@ -22,8 +22,9 @@ public:
 protected:
 	CUIStatic				m_name; // texture + name
 	CUIDoubleProgressBar	m_progress;
-	CUITextWnd				m_value; // 100%
+	CUITextWnd*				m_value; // 100%
 	float					m_magnitude;
+	shared_str				m_unit_str;
 
 }; // class CUIOutfitImmunity
 
@@ -41,7 +42,7 @@ public:
 protected:
 	enum				{ max_count = ALife::eHitTypeMax-4 };
 	
-//	CUIStatic*			m_caption;
+	CUIStatic*			m_caption;
 	CUIStatic*			m_Prop_line;
 	CUIOutfitImmunity*	m_items[max_count];
 

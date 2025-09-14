@@ -368,6 +368,18 @@ void CCar::SetDefaultNetState(CSE_PHSkeleton* po)
 	}
 }
 
+void CCar::save(NET_Packet& output_packet)
+{
+	inherited::save(output_packet);
+	save_data(m_fuel, output_packet);
+}
+
+void CCar::load(IReader& input_packet)
+{
+	inherited::load(input_packet);
+	load_data(m_fuel, input_packet);
+}
+
 void CCar::shedule_Update(u32 dt)
 {
 	inherited::shedule_Update(dt);
@@ -396,7 +408,7 @@ void CCar::UpdateEx(float fov)
 	{
 		cam_Update(Device.fTimeDelta, fov);
 		OwnerActor()->Cameras().UpdateFromCamera(Camera());
-		OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
+		OwnerActor()->Cameras().ApplyDevice(Device.fViewportNear);
 	}
 }
 
@@ -1578,8 +1590,7 @@ bool CCar::Use(const Fvector& pos, const Fvector& dir, const Fvector& foot_pos)
 							continue;
 					}
 
-					CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
-					pGameSP->StartCarBody(Actor(), this);
+					CurrentGameUI()->StartCarBody(Actor(), this);
 				}
 				else if (IsDoorBone)
 				{

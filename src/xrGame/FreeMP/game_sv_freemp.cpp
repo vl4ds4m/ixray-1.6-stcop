@@ -174,8 +174,13 @@ void game_sv_freemp::SetSkin(CSE_Abstract* E, u16 Team, u16 ID)
 	CSE_Visual* pV = smart_cast<CSE_Visual*>(E);
 	if (!pV) return;
 	//-------------------------------------------
-	string256 SkinName;
-	xr_strcpy(SkinName, pSettings->r_string("mp_skins_path", "skin_path"));
+	string256 SkinName = {};
+
+	if (pSettings->section_exist("mp_skins_path") && pSettings->line_exist("mp_skins_path", "skin_path"))
+	{
+		xr_strcpy(SkinName, pSettings->r_string("mp_skins_path", "skin_path"));
+	}
+
 	//загружены ли скины для этой комманды
 //	if (SkinID != -1) ID = u16(SkinID);
 
@@ -217,7 +222,7 @@ void game_sv_freemp::SetSkin(CSE_Abstract* E, u16 Team, u16 ID)
 	R_ASSERT2(len < 64, "Skin Name is too LONG!!!");
 	pV->set_visual(SkinName);
 	//-------------------------------------------
-};
+}
 
 void game_sv_freemp::OnPlayerReady(ClientID id_who)
 {
@@ -258,9 +263,32 @@ void game_sv_freemp::RespawnPlayer(ClientID id_who, bool NoSpectator)
 	CSE_ALifeCreatureActor* pA = smart_cast<CSE_ALifeCreatureActor*>(xrCData->owner);
 	if (!pA) return;
 
-	SpawnWeapon4Actor(pA->ID, "mp_players_rukzak", 0, ps->pItemList);
-	SpawnWeapon4Actor(pA->ID, "device_pda", 0, ps->pItemList);
 
+	SpawnItemToActor(pA->ID, "mp_players_rukzak");
+	SpawnItemToActor(pA->ID, "device_pda");
+
+	string_path fname = {};
+	FS.update_path(fname, "$game_config$", "mp\\fmp_respawn_items.ltx");
+	CInifile Ini(fname, TRUE);
+
+	const char* N = nullptr;
+	const char* V = nullptr;
+
+	for (u32 k = 0; Ini.r_line("spawn", k, &N, &V); k++)
+	{
+		u32 Value = 1;
+
+		if (V && xr_strlen(V))
+		{
+			string64 buf;
+			Value = atoi(_GetItem(V, 0, buf));
+		}
+
+		for (u32 Iter = 0; Iter < Value; Iter++)
+		{
+			SpawnItemToActor(pA->ID, N);
+		}
+	}
 }
 
 void game_sv_freemp::OnDetach(u16 eid_who, u16 eid_what)
@@ -296,6 +324,25 @@ void game_sv_freemp::OnPlayerKillPlayer(game_PlayerState* ps_killer, game_Player
 	signal_Syncronize();
 }
 
+void game_sv_freemp::OnPlayerRepairItem(NET_Packet& P, ClientID const& clientID)
+{
+	game_PlayerState* ps = get_id(clientID);
+	if (!ps) return;
+	u16 itemId = P.r_u16();
+	s32 cost = P.r_s32();
+	PIItem item = smart_cast<CInventoryItem*>(Level().Objects.net_Find(itemId));
+	if (!item) return;
+	if (ps->money_for_round < cost) return;
+	AddMoneyToPlayer(ps, -cost);
+	NET_Packet NP;
+	CGameObject::u_EventGen(NP, GE_REPAIR_ITEM, itemId);
+	CGameObject::u_EventSend(NP);
+	GenerateGameMessage(NP);
+	NP.w_u32(GAME_EVENT_MP_REPAIR_SUCCESS);
+	NP.w_u16(itemId);
+	m_server->SendTo(clientID, NP);
+}
+
 void game_sv_freemp::OnEvent(NET_Packet& P, u16 type, u32 time, ClientID sender)
 {
 	switch (type)
@@ -311,6 +358,16 @@ void game_sv_freemp::OnEvent(NET_Packet& P, u16 type, u32 time, ClientID sender)
 	case GAME_EVENT_TRANSFER_MONEY:
 	{
 		OnTransferMoney(P, sender);
+	}
+	break;
+	case GAME_EVENT_MP_TRADE:
+	{
+		OnPlayerTrade(P, sender);
+	}
+	break;
+	case GAME_EVENT_MP_REPAIR:
+	{
+		OnPlayerRepairItem(P, sender);
 	}
 	break;
 	default:

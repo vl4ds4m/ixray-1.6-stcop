@@ -38,7 +38,7 @@ void CWeaponAutomaticShotgun::Load(LPCSTR section)
 
 void CWeaponAutomaticShotgun::OnAnimationEnd(u32 state) 
 {
-	if (!m_bTriStateReload || state != eReload)
+	if (!m_bTriStateReload || state != eReload || state == eReload && IsMisfire() && (HudAnimationExist("anm_reload_jammed") || HudAnimationExist("anm_reload_misfire")))
 	{
 		bStopReloadSignal = false;
 		return inherited::OnAnimationEnd(state);
@@ -76,7 +76,14 @@ void CWeaponAutomaticShotgun::OnAnimationEnd(u32 state)
 
 void CWeaponAutomaticShotgun::Reload() 
 {
-	if(m_bTriStateReload)
+	bool is_misfire = IsMisfire() && (HudAnimationExist("anm_reload_jammed") || HudAnimationExist("anm_reload_misfire"));
+
+	if (is_misfire)
+	{
+		bMisfireReload = true;
+	}
+
+	if (m_bTriStateReload && !is_misfire)
 		TriStateReload();
 	else
 		inherited::Reload();
@@ -94,7 +101,8 @@ void CWeaponAutomaticShotgun::TriStateReload()
 
 void CWeaponAutomaticShotgun::OnStateSwitch	(u32 S)
 {
-	if(!m_bTriStateReload || S != eReload)
+	bool is_misfire = S == eReload && IsMisfire() && (HudAnimationExist("anm_reload_jammed") || HudAnimationExist("anm_reload_misfire"));
+	if (!m_bTriStateReload || S != eReload || is_misfire)
 	{
 		bStopReloadSignal = false;
 		inherited::OnStateSwitch(S);
@@ -128,6 +136,8 @@ void CWeaponAutomaticShotgun::OnStateSwitch	(u32 S)
 
 void CWeaponAutomaticShotgun::switch2_StartReload()
 {
+	u8 type_to_update = m_bUseLastAmmoType && m_LastShotAmmoType != undefined_ammo_type ? m_LastShotAmmoType : GetTargetAmmoType();
+	UpdateAmmoBones(m_ammo_bones_mag, iAmmoElapsed, type_to_update);
 	PlaySound			("sndOpen",get_LastFP());
 	PlayAnimOpenWeapon	();
 	SetPending			(TRUE);
@@ -142,6 +152,7 @@ void CWeaponAutomaticShotgun::switch2_AddCartgidge	()
 
 void CWeaponAutomaticShotgun::switch2_EndReload	()
 {
+	UpdateAmmoBones(m_ammo_bones_mag, iAmmoElapsed, GetTargetAmmoType());
 	SetPending			(FALSE);
 	PlaySound			("sndClose",get_LastFP());
 	PlayAnimCloseWeapon	();
@@ -150,18 +161,20 @@ void CWeaponAutomaticShotgun::switch2_EndReload	()
 void CWeaponAutomaticShotgun::PlayAnimOpenWeapon()
 {
 	VERIFY(GetState()==eReload);
-	PlayHUDMotion("anm_open",FALSE,this,GetState());
+	PlayHUDMotion("anm_open", FALSE, GetState());
 }
+
 void CWeaponAutomaticShotgun::PlayAnimAddOneCartridgeWeapon()
 {
 	VERIFY(GetState()==eReload);
-	PlayHUDMotion("anm_add_cartridge",FALSE,this,GetState());
+	PlayHUDMotion("anm_add_cartridge", FALSE, GetState());
 }
+
 void CWeaponAutomaticShotgun::PlayAnimCloseWeapon()
 {
 	VERIFY(GetState()==eReload);
 
-	PlayHUDMotion("anm_close",FALSE,this,GetState());
+	PlayHUDMotion("anm_close", FALSE, GetState());
 }
 
 void	CWeaponAutomaticShotgun::net_Export	(NET_Packet& P)

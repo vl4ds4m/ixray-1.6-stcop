@@ -16,6 +16,7 @@
 #include "../xrEngine/xr_level_controller.h"
 
 #include "game_cl_base.h"
+#include "FreeMP/ScriptEvents.h"
 
 class	CHUDManager;
 class	CParticlesObject;
@@ -52,12 +53,19 @@ class CFogOfWarMngr;
 class CBulletManager;
 class CMapManager;
 
+namespace inventory::upgrade
+{
+	class Manager;
+}
+
 namespace file_transfer
 {
 	class client_site;
-}; //namespace file_transfer
+};
 
-class CLevel					: public IGame_Level, public IPureClient
+class CLevel: 
+	public IGame_Level, 
+	public IPureClient
 {
 	#include "Level_network_Demo.h"
 	void						ClearAllObjects			();
@@ -66,6 +74,12 @@ private:
 	bool						m_bSynchronization;
 	bool						m_bEnvPaused;
 #endif
+	// callbacks
+	bool m_isStartAttack = false;
+	const char* m_onStartAttack = {};
+
+	bool m_isKeyPress = false;
+	const char* m_onKeyPress = {};
 protected:
 	typedef IGame_Level			inherited;
 	
@@ -79,6 +93,8 @@ protected:
 	CClientSpawnManager			*m_client_spawn_manager;
 	// autosave manager
 	CAutosaveManager			*m_autosave_manager;
+
+
 #ifdef DEBUG_DRAW
 	// debug renderer
 	CDebugRenderer				*m_debug_renderer;
@@ -104,11 +120,15 @@ protected:
 	IReader						*m_chunk;
 	IReader						*spawn;
 	IGameGraph					*m_game_graph;
+
+	xr_deque<NET_Packet>		script_client_events;
+
 public:
 #ifdef DEBUG
 	// level debugger
 	CLevelDebug					*m_level_debug;
 #endif
+	inventory::upgrade::Manager* m_upgrade_manager = nullptr;
 
 public:
 	////////////// network ////////////////////////
@@ -118,7 +138,6 @@ public:
 	void						ReculcInterpolationSteps();
 	u32							GetNumCrSteps			() const	{return m_dwNumSteps; };
 	void						SetNumCrSteps			( u32 NumSteps );
-	static void 				PhisStepsCallback		( u32 Time0, u32 Time1 );
 	bool						In_NetCorrectionPrediction	() {return m_bIn_CrPr;};
 
 	virtual void				OnMessage				(void* data, u32 size);
@@ -127,6 +146,9 @@ public:
 	virtual void				OnSessionFull			();
 	virtual void				OnConnectRejected		();
 
+	NET_Packet* GetLastClientScriptEvent();
+	void PopLastClientScriptEvent();
+	u32 GetSizeClientScriptEvent();
 private:
 			
 			void				OnSecureMessage			(NET_Packet & P);
@@ -333,37 +355,40 @@ public:
 	//gets the time from the game simulation
 	
 	//возвращает время в милисекундах относительно начала игры
-	ALife::_TIME_ID		GetStartGameTime		();
-	virtual ALife::_TIME_ID		GetGameTime				() override;
+	ALife::_TIME_ID GetStartGameTime();
+	virtual ALife::_TIME_ID GetGameTime();
 	//возвращает время для энвайронмента в милисекундах относительно начала игры
-	ALife::_TIME_ID		GetEnvironmentGameTime	();
+    ALife::_TIME_ID GetEnvironmentGameTime() const override;
+    static_assert(std::is_same_v<ALife::_TIME_ID, u64>, "Please, change return type of GetEnvironmentGameTime in IGame_Level and CGameLevel accordingly");
+
 	//игровое время в отформатированном виде
 	void				GetGameDateTime			(u32& year, u32& month, u32& day, u32& hours, u32& mins, u32& secs, u32& milisecs);
 
 	float				GetGameTimeFactor		();
 	void				SetGameTimeFactor		(const float fTimeFactor);
 	void				SetGameTimeFactor		(ALife::_TIME_ID GameTime, const float fTimeFactor);
-	virtual void		SetEnvironmentGameTimeFactor(u64 const& GameTime, float const& fTimeFactor);
+
 
 	// gets current daytime [0..23]
 	u8					GetDayTime				();
 	u32					GetGameDayTimeMS		();
 	float				GetGameDayTimeSec		();
-	float				GetEnvironmentGameDayTimeSec();
+    float               GetEnvironmentGameDayTimeSec() const override;
 
-	virtual float		GetEnvironmentTimeFactor() const override;
-	virtual void		SetEnvironmentTimeFactor(const float fTimeFactor) override;
-	virtual u64			GetEnvironmentGameTime() const override;
+    virtual float       GetEnvironmentTimeFactor() const override;
+    virtual void        SetEnvironmentTimeFactor(const float fTimeFactor) override;
+    virtual void        SetEnvironmentGameTimeFactor(u64 const &GameTime, float const &fTimeFactor) override;
+    //virtual u64         GetEnvironmentGameTime() const override;
 
-protected:
-//	CFogOfWarMngr*		m_pFogOfWarMngr;
-protected:	
+  protected:
+    //	CFogOfWarMngr*		m_pFogOfWarMngr;
+  protected:	
 	CMapManager *			m_map_manager;
 	CGameTaskManager*		m_game_task_manager;
 
 public:
 	CMapManager&			MapManager					() const 	{return *m_map_manager;}
-	CGameTaskManager&		GameTaskManager				() const	{return *m_game_task_manager;}
+	IC CGameTaskManager* GameTaskManager() const { return m_game_task_manager; }
 	void					OnAlifeSimulatorLoaded		();
 	void					OnAlifeSimulatorUnLoaded	();
 	//работа с пулями

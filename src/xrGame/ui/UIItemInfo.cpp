@@ -41,13 +41,14 @@ CUIItemInfo::CUIItemInfo()
 	UIWeight					= nullptr;
 	UIItemImage					= nullptr;
 	UIDesc						= nullptr;
-//	UIConditionWnd				= nullptr;
+	UIConditionWnd				= nullptr;
 	UIWpnParams					= nullptr;
 	UIKnifeParams				= nullptr;
 	UIProperties				= nullptr;
 	UIOutfitInfo				= nullptr;
 	UIBoosterInfo				= nullptr;
 	UIArtefactParams			= nullptr;
+	UIOutfitParams				= nullptr;
 	UIName						= nullptr;
 	UIBackground				= nullptr;
 	m_pInvItem					= nullptr;
@@ -57,19 +58,24 @@ CUIItemInfo::CUIItemInfo()
 
 CUIItemInfo::~CUIItemInfo()
 {
-//	xr_delete	(UIConditionWnd);
+	xr_delete	(UIConditionWnd);
 	xr_delete	(UIWpnParams);
 	xr_delete	(UIKnifeParams);
 	xr_delete	(UIArtefactParams);
+	xr_delete	(UIOutfitParams);
 	xr_delete	(UIProperties);
 	xr_delete	(UIOutfitInfo);
 	xr_delete	(UIBoosterInfo);
 }
 
-void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
+bool CUIItemInfo::InitItemInfo(LPCSTR xml_name)
 {
 	CUIXml						uiXml;
 	uiXml.Load					(CONFIG_PATH, UI_PATH, xml_name);
+
+	if (uiXml.GetNodesNum(uiXml.GetRoot(), nullptr) == 0)
+		return false;
+
 	CUIXmlInit					xml_init;
 
 	if(uiXml.NavigateToNode("main_frame",0))
@@ -128,15 +134,18 @@ void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
 
 	if(uiXml.NavigateToNode("descr_list",0))
 	{
-//		UIConditionWnd					= new CUIConditionParams();
-//		UIConditionWnd->InitFromXml		(uiXml);
+		UIConditionWnd					= new CUIConditionParams();
+		UIConditionWnd->InitFromXml		(uiXml);
 		UIWpnParams						= new CUIWpnParams();
 		UIWpnParams->InitFromXml		(uiXml);
 		UIKnifeParams					= new CUIKnifeParams();
 		UIKnifeParams->InitFromXml		(uiXml);
 
-		UIArtefactParams				= new CUIArtefactParams();
+		UIArtefactParams				= new CUIArtefactParams(CUIArtefactParams::CParamType::eParamTypeArtefact);
 		UIArtefactParams->InitFromXml	(uiXml);
+
+		UIOutfitParams = new CUIArtefactParams(CUIArtefactParams::CParamType::eParamTypeOutfit);
+		UIOutfitParams->InitFromXml(uiXml);
 
 		UIBoosterInfo					= new CUIBoosterInfo();
 		UIBoosterInfo->InitFromXml		(uiXml);
@@ -179,6 +188,7 @@ void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
 	}
 
 	xml_init.InitAutoStaticGroup	(uiXml, "auto", 0, this);
+	return true;
 }
 
 void CUIItemInfo::InitItemInfo(Fvector2 pos, Fvector2 size, LPCSTR xml_name)
@@ -244,7 +254,7 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
 
 	if (UICost != nullptr)
 	{
-		if (IsGameTypeSingle() && item_price != u32(-1))
+		if (IsGameTypeSingleCompatible() && item_price != u32(-1))
 		{
 			xr_sprintf(str, "%d RU", item_price);// will be owerwritten in multiplayer
 			UICost->SetText(str);
@@ -261,7 +271,7 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
 		}
 	}
 	
-	if ( UITradeTip && IsGameTypeSingle())
+	if ( UITradeTip && IsGameTypeSingleCompatible())
 	{
 		pos.y = UITradeTip->GetWndPos().y;
 		if ( UIWeight && m_complex_desc )
@@ -306,7 +316,7 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
 		TryAddConditionInfo					(*pInvItem, pCompareItem);
 		TryAddWpnInfo						(*pInvItem, pCompareItem);
 		TryAddKnifeInfo						(*pInvItem, pCompareItem);
-		TryAddArtefactInfo					(pInvItem->object().cNameSect());
+		TryAddArtefactInfo					(*pInvItem);
 		TryAddOutfitInfo					(*pInvItem, pCompareItem);
 		TryAddUpgradeInfo					(*pInvItem);
 		TryAddBoosterInfo					(*pInvItem);
@@ -330,7 +340,8 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
 	if(UIItemImage)
 	{
 		// Загружаем картинку
-		UIItemImage->SetShader				(InventoryUtilities::GetEquipmentIconsShader());
+		const char* icons_texture = READ_IF_EXISTS(pSettings, r_string, m_pInvItem->m_section_id.c_str(), "icons_texture", nullptr);
+		UIItemImage->SetShader(InventoryUtilities::GetEquipmentIconsShader(icons_texture));
 
 		Irect item_grid_rect				= pInvItem->GetInvGridRect();
 		Frect texture_rect = {};
@@ -366,8 +377,8 @@ void CUIItemInfo::TryAddConditionInfo( CInventoryItem& pInvItem, CInventoryItem*
 {
 	if ( pInvItem.IsUsingCondition() )
 	{
-//		UIConditionWnd->SetInfo( pCompareItem, pInvItem );
-//		UIDesc->AddWindow( UIConditionWnd, false );
+		UIConditionWnd->SetInfo( pCompareItem, pInvItem );
+		UIDesc->AddWindow( UIConditionWnd, false );
 	}
 }
 
@@ -389,11 +400,11 @@ void CUIItemInfo::TryAddKnifeInfo( CInventoryItem& pInvItem, CInventoryItem* pCo
 	}
 }
 
-void CUIItemInfo::TryAddArtefactInfo	(const shared_str& af_section)
+void CUIItemInfo::TryAddArtefactInfo	(CInventoryItem& pInvItem)
 {
-	if ( UIArtefactParams->Check( af_section ) )
+	if (UIArtefactParams->Check(pInvItem.object().cNameSect()))
 	{
-		UIArtefactParams->SetInfo( af_section );
+		UIArtefactParams->SetInfo(pInvItem);
 		UIDesc->AddWindow( UIArtefactParams, false );
 	}
 }
@@ -415,6 +426,11 @@ void CUIItemInfo::TryAddOutfitInfo( CInventoryItem& pInvItem, CInventoryItem* pC
 		UIDesc->AddWindow( UIOutfitInfo, false );
 	}
 
+	if (UIOutfitParams && outfit)
+	{
+		UIOutfitParams->SetInfo(pInvItem);
+		UIDesc->AddWindow(UIOutfitParams, false);
+	}
 }
 
 void CUIItemInfo::TryAddUpgradeInfo( CInventoryItem& pInvItem )

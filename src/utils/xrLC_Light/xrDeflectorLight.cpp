@@ -69,105 +69,38 @@ void GET			(const lm_layer &lm, int x, int y, u32 ref, u32 &count,  base_color_c
 	dst.add				(C);
 	count				++;
 }
+ 
 
-
-
-/*
-struct	Get8_res
+struct lm_line
 {
-	Get8_res():count(0), res_surface_color(0), res_marker(0), ref( u32(-1) ) {}
-	base_color_c	dst;
-	u32				count;
-	base_color		*res_surface_color;
-	u8				*res_marker;
-	u32				ref;
-	void aplly( int x, int y, u32 _ref, bool &bNeedContinue, lm_layer &result )
+	buffer_vector<base_color>& surface;
+	buffer_vector<u8>& marker;
+	u32 y;
+	u32 height;
+	lm_line(buffer_vector<base_color>& surf_buf, buffer_vector<u8>& mark_buf) :
+		surface(surf_buf), marker(mark_buf), y(u32(-1)), height(u32(-1))
 	{
-		if (count) {
-			dst.scale			(count);
-			result.surface		[y*result.width+x]._set(dst);
-			result.marker		[y*result.width+x]=u8(_ref);
-			bNeedContinue		= TRUE;
-		}
 	}
-	void apply_delay(int x, int y, u32 _ref, bool &bNeedContinue, lm_layer &result )
+
+	void save(int _y, const lm_layer& lm)
 	{
-		if (count) {
-			dst.scale			(count);
-			res_surface_color = &(result.surface		[y*result.width+x]);//._set(dst);
-			res_marker		  = &(result.marker		[y*result.width+x]);//=u8(ref);
-			ref				  = _ref;
-			bNeedContinue		= TRUE;
-		}
-	}
-	~Get8_res()
-	{
-		if( res_surface_color )
+		y = _y;
+		height = lm.height;
+
 		{
-			R_ASSERT( res_marker );
-			R_ASSERT( ref != u32(-1) );
-			res_surface_color->_set(dst);
-			*res_marker		 =u8(ref);
+			xr_vector<base_color>::const_iterator from = lm.surface.begin() + y * lm.width;
+			xr_vector<base_color>::const_iterator to = from + lm.width;
+			surface.assign(from, to);
+		}
+
+		{
+			xr_vector<u8>::const_iterator from = lm.marker.begin() + y * lm.width;
+			xr_vector<u8>::const_iterator to = from + lm.width;
+			marker.assign(from, to);
 		}
 	}
 };
 
-void Get8(const lm_layer &lm, int x, int y, u32 ref, u32 &count,  base_color_c& dst )
-{
-		GET(lm,x-1,y-1,ref,count,dst);
-		GET(lm,x  ,y-1,ref,count,dst);
-		GET(lm,x+1,y-1,ref,count,dst);
-
-		GET(lm,x-1,y  ,ref,count,dst);
-		GET(lm,x+1,y  ,ref,count,dst);
-
-		GET(lm,x-1,y+1,ref,count,dst);
-		GET(lm,x  ,y+1,ref,count,dst);
-		GET(lm,x+1,y+1,ref,count,dst);
-}
-
-void Get8(lm_layer &lm, int x, int y, u32 ref, Get8_res &res )
-{
-	Get8( lm, x, y, ref, res.count, res.dst );
-}
-*/
-
-
-struct lm_line
-{
- buffer_vector<base_color>	&surface;
- buffer_vector<u8>			&marker;
- u32 y;
- u32 height;
- lm_line( buffer_vector<base_color>& surf_buf, buffer_vector<u8>& mark_buf ):
-	surface( surf_buf ), marker( mark_buf ), y(u32(-1)), height(u32(-1))
- {}
- void save( int _y, const lm_layer &lm )
-	{
-		y		= _y;
-		height	= lm.height;
-
-		{
-			xr_vector<base_color>::const_iterator from = lm.surface.begin() + y*lm.width;
-			xr_vector<base_color>::const_iterator to	=  from + lm.width;
-			surface.assign( from, to );
-		}
-
-		{
-			xr_vector<u8>::const_iterator from = lm.marker.begin() + y*lm.width;
-			xr_vector<u8>::const_iterator to	=  from + lm.width;
-			marker.assign( from, to );
-		}
-
-		//surface.resize( lm.width );
-		//marker.resize(  lm.width );
-		//for (int x=0; x<(int)lm.width; x++)
-		//{
-		//	surface[x] = lm.surface[y*lm.width+x];
-		//	marker[x]	= lm.marker[y*lm.width+x];
-		//}
-	}
-} ;
 void GET		( const lm_line& l, int x, u32 width, u32 ref,  u32 &count,  base_color_c& dst  )
 {
 	if (x<0) return;
@@ -217,7 +150,9 @@ BOOL NEW_ApplyBorders	(lm_layer &lm, u32 ref)
 
 			lm_line &line = *l_0;
 
-			base_color sv_color0; sv_color0._set( -1,-1,-1 );
+			base_color sv_color0; 
+			sv_color0._set( -1,-1,-1 );
+
 			u8		   sv_marker0 = u8(-1);
 			for (int x=0; x<(int)lm.width; x++)
 			{
@@ -236,11 +171,7 @@ BOOL NEW_ApplyBorders	(lm_layer &lm, u32 ref)
 						GET(line,x  ,lm.width,ref,C,clr);
 						GET(line,x+1,lm.width,ref,C,clr);
 					}
-					//GET(lm,x-1,y-1,ref,C,clr);
-					//GET(lm,x  ,y-1,ref,C,clr);
-					//GET(lm,x+1,y-1,ref,C,clr);
-
-					//GET(lm,x-1,y  ,ref,C,clr);
+	
 					if( x>0 )
 						GET( sv_color, sv_marker, ref, C, clr );
 
@@ -263,51 +194,8 @@ BOOL NEW_ApplyBorders	(lm_layer &lm, u32 ref)
 			}
 		}
 		//lm	= result;
-	} catch (...)
-	{
-		clMsg("* ERROR: ApplyBorders");
 	}
-	return bNeedContinue;
-}
-
-
-
-BOOL OLD_ApplyBorders	(lm_layer &lm, u32 ref) 
-{
-	BOOL			bNeedContinue = FALSE;
-
-	try {
-		lm_layer	result	= lm;
-
-		for (int y=0; y<(int)lm.height; y++) {
-			for (int x=0; x<(int)lm.width; x++)
-			{
-				if (lm.marker[y*lm.width+x]==0) 
-				{
-					base_color_c	clr;
-					u32			C	=0;
-					GET(lm,x-1,y-1,ref,C,clr);
-					GET(lm,x  ,y-1,ref,C,clr);
-					GET(lm,x+1,y-1,ref,C,clr);
-
-					GET(lm,x-1,y  ,ref,C,clr);
-					GET(lm,x+1,y  ,ref,C,clr);
-
-					GET(lm,x-1,y+1,ref,C,clr);
-					GET(lm,x  ,y+1,ref,C,clr);
-					GET(lm,x+1,y+1,ref,C,clr);
-
-					if (C) {
-						clr.scale			(C);
-						result.surface		[y*lm.width+x]._set(clr);
-						result.marker		[y*lm.width+x]=u8(ref);
-						bNeedContinue		= TRUE;
-					}
-				}
-			}
-		}
-		lm	= result;
-	} catch (...)
+	catch (...)
 	{
 		clMsg("* ERROR: ApplyBorders");
 	}
@@ -316,24 +204,10 @@ BOOL OLD_ApplyBorders	(lm_layer &lm, u32 ref)
 
 BOOL ApplyBorders( lm_layer &lm, u32 ref ) 
 {
-	
-	//lm_layer r_new = lm;
-	//BOOL bres_new = NEW_ApplyBorders( r_new, ref );
-	//lm_layer r_old = lm;
-	//BOOL bres_old = OLD_ApplyBorders( r_old, ref );
-
-	//R_ASSERT( r_old.similar( r_new, 0 ) );
-	//R_ASSERT( bres_new == bres_old );
-
-	//
-	//lm = r_new;
-	//return bres_new;
-	//
-	
 	return NEW_ApplyBorders( lm, ref );
 }
 
-float getLastRP_Scale(CDB::COLLIDER* DB, CDB::MODEL* MDL, R_Light& L, Face* skip, BOOL bUseFaceDisable)
+float getLastRP_Scale(CDB::COLLIDER* DB, CDB::MODEL* MDL, R_Light& L, Face* skip)
 {
 	u32		tris_count	= DB->r_count();
 	float	scale		= 1.f;
@@ -406,27 +280,150 @@ float getLastRP_Scale(CDB::COLLIDER* DB, CDB::MODEL* MDL, R_Light& L, Face* skip
 	return scale;
 }
 
-float rayTrace	(CDB::COLLIDER* DB, CDB::MODEL* MDL, R_Light& L, Fvector& P, Fvector& D, float R, Face* skip, BOOL bUseFaceDisable)
+// CDB RAY TRACE FILTER
+void CalculateEnergy(OpcodeArgs* context, base_Face* F)
 {
-	R_ASSERT	(DB);
+ 	b_material& M = inlc_global_data()->materials()[F->dwMaterial];
+	b_texture& T = inlc_global_data()->textures()[M.surfidx];
 
-	// 1. Check cached polygon
-	float _u,_v,range;
-	bool res = CDB::TestRayTri(P,D,L.tri,_u,_v,range,false);
-	if (res) {
-		if (range>0 && range<R) return 0;
+	if (T.pSurface == nullptr)
+	{
+		F->flags.bOpaque = true;
+		clMsg("* ERROR: RAY-TRACE: Strange face detected... Has alpha without texture... %s", T.name);
+		context->valid = false;
+		context->energy = 0;
+		return;
 	}
+
+	// barycentric coords
+	// note: W,U,V order
+	Fvector B;
+	B.set(1.0f - context->hit_struct.u - context->hit_struct.v, context->hit_struct.u, context->hit_struct.v);
+
+	// calc UV
+	Fvector2* cuv = F->getTC0();
+	Fvector2	uv;
+	uv.x = cuv[0].x * B.x + cuv[1].x * B.y + cuv[2].x * B.z;
+	uv.y = cuv[0].y * B.x + cuv[1].y * B.y + cuv[2].y * B.z;
+
+	int U = iFloor(uv.x * float(T.dwWidth) + .5f);
+	int V = iFloor(uv.y * float(T.dwHeight) + .5f);
+	U %= T.dwWidth;
+	if (U < 0) U += T.dwWidth;
+	V %= T.dwHeight;
+	if (V < 0) V += T.dwHeight;
+
+ 	u32 pixel = T.pSurface[V * T.dwWidth + U];
+	u32 pixel_a = color_get_A(pixel);
+	float opac = 1.f - _sqr(float(pixel_a) / 255.f);
+ 	context->energy *= opac;
+
+	// Energy Dead
+	if (context->energy < 0.1f)
+		context->valid = false;
+}
+ 
+// NEW CDB_RAY
+void FilterIntersection(OpcodeArgs* context)
+{
+	CDB::MODEL* MDL = (CDB::MODEL*)context->MDL;
+
+	// Access to texture
+	CDB::TRI& clT = MDL->get_tris()[context->hit_struct.prim];
+	base_Face* F = (base_Face*) convert_nax( clT.dummy );
+
+	if (0 == F || context->skip == F)
+		return;
+
+	const Shader_xrLC& SH = F->Shader();
+	if (!SH.flags.bLIGHT_CastShadow)
+		return;
+
+	if (F->flags.bOpaque)
+	{
+		R_Light& light = (*((R_Light*)context->Light));
+
+		// Opaque poly - cache it
+		light.tri[0].set(MDL->get_verts()[clT.verts[0]]);
+		light.tri[1].set(MDL->get_verts()[clT.verts[1]]);
+		light.tri[2].set(MDL->get_verts()[clT.verts[2]]);
+
+		context->valid = false;
+		context->energy = 0;
+		return;
+	}
+	 
+	CalculateEnergy(context, F);
+};
+
+float rayTraceCheck(CDB::COLLIDER* DB, CDB::MODEL* MDL, R_Light& L, Fvector& P, Fvector& D, float R, Face* skip)
+{
+	R_ASSERT(DB);
+
+	// 1. Check cached polygon	 
+	float _u, _v, range;
+	bool res = CDB::TestRayTri(P, D, L.tri, _u, _v, range, false);
+ 	if (res  && range > 0 && range < R)
+ 		return 0;
+ 
+	// 2. Polygon doesn't pick - real database query
+
+	OpcodeContext ctxt;
+	ctxt.r_dir = D;
+	ctxt.r_start = P;
+	ctxt.r_range = R;
+	
+	OpcodeArgs args;
+	args.energy = 1.0f;
+	args.Light = (void*)&L;
+	args.skip = (void*)skip;
+	args.MDL = (void*)MDL;
+	args.valid = true;
+	args.pos = P;
+
+ 	ctxt.result = &args;
+
+	ctxt.filterIntersect = &FilterIntersection;
+
+	// Start RayTracing
+	DB->rayTrace1(&ctxt);
+	return ctxt.result->energy;
+}
+
+float rayTraceOriginal(CDB::COLLIDER* DB, CDB::MODEL* MDL, R_Light& L, Fvector& P, Fvector& D, float R, Face* skip)
+{
+	R_ASSERT(DB);
+
+	// 1. Check cached polygon	 
+	float _u, _v, range;
+	bool res = CDB::TestRayTri(P, D, L.tri, _u, _v, range, false);
+	if (res && range > 0 && range < R)
+		return 0;
 
 	// 2. Polygon doesn't pick - real database query
-	DB->ray_query	(MDL,P,D,R);
+	DB->ray_options(0);
+ 	DB->ray_query(MDL, P, D, R);
 
-	// 3. Analyze polygons and cache nearest if possible
-	if (0==DB->r_count()) {
+	if (DB->r_count() == 0)
 		return 1;
-	} else {
-		return getLastRP_Scale(DB,MDL, L,skip,bUseFaceDisable);
+  
+	return getLastRP_Scale(DB, MDL, L, skip);
+}
+
+// Embree
+#include <../xrForms/CompilersUI.h>
+extern CompilersMode gCompilerMode;
+
+float rayTrace	(CDB::COLLIDER* DB, CDB::MODEL* MDL, R_Light& L, Fvector& P, Fvector& D, float R, Face* skip)
+{
+	if (MDL)
+	{
+		return rayTraceOriginal(DB, MDL, L, P, D, R, skip);
 	}
-	return 0;
+	else
+	{
+		return EmbreeMain.RaytraceEmbreeProcess(L, P, D, R, skip);
+	}
 }
 
 void LightPoint(CDB::COLLIDER* DB, CDB::MODEL* MDL, base_color_c &C, Fvector &P, Fvector &N, base_lighting& lights, u32 flags, Face* skip)
@@ -452,7 +449,7 @@ void LightPoint(CDB::COLLIDER* DB, CDB::MODEL* MDL, base_color_c &C, Fvector &P,
 					if( D <=0 ) continue;
 
 					// Trace Light
-					float scale	=	D*L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,1000.f,skip,bUseFaceDisable);
+					float scale	=	D*L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,1000.f,skip);
 					C.rgb.x		+=	scale * L->diffuse.x; 
 					C.rgb.y		+=	scale * L->diffuse.y;
 					C.rgb.z		+=	scale * L->diffuse.z;
@@ -472,7 +469,7 @@ void LightPoint(CDB::COLLIDER* DB, CDB::MODEL* MDL, base_color_c &C, Fvector &P,
 
 					// Trace Light
 					float R		= _sqrt(sqD);
-					float scale = D*L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,R,skip,bUseFaceDisable);
+					float scale = D*L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,R,skip);
 					float A		;
 					if ( inlc_global_data()->gl_linear() )
 						A	= 1-R/L->range;
@@ -510,7 +507,7 @@ void LightPoint(CDB::COLLIDER* DB, CDB::MODEL* MDL, base_color_c &C, Fvector &P,
 					Fvector	Psave	= L->position, Pdir;
 					L->position.mad	(Pdir.random_dir(L->direction,PI_DIV_4),.05f);
 					float R			= _sqrt(sqD);
-					float scale		= powf(D, 1.f/8.f)*L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,R,skip,bUseFaceDisable);
+					float scale		= powf(D, 1.f/8.f)*L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,R,skip);
 					float A			= scale * (1-R/L->range);
 					L->position		= Psave;
 
@@ -535,7 +532,7 @@ void LightPoint(CDB::COLLIDER* DB, CDB::MODEL* MDL, base_color_c &C, Fvector &P,
 				if( D <=0 ) continue;
 
 				// Trace Light
-				float scale	=	L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,1000.f,skip,bUseFaceDisable);
+				float scale	=	L->energy*rayTrace(DB,MDL, *L,Pnew, Ldir, 1000.f, skip);
 				C.sun		+=	scale;
 			} else {
 				// Distance
@@ -550,32 +547,40 @@ void LightPoint(CDB::COLLIDER* DB, CDB::MODEL* MDL, base_color_c &C, Fvector &P,
 
 				// Trace Light
 				float R		=	_sqrt(sqD);
-				float scale =	D*L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,R,skip,bUseFaceDisable);
+				float scale =	D*L->energy*rayTrace(DB,MDL, *L,Pnew, Ldir, R, skip);
 				float A		=	scale / (L->attenuation0 + L->attenuation1*R + L->attenuation2*sqD);
 
 				C.sun		+=	A;
 			}
 		}
 	}
+	
 	if (0==(flags&LP_dont_hemi))
 	{
+		DB->ray_options(0);
 		R_Light	*L	= &*lights.hemi.begin(), *E = &*lights.hemi.end();
 		for (;L!=E; L++)
 		{
-			if (L->type==LT_DIRECT) {
+			if (L->type==LT_DIRECT)
+			{
 				// Cos
 				Ldir.invert	(L->direction);
 				float D		= Ldir.dotproduct( N );
 				if( D <=0 ) continue;
 
 				// Trace Light
-				Fvector		PMoved;	PMoved.mad	(Pnew,Ldir,0.001f);
-				float scale	=	L->energy*rayTrace(DB,MDL, *L,PMoved,Ldir,1000.f,skip,bUseFaceDisable);
+				Fvector		PMoved;
+				PMoved.mad	(Pnew,Ldir,0.001f);
+
+				float scale	=	L->energy*rayTrace(DB,MDL, *L,PMoved,Ldir,1000.f,skip);
 				C.hemi		+=	scale;
-			}else{
+			}
+			else
+			{
 				// Distance
 				float sqD	=	P.distance_to_sqr(L->position);
-				if (sqD > L->range2) continue;
+				if (sqD > L->range2)
+					continue;
 
 				// Dir
 				Ldir.sub			(L->position,P);
@@ -585,7 +590,7 @@ void LightPoint(CDB::COLLIDER* DB, CDB::MODEL* MDL, base_color_c &C, Fvector &P,
 
 				// Trace Light
 				float R		=	_sqrt(sqD);
-				float scale =	D*L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,R,skip,bUseFaceDisable);
+				float scale =	D*L->energy*rayTrace(DB,MDL, *L,Pnew,Ldir,R,skip);
 				float A		=	scale / (L->attenuation0 + L->attenuation1*R + L->attenuation2*sqD);
 
 				C.hemi		+=	A;
@@ -593,6 +598,7 @@ void LightPoint(CDB::COLLIDER* DB, CDB::MODEL* MDL, base_color_c &C, Fvector &P,
 		}
 	}
 }
+ 
 
 IC u32	rms_diff	(u32 a, u32 b)
 {
@@ -734,33 +740,49 @@ BOOL	compress_RMS		(lm_layer& lm, u32 rms, u32& w, u32& h)
 {
 	// *** Try to bilinearly filter lightmap down and up
 	w=0, h=0;
-	if (lm.width>=2)	{
+	if (lm.width>=2)
+	{
 		w = lm.width/2;
-		if (!rms_test(lm,w,lm.height,rms))	{
+		if (!rms_test(lm,w,lm.height,rms))	
+		{
 			// 3/4
 			w = (lm.width*3)/4;
-			if (!rms_test(lm,w,lm.height,rms))	w = 0;
-		} else {
+			if (!rms_test(lm,w,lm.height,rms))
+				w = 0;
+		}
+		else
+		{
 			// 1/4
 			u32 nw = (lm.width*1)/4;
-			if (rms_test(lm,nw,lm.height,rms))	w = nw;
+			if (rms_test(lm,nw,lm.height,rms))
+				w = nw;
 		}
 	}
-	if (lm.height>=2)	{
+
+	if (lm.height>=2)
+	{
 		h = lm.height/2;
-		if (!rms_test(lm,lm.width,h,rms))		{
+		if (!rms_test(lm,lm.width,h,rms))	
+		{
 			// 3/4
 			h = (lm.height*3)/4;
-			if (!rms_test(lm,lm.width,h,rms))		h = 0;
-		} else {
+			if (!rms_test(lm,lm.width,h,rms))	
+				h = 0;
+		} 
+		else 
+		{
 			// 1/4
 			u32 nh = (lm.height*1)/4;
-			if (rms_test(lm,lm.width,nh,rms))		h = nh;
+			if (rms_test(lm,lm.width,nh,rms))
+				h = nh;
 		}
 	}
-	if (w || h)	{
-		if (0==w)	w = lm.width;
-		if (0==h)	h = lm.height;
+	if (w || h)	
+	{
+		if (0==w)	
+			w = lm.width;
+		if (0==h)
+			h = lm.height;
 		//		clMsg	("* RMS: [%d,%d] => [%d,%d]",lm.width,lm.height,w,h);
 		return TRUE;
 	}
@@ -796,22 +818,28 @@ void CDeflector::Light(CDB::COLLIDER* DB, base_lighting* LightsSelected, HASH& H
 		break;
 
 	// Compression
-	try {
+	try
+	{
 		u32	w,h;
-		if (compress_Zero(layer,rms_zero))	return;		// already with borders
+		if (compress_Zero(layer, rms_zero))
+		{
+			return;		// already with borders
+		}
 		else if (compress_RMS(layer,rms_shrink,w,h))	
 		{
-			// Reacalculate lightmap at lower resolution
-			layer.create	(w,h);
-			L_Calculate		(DB,LightsSelected,H);
+				// Reacalculate lightmap at lower resolution
+				layer.create	(w,h);
+				L_Calculate		(DB,LightsSelected,H);
  		}
-	} catch (...)
+	} 
+	catch (...)
 	{
 		clMsg("* ERROR: CDeflector::Light - Compression");
 	}
 
 	// Expand with borders
-	try {
+	try
+	{
 		if (layer.width==1)	
 		{
 			// Horizontal ZERO - vertical line
@@ -834,7 +862,8 @@ void CDeflector::Light(CDB::COLLIDER* DB, base_lighting* LightsSelected, HASH& H
 			T.width			= 0;
 			T.height		= layer.height;
 			layer			= T;
-		} else if (layer.height==1) 
+		}
+		else if (layer.height==1) 
 		{
 			// Vertical ZERO - horizontal line
 			lm_layer		T;
@@ -856,25 +885,30 @@ void CDeflector::Light(CDB::COLLIDER* DB, base_lighting* LightsSelected, HASH& H
 			T.width			= layer.width;
 			T.height		= 0;
 			layer			= T;
-		} else {
+		} 
+		else
+		{
 			// Generic blit
 			lm_layer		lm_old	= layer;
 			lm_layer		lm_new;
 			lm_new.create			(lm_old.width+2*BORDER,lm_old.height+2*BORDER);
 			lblit					(lm_new,lm_old,BORDER,BORDER,255-BORDER);
 			layer					= lm_new;
+			
 			ApplyBorders			(layer,254);
 			ApplyBorders			(layer,253);
 			ApplyBorders			(layer,252);
 			ApplyBorders			(layer,251);
-			for	(u32 ref=250; ref>0; ref--) if (!ApplyBorders(layer,ref)) break;
+			for	(u32 ref=250; ref>0; ref--)
+			if (!ApplyBorders(layer,ref))
+				break;
+
 			layer.width				= lm_old.width;
 			layer.height			= lm_old.height;
 		}
-	} catch (...)
+	} 
+	catch (...)
 	{
-		
 		clMsg("* ERROR: CDeflector::Light - BorderExpansion");
-
 	}
 }

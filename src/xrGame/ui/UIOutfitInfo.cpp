@@ -10,6 +10,7 @@
 #include "../Actor.h"
 #include "../ActorCondition.h"
 #include "../player_hud.h"
+#include "../../xrEngine/string_table.h"
 
 
 LPCSTR immunity_names[]=
@@ -21,8 +22,8 @@ LPCSTR immunity_names[]=
 	"telepatic_immunity",
 	"wound_immunity",		
 	"fire_wound_immunity",
-//	"strike_immunity",
-//	"explosion_immunity",
+	"strike_immunity",
+	"explosion_immunity",
 };
 
 LPCSTR immunity_st_names[]=
@@ -34,15 +35,16 @@ LPCSTR immunity_st_names[]=
 	"ui_inv_outfit_telepatic_protection",
 	"ui_inv_outfit_wound_protection",
 	"ui_inv_outfit_fire_wound_protection",
-//	"ui_inv_outfit_strike_protection",
-//	"ui_inv_outfit_explosion_protection",
+	"ui_inv_outfit_strike_protection",
+	"ui_inv_outfit_explosion_protection",
 };
 
 CUIOutfitImmunity::CUIOutfitImmunity()
 {
-	AttachChild( &m_name );
-	AttachChild( &m_progress );
-	AttachChild( &m_value );
+	AttachChild(&m_name);
+	AttachChild(&m_progress);
+	m_unit_str._set("");
+	m_value = nullptr;
 	m_magnitude = 1.0f;
 }
 
@@ -65,26 +67,37 @@ void CUIOutfitImmunity::InitFromXml( CUIXml& xml_doc, LPCSTR base_str, u32 hit_t
 	m_progress.InitFromXml( xml_doc, buf );
 	
 	xr_strconcat(buf, base_str, ":", immunity_names[hit_type], ":static_value" );
-	m_value.SetVisible( false );
+	m_value = UIHelper::CreateTextWnd(xml_doc, buf, this);
 
 	m_magnitude = xml_doc.ReadAttribFlt( buf, 0, "magnitude", 1.0f );
+
+	LPCSTR unit_str = xml_doc.ReadAttrib(buf, 0, "unit_str", "");
+	m_unit_str._set(g_pStringTable->translate(unit_str));
 }
 
-void CUIOutfitImmunity::SetProgressValue( float cur, float comp )
+void CUIOutfitImmunity::SetProgressValue(float cur, float comp)
 {
-	cur  *= m_magnitude;
+	cur *= m_magnitude;
 	comp *= m_magnitude;
-	m_progress.SetTwoPos( cur, comp );
+	m_progress.SetTwoPos(cur, comp);
+
 	string32 buf;
-//	xr_sprintf( buf, sizeof(buf), "%d %%", (int)cur );
-	xr_sprintf( buf, sizeof(buf), "%.0f", cur );
-	m_value.SetText( buf );
+	xr_sprintf(buf, "%.0f", cur);
+
+	string256 str;
+	if (m_unit_str.size())
+		xr_strconcat(str, buf, m_unit_str.c_str());
+	else
+		xr_strconcat(str, buf);
+
+	m_value->SetText(str);
 }
 
 // ===========================================================================================
 
 CUIOutfitInfo::CUIOutfitInfo()
 {
+	m_Prop_line = nullptr;
 	for ( u32 i = 0; i < max_count; ++i )
 	{
 		m_items[i] = nullptr;
@@ -106,22 +119,24 @@ void CUIOutfitInfo::InitFromXml( CUIXml& xml_doc )
 	CUIXmlInit::InitWindow( xml_doc, base_str, 0, this );
 	
 	string128 buf;
-	//m_caption = new CUIStatic();
-	//AttachChild( m_caption );
-	//m_caption->SetAutoDelete( true );	
-	//string128 buf;
-	//strconcat( sizeof(buf), buf, base_str, ":caption" );
-	//CUIXmlInit::InitStatic( xml_doc, buf, 0, m_caption );
 
-	m_Prop_line = new CUIStatic();
-	AttachChild( m_Prop_line );
-	m_Prop_line->SetAutoDelete( true );	
-	xr_strconcat(buf, base_str, ":", "prop_line" );
-	CUIXmlInit::InitStatic( xml_doc, buf, 0, m_Prop_line );
+	xr_strconcat(buf, base_str, ":caption");
+	if (xml_doc.NavigateToNode(buf))
+	{
+		m_caption = UIHelper::CreateStatic(xml_doc, buf, this);
+	}
 
+	xr_strconcat(buf, base_str, ":", "prop_line");
+	if (xml_doc.NavigateToNode(buf))
+	{
+		m_Prop_line = UIHelper::CreateStatic(xml_doc, buf, this);
+	}
 
 	Fvector2 pos;
-	pos.set( 0.0f, m_Prop_line->GetWndPos().y+m_Prop_line->GetWndSize().y );
+	if (m_Prop_line)
+		pos.set(0.0f, m_Prop_line->GetWndPos().y + m_Prop_line->GetWndSize().y);
+	else if (m_caption)
+		pos.set(0.0f, m_caption->GetWndSize().y);
 
 	for ( u32 i = 0; i < max_count; ++i )
 	{

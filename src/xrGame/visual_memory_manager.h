@@ -56,6 +56,8 @@ private:
 	u32					m_max_object_count;
 	bool				m_enabled;
 	u32					m_last_update_time;
+	const char* m_onGetVisibleValue = {};
+	bool m_isGetVisibleValue = {};
 
 public:
 			void	add_visible_object		(const CObject *object, float time_delta, bool fictitious = false);
@@ -66,7 +68,7 @@ protected:
 			void	add_visible_object		(const CVisibleObject visible_object);
 			float	object_visible_distance	(const CGameObject *game_object, float &object_distance) const;
 			float	object_luminocity		(const CGameObject *game_object) const;
-			float	get_visible_value		(float distance, float object_distance, float time_delta, float object_velocity, float luminocity) const;
+			float	get_visible_value		(const CGameObject *game_object,float distance, float object_distance, float time_delta, float object_velocity, float luminocity) const;
 			float	get_object_velocity		(const CGameObject *game_object, const CNotYetVisibleObject &not_yet_visible_object) const;
 			u32		get_prev_time			(const CGameObject *game_object) const;
 
@@ -90,6 +92,7 @@ public:
 	virtual	void	update					(float time_delta);
 	virtual	float	feel_vision_mtl_transp	(CObject* O, u32 element);	
 			void	remove_links			(CObject *object);
+			void	remove					(const MemorySpace::CVisibleObject *visible_object);
 
 public:
 			bool	visible					(const CGameObject *game_object, float time_delta);
@@ -129,12 +132,7 @@ public:
 	IC		const RAW_VISIBLES		&raw_objects				() const;
 	IC		const NOT_YET_VISIBLES	&not_yet_visible_objects	() const;
 			const CVisionParameters &current_state				() const;
-			squad_mask_type			mask						() const;
-
-public:
-#ifdef DEBUG
-			void					check_visibles				() const;
-#endif
+			u64			mask						() const;
 
 public:
 			void					save						(NET_Packet &packet) const;

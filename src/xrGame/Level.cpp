@@ -66,6 +66,8 @@
 #include "level_changer.h"
 #endif
 
+#include "inventory_upgrade_manager.h"
+
 ENGINE_API bool g_dedicated_server;
 
 //extern BOOL	g_bDebugDumpPhysicsStep;
@@ -79,11 +81,14 @@ u32			lvInterpSteps		= 0;
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-CLevel::CLevel():IPureClient	(Device.GetTimerGlobal())
-#ifdef PROFILE_CRITICAL_SECTIONS
-	,DemoCS(MUTEX_PROFILE_ID(DemoCS))
-#endif // PROFILE_CRITICAL_SECTIONS
+CLevel::CLevel():
+	IPureClient(Device.GetTimerGlobal())
 {
+	PROF_EVENT("CLevel::CLevel");
+	
+	LoadCallbackGlobals(m_isStartAttack, m_onStartAttack, "OnStartAttack");
+	LoadCallbackGlobals(m_isKeyPress, m_onKeyPress, "OnKeyPress");
+
 	g_bDebugEvents				= Core.ParamsData.test(ECoreParams::debug_ge);
 
 	Server						= nullptr;
@@ -194,6 +199,7 @@ extern CAI_Space *g_ai_space;
 
 CLevel::~CLevel()
 {
+	PROF_EVENT("CLevel::~CLevel");
 	DestroyImGuiInGame();
 	xr_delete					(g_player_hud);
 	delete_data					(hud_zones_list);
@@ -279,8 +285,10 @@ CLevel::~CLevel()
 	xr_delete					(m_level_debug);
 #endif
 	//-----------------------------------------------------------
-	xr_delete					(m_map_manager);
-	delete_data					(m_game_task_manager);
+	xr_delete(m_map_manager);
+	delete_data(m_game_task_manager);
+
+	xr_delete(m_upgrade_manager);
 //	xr_delete					(m_pFogOfWarMngr);
 	
 	// here we clean default trade params
@@ -686,11 +694,6 @@ void CLevel::OnFrame()
 #endif
 	g_pGamePersistent->Environment().SetGameTime(GetEnvironmentGameDayTimeSec(), game->GetEnvironmentGameTimeFactor());
 
-	//  
-	Device.Statistic->TEST0.Begin();
-	BulletManager().CommitRenderSet();
-	Device.Statistic->TEST0.End();
-
 	// update static sounds
 	if (g_mt_config.test(mtLevelSounds))
 		Device.seqParallel.push_back(xr_make_delegate(m_level_sound_manager, &CLevelSoundManager::Update));
@@ -718,13 +721,16 @@ void	CLevel::script_gc				()
 {
 	{
 		PROF_EVENT("m_ph_commander");
-		ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->update();
+		try
+		{
+			ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->update();
 
-		m_ph_commander->update();
-		m_ph_commander_scripts->update();
+			m_ph_commander->update();
+			m_ph_commander_scripts->update();
+		}catch (...) {}
 	}
 	PROF_EVENT("CLevel::script_gc");
-	lua_gc	(ai().script_engine().lua(), LUA_GCSTEP, psLUA_GCSTEP);
+	try{lua_gc	(ai().script_engine().lua(), LUA_GCSTEP, psLUA_GCSTEP);}catch (...) {}
 }
 
 #ifdef DEBUG_PRECISE_PATH
@@ -1044,38 +1050,19 @@ void		CLevel::UpdateDeltaUpd	( u32 LastTime )
 		}
 };
 
-void		CLevel::ReculcInterpolationSteps ()
+void CLevel::ReculcInterpolationSteps ()
 {
 	lvInterpSteps			= iFloor(float(m_dwDeltaUpdate) / (fixed_step*1000));
 	if (lvInterpSteps > 60) lvInterpSteps = 60;
 	if (lvInterpSteps < 3)	lvInterpSteps = 3;
 };
 
-bool		CLevel::InterpolationDisabled	()
+bool CLevel::InterpolationDisabled	()
 {
 	return g_cl_lvInterp < 0; 
-};
+}
 
-void 		CLevel::PhisStepsCallback		( u32 Time0, u32 Time1 )
-{
-	if (!Level().game)				return;
-	if (IsGameTypeSingle())	return;
-
-//#pragma todo("Oles to all: highly inefficient and slow!!!")
-//fixed (Andy)
-	/*
-	for (xr_vector<CObject*>::iterator O=Level().Objects.objects.begin(); O!=Level().Objects.objects.end(); ++O) 
-	{
-		if( smart_cast<CActor*>((*O)){
-			CActor* pActor = smart_cast<CActor*>(*O);
-			if (!pActor || pActor->Remote()) continue;
-				pActor->UpdatePosStack(Time0, Time1);
-		}
-	};
-	*/
-};
-
-void				CLevel::SetNumCrSteps		( u32 NumSteps )
+void CLevel::SetNumCrSteps(u32 NumSteps)
 {
 	m_bNeed_CrPr = true;
 	if (m_dwNumSteps > NumSteps) return;
@@ -1096,15 +1083,14 @@ ALife::_TIME_ID CLevel::GetGameTime()
 	return			(game->GetGameTime());
 }
 
-ALife::_TIME_ID CLevel::GetEnvironmentGameTime()
+ALife::_TIME_ID CLevel::GetEnvironmentGameTime() const
 {
-	return			(game->GetEnvironmentGameTime());
+    return (game->GetEnvironmentGameTime());
 }
 
 u8 CLevel::GetDayTime() 
 { 
-	u32 dummy32;
-	u32 hours;
+	u32 dummy32, hours;
 	GetGameDateTime(dummy32, dummy32, dummy32, hours, dummy32, dummy32, dummy32);
 	VERIFY	(hours<256);
 	return	u8(hours); 
@@ -1122,26 +1108,19 @@ u32 CLevel::GetGameDayTimeMS()
 
 float CLevel::GetEnvironmentTimeFactor() const
 {
-	if (!game)
-		return 0.0f;
-	return game->GetEnvironmentGameTimeFactor();
-}
-
-u64 CLevel::GetEnvironmentGameTime() const
-{
-	if (!game)
-		return 0;
-	return game->GetEnvironmentGameTime();
+    if (!game)
+        return 0.0f;
+    return game->GetEnvironmentGameTimeFactor();
 }
 
 void CLevel::SetEnvironmentTimeFactor(const float fTimeFactor)
 {
-	if (!game)
-		return;
-	game->SetEnvironmentGameTimeFactor(fTimeFactor);
+    if (!game)
+        return;
+    game->SetEnvironmentGameTimeFactor(fTimeFactor);
 }
 
-float CLevel::GetEnvironmentGameDayTimeSec()
+float CLevel::GetEnvironmentGameDayTimeSec() const
 {
 	return	(float(s64(GetEnvironmentGameTime() % (24*60*60*1000)))/1000.f);
 }
@@ -1151,10 +1130,9 @@ void CLevel::GetGameDateTime	(u32& year, u32& month, u32& day, u32& hours, u32& 
 	split_time(GetGameTime(), year, month, day, hours, mins, secs, milisecs);
 }
 
-
 float CLevel::GetGameTimeFactor()
 {
-	return			(game->GetGameTimeFactor());
+    return game->GetGameTimeFactor();
 }
 
 void CLevel::SetGameTimeFactor(const float fTimeFactor)
@@ -1174,11 +1152,10 @@ void CLevel::SetEnvironmentGameTimeFactor(u64 const& GameTime, float const& fTim
 
 	game->SetEnvironmentGameTimeFactor(GameTime, fTimeFactor);
 }
+
 bool CLevel::IsServer ()
 {
-	if (!Server || IsDemoPlayStarted()) return false;
-	//return (Server->GetClientsCount() != 0);
-	return true;
+	return Server != nullptr && !IsDemoPlayStarted();
 }
 
 bool CLevel::IsClient ()
@@ -1196,13 +1173,19 @@ bool CLevel::IsClient ()
 void CLevel::OnAlifeSimulatorUnLoaded()
 {
 	MapManager().ResetStorage();
-	GameTaskManager().ResetStorage();
+	GameTaskManager()->ResetStorage();
 }
 
 void CLevel::OnAlifeSimulatorLoaded()
 {
 	MapManager().ResetStorage();
-	GameTaskManager().ResetStorage();
+	GameTaskManager()->ResetStorage();
+
+	if (IsGameTypeSingle() || IsServer())
+	{
+		// moved from alife simulator for supporting in MP
+		m_upgrade_manager = new inventory::upgrade::Manager();
+	}
 }
 
 void CLevel::OnSessionTerminate		(LPCSTR reason)

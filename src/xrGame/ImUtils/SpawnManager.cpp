@@ -139,8 +139,13 @@ void InitSections()
 		}
 
 		bool isInvItem = pSection->line_exist("cost") && pSection->line_exist("inv_weight");
+		bool isFakeItem = pSection->line_exist("inv_grid_width") && pSettings->r_u32(name.data(), "inv_grid_width") <= 0 &&
+						  pSection->line_exist("inv_grid_height") && pSettings->r_u32(name.data(), "inv_grid_height") <= 0;
+
+		isInvItem &= !isFakeItem;
+
 		size_t mp_index = name.find("mp_");
-		if (g_pClsidManager->is_mp_stuff(classId) || (mp_index != std::string_view::npos && mp_index == 0))
+		if (g_pClsidManager->is_mp_stuff(classId) || (mp_index != xr_string_view::npos && mp_index == 0))
 		{
 			if (isInvItem)
 			{
@@ -764,7 +769,7 @@ void SpawnManager_ProcessSections(Section& sections, size_t& number_imgui)
 
 					if (current_section_index < size_of_sections)
 					{
-						ImGui::TableSetColumnIndex(column);
+						ImGui::TableSetColumnIndex((int)column);
 
 						const auto& pair = sections[current_section_index];
 
@@ -806,7 +811,9 @@ void SpawnManager_ProcessSections(Section& sections, size_t& number_imgui)
 
 bool SpawnManager_RenderButtonOrImage(CInifile::Sect* section, const char* imname)
 {
-	const auto surfaceParams = ::Render->getSurface("ui\\ui_icon_equipment");
+	auto name = section->Name.c_str();
+	const auto surface = READ_IF_EXISTS(pSettings, r_string, name, "icons_texture", "ui\\ui_icon_equipment");
+	const auto surfaceParams = ::Render->getSurface(surface);
 
 	bool isIcon = section->line_exist("inv_grid_x")
 		&& section->line_exist("inv_grid_y")
@@ -816,7 +823,6 @@ bool SpawnManager_RenderButtonOrImage(CInifile::Sect* section, const char* imnam
 	if (surfaceParams.Surface == nullptr || !isIcon)
 		return ImGui::Button(imname);
 
-	auto name = section->Name.c_str();
 	float x = pSettings->r_float(name, "inv_grid_x") * INV_GRID_WIDTH(isHQIcons);
 	float y = pSettings->r_float(name, "inv_grid_y") * INV_GRID_HEIGHT(isHQIcons);
 	float w = pSettings->r_float(name, "inv_grid_width") * INV_GRID_WIDTH(isHQIcons);

@@ -15,23 +15,25 @@
 
 #include "xr_object.h"
 
-xr_token*							vid_quality_token = nullptr;
+xr_token* vid_quality_token = nullptr;
 
-ENGINE_API float					devfloat1 = 1.0f;
-ENGINE_API float					devfloat2 = 1.0f;
-ENGINE_API float					devfloat3 = 1.0f;
-ENGINE_API float					devfloat4 = 1.0f;
+ENGINE_API float devfloat1 = 1.0f;
+ENGINE_API float devfloat2 = 1.0f;
+ENGINE_API float devfloat3 = 1.0f;
+ENGINE_API float devfloat4 = 1.0f;
 
 ENGINE_API float ps_render_scale = 1.0f;
 ENGINE_API u32 ps_render_scale_preset = 0;
 
-xr_token							vid_bpp_token							[ ]={
-	{ "16",							16											},
-	{ "32",							32											},
-	{ 0,							0											}
+xr_token vid_bpp_token[] =
+{
+	{ "16", 16 },
+	{ "32", 32 },
+	{ 0,	 0 }
 };
 
-xr_token vid_scale_preset_token[] = {
+xr_token vid_scale_preset_token[] = 
+{
 	{ "st_scale_native", 0 },
 	{ "st_scale_quality", 1 },
 	{ "st_scale_balanced", 2 },
@@ -44,13 +46,15 @@ xr_token vid_scale_preset_token[] = {
 
 ENGINE_API u32 ps_r_scale_mode = 1;
 ENGINE_API u32 ps_proxy_r_scale_mode = 1;
-xr_token qscale_mode_token[] = {
+xr_token qscale_mode_token[] = 
+{
 #ifdef DEBUG_DRAW
 	{ "st_filter_point", 0},
 #endif
 	{ "st_filter_linear", 1},
 	{ "st_filter_dlss", 2},
 	{ "st_filter_fsr", 3},
+	{ "st_filter_xess", 4},
 	{ 0, 0 }
 };
 
@@ -97,21 +101,6 @@ public:
 	}
 };
 //-----------------------------------------------------------------------
-class CCC_DbgStrCheck : public IConsole_Command
-{
-public:
-	CCC_DbgStrCheck(LPCSTR N) : IConsole_Command(N)  { bEmptyArgsHandled = TRUE; };
-	virtual void Execute(LPCSTR args) { g_pStringContainer->verify(); }
-};
-
-class CCC_DbgStrDump : public IConsole_Command
-{
-public:
-	CCC_DbgStrDump(LPCSTR N) : IConsole_Command(N)  { bEmptyArgsHandled = TRUE; };
-	virtual void Execute(LPCSTR args) { g_pStringContainer->dump();}
-};
-
-//-----------------------------------------------------------------------
 class CCC_MotionsStat : public IConsole_Command
 {
 public:
@@ -126,11 +115,9 @@ class CCC_TexturesStat : public IConsole_Command
 {
 public:
 	CCC_TexturesStat(LPCSTR N) : IConsole_Command(N)  { bEmptyArgsHandled = TRUE; };
-	virtual void Execute(LPCSTR args) {
+	virtual void Execute(LPCSTR args) 
+	{
 		Device.DumpResourcesMemoryUsage();
-		//Device.Resources->_DumpMemoryUsage();
-		//	TODO: move this console commant into renderer
-		//VERIFY(0);
 	}
 };
 //-----------------------------------------------------------------------
@@ -442,6 +429,11 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
+		if (Device.IsEditorMode())
+		{
+			Msg("This command cannot be used in Editors.");
+			return;
+		}
 		CCC_Float::Execute		(args);
 		//Device.Gamma.Gamma		(ps_gamma);
 		Device.m_pRender->setGamma(ps_gamma);
@@ -684,9 +676,6 @@ void CCC_Register()
 
 #ifdef DEBUG
 
-	CMD1(CCC_DbgStrCheck,	"dbg_str_check"		);
-	CMD1(CCC_DbgStrDump,	"dbg_str_dump"		);
-
 	CMD3(CCC_Mask,		"mt_sound",				&psDeviceFlags,			mtSound);
 	CMD3(CCC_Mask,		"mt_physics",			&psDeviceFlags,			mtPhysics);
 	CMD3(CCC_Mask,		"mt_network",			&psDeviceFlags,			mtNetwork);
@@ -784,6 +773,9 @@ void CCC_Register()
 	CMD4(CCC_Float,		"cam_inert", &psCamInert, 0.0f, 0.9f);
 	CMD2(CCC_Float,		"cam_slide_inert",		&psCamSlideInert);
 
+	CMD4(CCC_Float, "cam_viewport_near", &Device.fViewportNear, EPS_S, 10.f);
+	CMD4(CCC_Float, "cam_hud_viewport_near", &Device.fHUDViewportNear, EPS_S, 10.f);
+
 	if(!Device.IsEditorMode()) {
 		CMD1(CCC_r2, "renderer");
 	}
@@ -806,6 +798,9 @@ void CCC_Register()
 
 	extern int g_svDedicateServerUpdateReate;
 	CMD4(CCC_Integer, "sv_dedicated_server_update_rate", &g_svDedicateServerUpdateReate, 1, 1000);
+	
+	extern float SheduleScaleDedicated;
+	CMD4(CCC_Float, "sv_shedule_scale", &SheduleScaleDedicated, 0, 5);
 
 	CMD1(CCC_HideConsole,		"hide");
 

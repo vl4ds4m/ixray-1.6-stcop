@@ -31,7 +31,7 @@ class ButtonValue;
 #define GAMEMTLPAIR_CHUNK_COLLIDE	  	0x1005
 //----------------------------------------------------
 
-#define GAMEMTL_SUBITEM_COUNT			4
+#define GAMEMTL_SUBITEM_COUNT			24
 #define GAMEMTL_STEPSOUND_SUBITEM_COUNT 16
 
 #define GAMEMTL_NONE_ID					u32(-1)
@@ -39,15 +39,6 @@ class ButtonValue;
 #define GAMEMTL_FILENAME				"gamemtl.xr"
 
 #ifdef _EDITOR
-#define GM_NON_GAME
-#endif
-#ifdef _MAX_PLUGIN
-#define GM_NON_GAME
-#endif
-#ifdef _LW_SHADER
-#define GM_NON_GAME
-#endif
-#ifdef _MAYA_PLUGIN
 #define GM_NON_GAME
 #endif
 
@@ -73,9 +64,6 @@ class ButtonValue;
 
 #include "../Include/xrRender/WallMarkArray.h"
 #include "../Include/xrRender/RenderFactory.h"
-
-    //using ShaderVec = xr_vector<ref_shader>;
-    //using ShaderIt = ShaderVec::iterator;
 
 #endif
 
@@ -209,9 +197,6 @@ public:
 public:
 	SGameMtlPair		(CGameMtlLibrary* owner)
     {
-#ifndef	GM_NON_GAME
-		//m_pCollideMarks = RenderFactory->CreateGameMtlPair();
-#endif	//	GM_NON_GAME
     	mtl0			= -1;
     	mtl1			= -1;
         ID				= -1;
@@ -367,13 +352,6 @@ public:
 
 extern MTL_EXPORT_API CGameMtlLibrary		GMLib;
 
-//#ifdef	_EDITOR
-//extern MTL_EXPORT_API CGameMtlLibrary*		PGMLib;
-//#else
 #include "../xrCore/API/xrAPI.h"
-//#endif
 
 #endif
-
-
-

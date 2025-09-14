@@ -66,9 +66,17 @@ void CBuild::xrPhase_Subdivide()
 		if		(size.z>c_SS_maxsize)					bSplit	= TRUE;
 		if		(int(g_XSplit[X]->size()) > c_SS_HighVertLimit)	bSplit	= TRUE;
 		CDeflector*	defl_base	= (CDeflector*)g_XSplit[X]->front()->pDeflector;
-		if		(!bSplit && defl_base)	{
-			if (defl_base->layer.width  >=	(c_LMAP_size-2*BORDER))	bSplit	= TRUE;
-			if (defl_base->layer.height >=	(c_LMAP_size-2*BORDER))	bSplit	= TRUE;
+		if		(!bSplit && defl_base)
+		{
+			if (defl_base->layer.width >= (getLMSIZE() - 2 * BORDER))
+ 				bSplit = TRUE;
+ 			if (defl_base->layer.height >=	(getLMSIZE() - 2 * BORDER))
+				bSplit	= TRUE;
+
+			if (bSplit)
+			{
+				clMsg("Split[%u] is Size(%u, %u) set to split", X, defl_base->layer.width, defl_base->layer.height);
+			}
 		}
 
 		// perform subdivide if needed
@@ -108,7 +116,7 @@ resplit:
 		if ((int(s1.size())<c_SS_LowVertLimit) || (int(s2.size())<c_SS_LowVertLimit))
 		{
 			// splitting failed
-			clMsg	("! ERROR: model #%d - split fail, faces: %d, s1/s2:%d/%d",X,g_XSplit[X]->size(),s1.size(),s2.size());
+			// clMsg	("! ERROR: model #%d - split fail, faces: %d, s1/s2:%d/%d",X,g_XSplit[X]->size(),s1.size(),s2.size());
 			if (iteration_per_edge<10)	{
 				if		(g_XSplit[X]->size() > c_SS_LowVertLimit*4)		
 				{
@@ -135,14 +143,17 @@ resplit:
 					goto		resplit;
 				}
 			}
-		} else {
+		} 
+		else
+		{
 			// split deflector into TWO
 			if (defl_base)	
 			{
 				// _delete old deflector
 				for (u32 it=0; it<lc_global_data()->g_deflectors().size(); it++)
 				{
-					if (lc_global_data()->g_deflectors()[it]==defl_base)	{
+					if (lc_global_data()->g_deflectors()[it]==defl_base)	
+					{
 						lc_global_data()->g_deflectors().erase	(lc_global_data()->g_deflectors().begin()+it);
 						xr_delete			(defl_base);
 						break;
@@ -175,4 +186,17 @@ resplit:
 	}
 	clMsg("%d subdivisions.",g_XSplit.size());
 	validate_splits	();
+
+
+	// Checking Deflectors Size
+
+	size_t AllocatedDeflectors = 0;
+
+	for (auto D : lc_global_data()->g_deflectors())
+	{
+		AllocatedDeflectors += D->size_deflector();
+	}
+
+	AllocatedDeflectors /= (1024 * 1024); // MB
+	AditionalData("Splits: %u | DeflectorsAlloc: %u mb", g_XSplit.size(), AllocatedDeflectors);
 }

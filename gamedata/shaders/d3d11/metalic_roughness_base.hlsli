@@ -2,95 +2,120 @@
 #define metalic_roughness_base_h_ixray_included
 
 #include "common.hlsli"
-
 #define PI 3.141592653589793f
-#define F0 float3(0.04f, 0.04f, 0.04f)
-
-// Use legacy lighting pipeline
-#define USE_LEGACY_LIGHT
 
 struct IXrayMaterial
 {
-    float Metalness;
-    float Roughness;
+	float Metalness;
+	float Roughness;
 
-    float3 Normal;
-    float3 Point;
-    float4 Color;
+	float3 Normal;
+	float3 Point;
+	float4 Color;
 
-    float Depth;
+	float Depth;
 
-    float Hemi;
-    float Sun;
+	float Hemi;
+	float Sun;
 
-    float SSS;
-    float AO;
+	float SSS;
+	float AO;
 };
 
 struct IXrayGbufferPack
 {
-    float4 Color : SV_Target1;
+	float4 Color : SV_Target0;
 
-    float4 Normal : SV_Target0;
-    float4 Material : SV_Target2;
+	float4 Normal : SV_Target1;
+	float4 Material : SV_Target2;
 
-    float2 Velocity : SV_Target3;
+	float2 Velocity : SV_Target3;
 };
 
 struct IXrayGbuffer
 {
-    float Metalness;
-    float Roughness;
+	float Metalness;
+	float Roughness;
 
-    float3 Normal;
-    float3 Color;
+	float3 Normal;
+	float3 Color;
+	float3 F0;
 
-    float Depth;
-    float Hemi;
+	float Depth;
+	float Hemi;
 
-    float3 Point;
-    float3 PointHud;
-    float3 PointReal;
-	
+	float3 Point;
+	float3 PointHud;
+	float3 PointReal;
+
 	float3 View;
 	float ViewDist;
 
-    float SSS;
+	float SSS;
+	float AO;
 };
 
-float3 NormalEncode(float3 Normal)
-{
-    Normal.z = -Normal.z;
-    return Normal.xyz * 0.5f + 0.5f;
+float2 PackNormalVector(float3 Vector) {
+	float PackedZ = 0.5f + 0.5f * Vector.z;
+	float Scale = rcp(dot(Vector.xy, Vector.xy));
+	return Vector.xy * sqrt(PackedZ * Scale);
 }
 
-float3 NormalDecode(float3 Normal)
+float3 UnPackNormalVector(float2 Packed) {
+	float PackedZ = dot(Packed, Packed);
+	
+	float3 Vector;
+	
+	Vector.z = PackedZ * 2.0f - 1.0f;
+	Vector.xy = Packed * sqrt(1.0f - PackedZ) * 2.0f;
+	
+	return Vector;
+}
+
+float2 NormalEncode(float3 Normal)
 {
-    Normal -= 0.5f;
-    Normal.z = -Normal.z;
+    Normal *= rcp(abs(Normal.x) + abs(Normal.y) + abs(Normal.z));
+    float Shift = saturate(-Normal.z);
+    Normal.xy += Normal.xy > 0.0f ? Shift : -Shift;
+
+    return Normal.xy * 0.5f + 0.5f;
+}
+
+float3 NormalDecode(float2 InNormal)
+{
+    InNormal = InNormal * 2.0f - 1.0f;
+
+    float3 Normal = float3(InNormal, 1.0f - abs(InNormal.x) - abs(InNormal.y));
+    float Shift = saturate(-Normal.z);
+
+    Normal.xy -= Normal.xy > 0.0f ? Shift : -Shift;
+
     return normalize(Normal);
 }
 
 void GbufferPack(inout IXrayGbufferPack O, inout IXrayMaterial M)
 {
-    O.Normal.xyz = NormalEncode(M.Normal.xyz);
-    O.Normal.w = M.Hemi;
+    O.Normal.xy = NormalEncode(M.Normal.xyz);
+    O.Normal.z = M.Roughness;
+    O.Normal.w = 0.0f;
 
-    O.Color.xyz = M.Color.xyz * M.AO;
-    O.Color.w = M.Roughness;
-
-    O.Material.y = M.SSS;
-
+    O.Color.xyz = M.Color.xyz;
+    O.Color.w = M.SSS;
+    
 #ifdef USE_R2_STATIC_SUN
-    O.Material.y = M.Sun;
+    O.Color.w = M.Sun;
 #endif
 
     O.Material.x = M.Metalness;
-    O.Material.zw = 0.0f;
+    O.Material.y = M.Hemi;
 
-    // TODO: Pack like this (hack for wetness)
-    // O.Material.x = M.Metalness;
-    // O.Material.y = M.Roughness;
+    O.Material.z = M.AO;
+	
+#ifndef USE_PBR
+    O.Material.w = 0.0f;
+#else
+    O.Material.w = 1.0f;
+#endif
 }
 
 float4 GbufferGetPoint(in float2 HPos)
@@ -145,14 +170,54 @@ void GbufferUnpack(in float2 TexCoord, in float2 HPos, inout IXrayGbuffer O)
 	O.ViewDist = length(O.PointReal);
 	O.View = O.PointReal * rcp(O.ViewDist);
 
-    O.Normal.xyz = NormalDecode(NormalHemi.xyz);
-    O.Hemi = NormalHemi.w;
+    O.Normal.xyz = NormalDecode(NormalHemi.xy);
+    O.Hemi = Material.y;
 
-    O.Color.xyz = ColorSSS.xyz;
-    O.SSS = Material.y;
+    O.Color.xyz = PushGamma(ColorSSS.xyz);
+    O.SSS = ColorSSS.w;
 
     O.Metalness = Material.x;
-    O.Roughness = ColorSSS.w;
+    O.Roughness = NormalHemi.z;
+	
+	O.AO = PushGamma(Material.z);
+	O.F0 = 0.002f + 0.018f * Material.w;
+}
+
+void GbufferUnpack(in float2 TexCoord, inout IXrayGbuffer O)
+{
+	float2 HPos = TexCoord * pos_decompression_params2.xy;
+	
+    float4 NormalHemi = s_normal.SampleLevel(smp_rtlinear, TexCoord, 0);
+	
+    float4 Material = s_surface.SampleLevel(smp_rtlinear, TexCoord, 0);
+    float4 ColorSSS = s_diffuse.SampleLevel(smp_rtlinear, TexCoord, 0);
+
+    O.Depth = s_position.Load(int3(HPos, 0)).x;
+	
+    HPos = HPos - m_taa_jitter.xy * float2(0.5f, -0.5f) * pos_decompression_params2.xy;
+
+    float3 P = float3(HPos * pos_decompression_params.zw - pos_decompression_params.xy, 1.0f);
+    float3 P_hud = float3(HPos * pos_decompression_params_hud.zw - pos_decompression_params_hud.xy, 1.0f);
+
+    O.Point = P * depth_unpack.x * rcp(O.Depth - depth_unpack.y);
+    O.PointHud = P_hud * depth_unpack.z * rcp(O.Depth * 50.0f - depth_unpack.w);
+
+    O.PointReal = O.Depth < 0.02f ? O.PointHud : O.Point;
+	
+	O.ViewDist = length(O.PointReal);
+	O.View = O.PointReal * rcp(O.ViewDist);
+
+    O.Normal.xyz = NormalDecode(NormalHemi.xy);
+    O.Hemi = Material.y;
+
+    O.Color.xyz = PushGamma(ColorSSS.xyz);
+    O.SSS = ColorSSS.w;
+
+    O.Metalness = Material.x;
+    O.Roughness = NormalHemi.z;
+	
+	O.AO = PushGamma(Material.z);
+	O.F0 = 0.002f + 0.018f * Material.w;
 }
 
 #endif

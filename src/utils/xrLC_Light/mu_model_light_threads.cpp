@@ -9,15 +9,10 @@
 #include "../xrForms/xrThread.h"
 #include "../../xrCore/xrSyncronize.h"
 
-
-
-CThreadManager			mu_base;
-
 CThreadManager			mu_materials;
 CThreadManager			mu_secondary;
-#define		MU_THREADS	16
-
-xrCriticalSection csMUMAPS_LOCKS;
+ 
+xrCriticalSection		csMUMAPS_LOCKS;
 
 int ThreadTaskID = 0;
 
@@ -46,12 +41,16 @@ public:
 			}
 
 			ThreadTaskID++;
+
+			if (ID % 64 == 0)
+				Status("Models %d/%d", ID, inlc_global_data()->mu_refs().size());
+			thProgress = (float(ID) / float(inlc_global_data()->mu_refs().size()));
+
 			csMUMAPS_LOCKS.Leave();
 
 
 			// Light references
 			inlc_global_data()->mu_refs()[ID]->calc_lighting	();
-			thProgress							= (float(ID)/float(inlc_global_data()->mu_refs().size()));
 		}
 	}
 };
@@ -80,61 +79,36 @@ public:
  			ThreadTaskID++;
 			// Light references
 			inlc_global_data()->mu_models()[ID]->calc_materials();
-
+			thProgress = (float(ID) / float(inlc_global_data()->mu_models().size()));
+			if (ID%64 == 0)
+				Status("Models %d/%d", ID, inlc_global_data()->mu_models().size());
 			csMUMAPS_LOCKS.Leave();
  
 			
 			inlc_global_data()->mu_models()[ID]->calc_lighting();
-			thProgress = (float(ID) / float(inlc_global_data()->mu_models().size()));
 		}
 	}
 };
-
-
-	//void LC_WaitRefModelsNet();
-class CMUThread : public CThread
-{
-public:
-	CMUThread	(u32 ID) : CThread(ID)
-	{
-		thMessages	= FALSE;
-	}
-	virtual void	Execute()
-	{
-		// Priority
-		SetThreadPriority	(Platform::GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
-		Sleep				(0);
  
-		/*
-		for (u32 m=0; m<inlc_global_data()->mu_models().size(); m++)
-		{
-			inlc_global_data()->mu_models()[m]->calc_materials();
-			inlc_global_data()->mu_models()[m]->calc_lighting	();
-		}
-		*/
-
-		ThreadTaskID = 0;
-		for (u32 thID = 0; thID < MU_THREADS; thID++)
-			mu_materials.start(new CMULightCalculation(thID));
-
-		mu_materials.wait(100);
+#include "../xrForms/CompilersUI.h"
+extern CompilersMode gCompilerMode;
  
-		// Light references
-		ThreadTaskID = 0;
-		for (u32 thID=0; thID < MU_THREADS; thID++)
-			mu_secondary.start	( new CMULight (thID) );
-	
-		mu_secondary.wait(100);
-	}
-};
-
-
 void	run_mu_base( )
 {
- 	mu_base.start				(new CMUThread (0));
-}
+	// Priority
+	SetThreadPriority(Platform::GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+	Sleep(0);
 
-void	wait_mu_base_thread		()
-{
-	mu_base.wait				(500);
-} 
+ 
+	ThreadTaskID = 0;
+	for (u32 thID = 0; thID < gCompilerMode.ThreadsPerWork; thID++)
+		mu_materials.start(new CMULightCalculation(thID));
+ 	mu_materials.wait(100); 
+
+	// Light references
+	ThreadTaskID = 0;
+	for (u32 thID = 0; thID < gCompilerMode.ThreadsPerWork; thID++)
+		mu_secondary.start(new CMULight(thID));
+ 	mu_secondary.wait(100);
+}
+ 

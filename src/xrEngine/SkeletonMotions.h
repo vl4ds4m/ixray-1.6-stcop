@@ -5,6 +5,7 @@
 //#include		"skeletoncustom.h"
 #include "bone.h"
 #include "SkeletonMotionDefs.h"
+#include "../xrCore/_stl_extensions.h"
 
 // refs
 class CKinematicsAnimated;
@@ -53,6 +54,22 @@ using CKeyQT32 = CKeyQTBase<float>;
 
 #pragma pack(pop)
 
+struct ENGINE_API anim_notify
+{
+	shared_str ExternalRef = "";
+};
+
+struct NotifyTrack {
+	xr_map<float, anim_notify> Notifies;
+};
+
+using NotifyTracksType = xr_map<shared_str, xr_vector<NotifyTrack>>;
+
+struct editor_notify_data {
+	NotifyTracksType NotifyTracks;
+	xr_unique_ptr<xr_tuple<shared_str, float, int>> NotifyToRemove;
+};
+
 //*** Motion Data *********************************************************************************
 class 	ENGINE_API	CMotion
 {
@@ -70,6 +87,7 @@ public:
 
 	Fvector				_initT;
     Fvector				_sizeT;
+	
 public:    
     void				set_flags			(u8 val)			{_flags=val;}
     void				set_flag			(u8 mask, u8 val)	{if (val)_flags|=mask; else _flags&=~mask;}
@@ -155,6 +173,14 @@ using BoneMotionsVecIt = BoneMotionsVec::iterator;
 using BoneMotionMap = xr_map<shared_str, MotionVec>;
 using BoneMotionMapIt = BoneMotionMap::iterator;
 
+struct anim_notify_prefetched
+{
+	xr_hash_map<float, xr_vector<anim_notify*>> data;
+	xr_vector<float> order;
+};
+
+using NotifyVec = xr_vector<xr_hash_map<u16, anim_notify_prefetched>>;
+
 // partition
 class 	ENGINE_API	CPartDef
 {
@@ -187,6 +213,7 @@ struct 	ENGINE_API	motions_value
 	u32					m_dwReference;
 	BoneMotionMap		m_motions;
     MotionDefVec		m_mdefs;
+	NotifyVec			m_notifies;
 
 	shared_str			m_id;
 
@@ -250,6 +277,7 @@ public:
 	CPartition*			partition		()							{	VERIFY(p_); return &p_->m_partition;			}
     MotionDefVec*		motion_defs		()							{	VERIFY(p_); return &p_->m_mdefs;				}
     CMotionDef*			motion_def		(u16 idx)					{	VERIFY(p_); return &p_->m_mdefs[idx];			}
+	anim_notify_prefetched& motion_notify	(u16 idx, u16 bone)		{	VERIFY(p_); return p_->m_notifies[idx][bone];			}
 
 	const shared_str	&id				() const					{	VERIFY(p_); return p_->m_id;					}
 

@@ -27,9 +27,12 @@ void 	CWeaponStatMgun::BoneCallbackY		(CBoneInstance *B)
 
 CWeaponStatMgun::CWeaponStatMgun()
 {
+	m_firing_disabled = false;
 	m_Ammo		= new CCartridge();
 	camera		= new CCameraFirstEye	(this, CCameraBase::flRelativeLink|CCameraBase::flPositionRigid|CCameraBase::flDirectionRigid); 
 	camera->Load("mounted_weapon_cam");
+
+	p_overheat = nullptr;
 }
 
 CWeaponStatMgun::~CWeaponStatMgun()
@@ -63,12 +66,21 @@ void CWeaponStatMgun::Load(LPCSTR section)
 	inheritedPH::Load(section);
 	inheritedShooting::Load	(section);
 
-	m_sounds.LoadSound(section,"snd_shoot", "sndShot", false, SOUND_TYPE_WEAPON_SHOOTING);
+	m_sounds_layered.LoadSound(section,"snd_shoot", "sndShot", false, SOUND_TYPE_WEAPON_SHOOTING);
 	m_Ammo->Load(pSettings->r_string(section, "ammo_class"), 0);
 	camMaxAngle			= pSettings->r_float		(section,"cam_max_angle"	); 
 	camMaxAngle			= _abs( deg2rad				(camMaxAngle) );
 	camRelaxSpeed		= pSettings->r_float		(section,"cam_relax_speed"	); 
 	camRelaxSpeed		= _abs( deg2rad				(camRelaxSpeed) );
+
+	m_overheat_enabled = pSettings->line_exist(section, "overheat_enabled") ? !!pSettings->r_bool(section, "overheat_enabled") : false;
+	m_overheat_time_quant = READ_IF_EXISTS(pSettings, r_float, section, "overheat_time_quant", 0.025f);
+	m_overheat_decr_quant = READ_IF_EXISTS(pSettings, r_float, section, "overheat_decr_quant", 0.002f);
+	m_overheat_threshold = READ_IF_EXISTS(pSettings, r_float, section, "overheat_threshold", 110.f);
+	m_overheat_particles = READ_IF_EXISTS(pSettings, r_string, section, "overheat_particles", "damage_fx\\burn_creatures00");
+
+	m_bEnterLocked = !!READ_IF_EXISTS(pSettings, r_bool, section, "lock_enter", false);
+	m_bExitLocked = !!READ_IF_EXISTS(pSettings, r_bool, section, "lock_exit", false);
 
 	VERIFY( !fis_zero(camMaxAngle) );
 	VERIFY( !fis_zero(camRelaxSpeed) );
@@ -124,6 +136,12 @@ BOOL CWeaponStatMgun::net_Spawn(CSE_Abstract* DC)
 
 void CWeaponStatMgun::net_Destroy()
 {
+	if (p_overheat)
+	{
+		if (p_overheat->IsPlaying())
+			p_overheat->Stop(FALSE);
+		Particles::Details::Destroy(p_overheat);
+	}
 	inheritedPH::net_Destroy	();
 	processing_deactivate		();
 }
@@ -156,7 +174,7 @@ void CWeaponStatMgun::UpdateCL()
 	{
 		cam_Update(Device.fTimeDelta, g_fov);
 		OwnerActor()->Cameras().UpdateFromCamera(Camera());
-		OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
+		OwnerActor()->Cameras().ApplyDevice(Device.fViewportNear);
 	}
 
 }
@@ -173,7 +191,7 @@ void	CWeaponStatMgun::Hit(SHit* pHDS)
 
 void CWeaponStatMgun::UpdateBarrelDir()
 {
-	IKinematics* K		= smart_cast<IKinematics*>(Visual());
+	IKinematics* K		= Visual()->dcast_PKinematics();
 	m_fire_bone_xform	= K->LL_GetTransform(m_fire_bone);
 
 	m_fire_bone_xform.mulA_43		(XFORM());
@@ -214,7 +232,7 @@ void CWeaponStatMgun::cam_Update			(float dt, float fov)
 	Fvector							P,Da;
 	Da.set							(0,0,0);
 
-	IKinematics* K					= smart_cast<IKinematics*>(Visual());
+	IKinematics* K					= Visual()->dcast_PKinematics();
 	K->CalculateBones_Invalidate	();
 	K->CalculateBones				(TRUE);
 	const Fmatrix& C				= K->LL_GetTransform(m_camera_bone);
